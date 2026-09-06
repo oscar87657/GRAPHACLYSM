@@ -2,6 +2,45 @@
 
 프로젝트 전체에 적용한다. 작업 전에 이 문서와 루트 기획·구조 문서를 읽는다. 현재 코드와 최신 사용자 요청이 문서보다 우선한다. 기능 변경 시 문서도 같은 작업에서 갱신한다.
 
+## 재개용 인계 · 2026-09-06
+
+현재 요청은 마무리되었으며 사용자가 돌아와 다음 작업을 요청할 때 이어간다. 아래 후보를 새 승인된 기능 요구처럼 자동 구현하지 않는다. 최신 구현은 v8이고, 이 아래 v5~v7 검증 항목은 이전 기록이다.
+
+### 완료 상태
+
+- 파편 카드 23종·유물 14종·3층 생성 던전. 층마다 보스 포함 8개 방, 한 경로 24개 방이다. 카드 사전·이벤트/휴식/유물 방·이동 취소·궁극기가 구현되어 있다.
+- v8 새 카드: 쌍성직조(가로/세로 2:3 재샘플링), 월식(4배속 궤적 차감), 편월(한쪽 반경 변조), 비껴쓴 선(전단), 엇박자(가로 위상 이동/드로우), 삼중봉인(복소 세제곱). 연구 출처·정확한 계수·부가 능력은 `Docs/CARD_RESEARCH_V8.md`를 따른다.
+- 새 카드도 이전 궤적 **전체**를 감싼다. 계산기/직접 문자 입력/시작 전용 카드/에너지 비용을 다시 넣지 않는다. 원형 기본 궤적에 삼중봉인을 쓰면 원을 세 번 지나고, 엇박자는 대각선이 된다. 문양을 모든 조합의 실제 출력이라고 설명하지 않는다.
+- 화면 필드는 950×760, 동일 축척 95px/단위로 면적 56.25% 확대했다. **화면상의 확대**이며 월드 범위 x=0~10, y=−4~4는 그대로다. 좌측 조립·이동, 우측 적 의도·상세·행동, 중앙 아래 손패다.
+- 응축의 과도한 보상은 v7에서 조정했다. 첫 체력 2/두 번째 4, 보호막 무시, 생존 체력 필요, 방출/해체 사이 최대 2번, 기본 1장+추가 최대 1장 보충이다. 새 카드 때문에 이 제한이 우회되지 않게 한다.
+- 이안 v2·루나 v6·배경 v3 유지. 루나는 긴 흰머리와 밤 보라 고스 복장, 이안과 반대 방향이다. 타이틀에는 인물을 표시하지 않는다. 전투의 정보 과밀과 반복성을 줄이는 것이 사용자의 지속적인 우선순위다.
+
+### 다음 작업 때 볼 위치
+
+- 수학: `Assets/Scripts/Core/Equations/FragmentEquation.cs`
+- 카드 수치/효과: `Assets/Scripts/Core/Cards/FragmentCardCatalog.cs`
+- 시작 덱: `Assets/Scripts/Core/Characters/PrototypeCharacterCatalog.cs`
+- 전투 화면: `Assets/Scripts/Runtime/Presentation/GraphaclysmModernView.cs`, `GraphaclysmModernBattle.cs`, `GraphaclysmQuietView.cs`, `GraphaclysmFragmentView.cs`, `GraphaclysmAtlasView.cs`
+- 신규 회귀: `Assets/Tests/EditMode/Combat/WideV8Tests.cs`; 기존 응축/유물/층 회귀는 `ExpeditionV7Tests.cs`
+- 화면 fixture: `Assets/Editor/WideV8Smoke.cs`; 시작 메서드는 `Graphaclysm.Editor.WideV8Smoke.RunBatch`
+
+### 검증과 남은 확인
+
+- 마지막 코드 검증: Unity EditMode **122/122 통과**, Full HD/720p fixture **27장**, Runtime errors **0**. 원본과 격리 검증 사본의 대상 108개 파일 일치를 확인했다.
+- 로컬 기록: `Logs/editmode-wide-v8.xml`, `Logs/WideV8Captures/smoke-result.txt`, `Logs/wide-v8-smoke-final.log`, `Logs/wide-v8-source-verification.txt`. 검증 사본은 `Logs/CombatV2VerificationProject`다. 이 경로들은 Git에서 제외하므로 다른 PC에는 없을 수 있다.
+- 저장소에 포함한 대표 화면: `Docs/Screenshots/battle-v8.png`. 실행과 재검증 방법은 `README.md`, `PROTOTYPE.md`에 있다. Unity 6000.3.23f1에서 `Assets/Scenes/SampleScene.unity`를 연다.
+- 전체 3층 런의 최종 밸런스나 신규 Profiler 검증을 완료한 것은 아니다. 사용자의 다음 플레이 피드백을 받아 새 조합의 반복성/판독성, 응축 체력 대비 드로우, 후반 적 난이도를 우선 조정할 수 있다. 필요하면 카드 사용 전후 궤적 안내·단계형 튜토리얼을 검토한다.
+- 저장·상점·카드 강화·단계형 튜토리얼·신규 음향은 미구현 후보이며 확정 작업 목록이 아니다. 이번 인계는 문서 변경만 하므로 게임 테스트를 다시 실행하지 않는다.
+
+### 저장소와 서명 — 필수
+
+- 원격 `https://github.com/oscar87657/GRAPHACLYSM.git`, 기본 브랜치 `main`. GitHub 초기 README 커밋을 부모로 보존했다.
+- unsigned 업로드 `d169077`은 서명된 `26bcf10`으로 교체했다. `26bcf10`은 GitHub API에서 `verified=true`, `reason=valid`를 확인한 v8 기준 커밋이다. 이후 문서/개발 커밋은 그 위에 정상 push한다. 예전 unsigned 커밋으로 되돌리거나 재게시하지 않는다.
+- **사용자는 Verified 서명을 필수로 요구했다.** 이 PC의 저장소 로컬 설정은 `gpg.format=ssh`, `commit.gpgsign=true`, 이메일 `127852551+oscar87657@users.noreply.github.com`이다. 기존 GitHub 등록 키 `~/.ssh/id_ed25519_signing.pub`를 사용한다. 로컬 검증용 allowed signers는 `.git/allowed_signers`에 있다.
+- 로컬 Git 설정/키는 clone으로 전달되지 않는다. 다른 PC에서는 해당 사용자의 GitHub 등록 서명 키를 확인하고 설정한 뒤 커밋한다. 비밀키를 복사하거나 저장소에 추가하지 않는다.
+- push 후 GitHub 커밋 API의 `commit.verification.verified=true`까지 확인한다. 비공개 저장소 조회는 인증 없이 404가 날 수 있다. 기존 GitHub 로그인을 사용하되 토큰/credential 출력을 로그나 대화에 노출하지 않는다.
+- 재개 시 먼저 `git status --short --branch`와 최근 이력/서명 설정을 확인한다. 사용자 변경을 보존한다. 서명 재작성은 이번에만 명시적으로 요청되었고, 앞으로는 정상 push가 기본이다. 당시 교체는 기대한 원격 SHA를 지정한 force-with-lease로 보호했다.
+
 ## 프로젝트와 방향
 
 - Unity 6000.3.23f1, Windows PowerShell. Git 저장소이며 원격은 `https://github.com/oscar87657/GRAPHACLYSM.git`, 기본 브랜치는 `main`이다.
@@ -89,9 +128,9 @@ Unity가 이 프로젝트를 열고 있으면 강제 종료하지 말고 Test Ru
 
 이번 v3 이전 문서는 `Docs/Archive/BeforeRoguelikeV4`, 작업 전 소스는 `Logs/BeforeRoguelikeV4-*`에 보관했다. V2/V3 smoke는 역사적 고정 맵 fixture이며 현재 생성 런 검증 도구로 혼용하지 않는다.
 
-최신 변경 전 사본은 `Logs/BeforeExpeditionV7-20260906-140614`, 문서는 `Docs/Archive/BeforeExpeditionV7`에 있다. v5 이전 기록도 보관한다. V4의 계산기/에너지/잉크 설계는 최신 사용자 수정으로 대체되었다.
+v7 변경 전 사본은 `Logs/BeforeExpeditionV7-20260906-140614`, 문서는 `Docs/Archive/BeforeExpeditionV7`에 있다. 최신 v8 변경 전 사본은 아래 v8 기록을 따른다. v5 이전 기록도 보관한다. V4의 계산기/에너지/잉크 설계는 최신 사용자 수정으로 대체되었다.
 
-## v6 표시 기록 (현재는 아래 v7 변경 적용)
+## v6 표시 기록 (현재는 아래 v8까지 적용)
 
 기본 전투에는 체력·공명·조립 순서·적의 다음 행동·카드 이름/기호·방출/응축을 우선한다. 카드 능력은 호버로 확인하고 드로우 보너스만 기본 배지로 남긴다. 보상·덱 제거의 넓은 카드는 능력 요약을 유지한다. 상태·좌표 숫자·수식 열기는 상단 `상세`, 적 상태와 예상 피해는 적 호버로도 확인한다. 궁극기 설명은 호버/상세에, 해체는 `···`에 둔다. 새 피드백은 3초 표시하며 반복 안내를 상시 노출하지 않는다.
 
