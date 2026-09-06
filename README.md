@@ -1,1 +1,43 @@
 # GRAPHACLYSM
+
+수식 파편 카드를 순서대로 조립하여 그래프를 만들고, 같은 전장의 적에게 피해를 주거나 자신에게 강화를 주는 Unity 덱 빌딩 로그라이트 프로토타입입니다.
+
+![확대 전투 필드와 파편 조립](Docs/Screenshots/battle-v8.png)
+
+## 실행
+
+1. 저장소를 복제합니다.
+   ```sh
+   git clone https://github.com/oscar87657/GRAPHACLYSM.git
+   ```
+2. Unity Hub에서 복제한 프로젝트 폴더를 추가하고 **Unity 6000.3.23f1**로 엽니다.
+3. 패키지 설치와 에셋 임포트가 끝나면 `Assets/Scenes/SampleScene.unity`를 열고 Play합니다.
+4. 메인의 카드 사전에서 파편을 살펴보거나, 기록 시작 → 이안/루나 선택 → 여정 시작으로 플레이합니다.
+
+## 현재 구현 · v8
+
+- 이전 궤적 전체를 감싸는 수식 파편 23종, 카드별 문양·등급·부가 능력
+- 에너지 비용 없이 시작 손패 5장, 보존 손패·조립대 각각 최대 8장
+- 방출·체력을 사용하는 응축·해체, 이동과 이동 취소
+- 적 적중 피해와 자기 적중 강화, 이안·루나의 공명 궁극기
+- 이벤트·휴식·유물 방과 층별 보스를 포함한 3층 생성 던전, 유물 14종
+- 카드/유물 사전, 950×760 논리 픽셀의 전투 필드와 좌우 정보 패널
+
+카드 클릭/숫자 1~8로 조립하고 Enter로 방출합니다. Space는 응축, 방향키는 이동, Backspace는 이동 취소, 우클릭은 파편 취소입니다. 상세 설명은 카드 호버와 사전, 전체 조작은 게임의 `?`와 [실행 문서](PROTOTYPE.md)에서 확인할 수 있습니다.
+
+## 개발과 검증
+
+구조는 `Runtime/Presentation → Application → Core`입니다. Unity에서 Test Runner의 EditMode 테스트를 실행할 수 있습니다. v8 검증 기록은 **122개 테스트 통과**, Full HD/720p 화면 fixture 27장, Runtime 오류 0건입니다. 이는 전체 런 밸런스 검증이나 성능 측정 결과를 의미하지 않습니다.
+
+`Assets`와 `.meta`, `Packages`, `ProjectSettings`, 기획 문서를 버전 관리합니다. Unity 캐시·IDE 개인 설정·빌드·`Logs`의 검증 복사본과 백업은 제외합니다. 로그와 상세 캡처의 문서 링크는 개발 PC의 로컬 기록이며 이 저장소에는 대표 화면만 포함합니다. 조사용 원본 이미지는 제외하고 출처 링크와 게임에 필요한 에셋은 유지합니다.
+
+## 문서
+
+- [전체 기획](GAME_DESIGN_DOCUMENT.md)
+- [전투 규칙과 수치](COMBAT_REDESIGN.md)
+- [실행·조작·검증](PROTOTYPE.md)
+- [코드 구조](ARCHITECTURE.md)
+- [아트 방향과 출처](ART_DIRECTION.md)
+- [v8 카드 수학 조사](Docs/CARD_RESEARCH_V8.md)
+
+사용 글꼴의 라이선스는 [Docs/FontLicenses](Docs/FontLicenses)에 포함되어 있습니다. 현재는 개발 중인 프로토타입이며 저장·상점·카드 강화·단계형 튜토리얼은 아직 구현되지 않았습니다.

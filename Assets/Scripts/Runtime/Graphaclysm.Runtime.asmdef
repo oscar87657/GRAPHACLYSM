@@ -1,0 +1,17 @@
+{
+  "name": "Graphaclysm.Runtime",
+  "rootNamespace": "Graphaclysm.Runtime",
+  "references": [
+    "Graphaclysm.Core",
+    "Graphaclysm.Application"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

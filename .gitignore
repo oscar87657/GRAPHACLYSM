@@ -1,0 +1,54 @@
+# Unity-generated state and local verification/backups
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Bb]uild/
+/[Bb]uilds/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE-generated files and per-user settings
+/.vs/
+/.vscode/
+/.idea/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.opendb
+*.VC.db
+*.pdb
+*.mdb
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+.DS_Store
+Thumbs.db
+
+# Unity tooling caches
+/Assets/AssetStoreTools*
+/Assets/AddressableAssetsData/*/*.bin*
+/Assets/StreamingAssets/aa/
+/Assets/StreamingAssets/aa.meta
+/ProjectSettings/MemorySettings.asset
+
+# Local research originals; source links remain in the art documentation
+/Docs/ArtReferences/
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pfx

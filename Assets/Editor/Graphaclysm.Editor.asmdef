@@ -1,0 +1,6 @@
+{
+  "name": "Graphaclysm.Editor",
+  "rootNamespace": "Graphaclysm.Editor",
+  "references": ["Graphaclysm.Core", "Graphaclysm.Application", "Graphaclysm.Runtime"],
+  "includePlatforms": ["Editor"]
+}
