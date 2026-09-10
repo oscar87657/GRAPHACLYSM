@@ -2,7 +2,7 @@
 
 ## v11 캐릭터 선택 초상
 
-선택 전용 이안·루나의 눈 감음/눈 뜸 RGBA Texture 네 장을 Resources에서 한 번 불러온다. `PortraitMedallion.shader`는 블러·채도 조작 없이 원형 알파 마스크만 적용하여 512×512 표시본 네 장을 `Awake`에서 굽는다. `characterEyeOpen` 두 float만 호버에 따라 0/1로 이동시키며 닫힘/열림 표시본의 alpha를 교차한다. 위치·크기·테두리는 상태와 무관하게 고정한다. 생성 Texture와 Material은 `OnDestroy`에서 해제한다.
+선택 전용 이안·루나의 눈 감음/눈 뜸 RGBA Texture 네 장을 Resources에서 한 번 불러온다. `PortraitMedallion.shader`는 블러·채도 조작 없이 원형 알파 마스크만 적용하여 512×512 표시본 네 장을 `Awake`에서 굽는다. View는 뒤에 불투명 원을 그리지 않는다. `characterEyeOpen` 두 float만 호버에 따라 0/1로 이동시키며 닫힘/열림 표시본의 alpha를 교차한다. 기본 표시 지름은 540 논리 픽셀이며 위치·크기·테두리는 상태와 무관하게 고정한다. 생성 Texture와 Material은 `OnDestroy`에서 해제한다.
 
 Presentation만 바뀌므로 Core/Application 규칙과 `RunSaveData.RulesVersion=10`은 유지한다. 자세한 자산 계약은 [캐릭터 선택 v11](Docs/CHARACTER_SELECTION_V11.md)이다.
 

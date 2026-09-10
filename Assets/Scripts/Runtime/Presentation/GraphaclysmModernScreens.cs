@@ -84,9 +84,9 @@ namespace Graphaclysm.Runtime.Presentation
             Ring(new Vector2(960, 477), 72, new Color(Gold.r, Gold.g, Gold.b, .52f), 1.5f);
             Label(new Rect(890, 440, 140, 74), "THE\nGATE", ui.Small, true);
 
-            if (GUI.Button(new Rect(left.x - 260, left.y - 260, 520, 520), GUIContent.none, GUIStyle.none))
+            if (GUI.Button(new Rect(left.x - 280, left.y - 280, 560, 560), GUIContent.none, GUIStyle.none))
             { flow.TrySelectCharacter(0); Refresh(); }
-            if (GUI.Button(new Rect(right.x - 260, right.y - 260, 520, 520), GUIContent.none, GUIStyle.none))
+            if (GUI.Button(new Rect(right.x - 280, right.y - 280, 560, 560), GUIContent.none, GUIStyle.none))
             { flow.TrySelectCharacter(1); Refresh(); }
 
             Fill(new Rect(350, 770, 1220, 174), new Color(Paper.r, Paper.g, Paper.b, .9f));
@@ -103,8 +103,7 @@ namespace Graphaclysm.Runtime.Presentation
         private void DrawCharacterMedallion(int index, Vector2 center, Texture2D closed, Texture2D open)
         {
             float eyeOpen = characterEyeOpen[index];
-            const float radius = 238;
-            Disc(center, radius + 12, new Color(Ink.r, Ink.g, Ink.b, .92f));
+            const float radius = 270;
             Rect image = new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2);
             Color saved = GUI.color;
             GUI.color = new Color(1, 1, 1, 1 - eyeOpen);
@@ -115,9 +114,12 @@ namespace Graphaclysm.Runtime.Presentation
             Color ring = new Color(Gold.r, Gold.g, Gold.b, .62f);
             Ring(center, radius + 5, ring, 1.5f);
             Ring(center, radius + 14, new Color(ring.r, ring.g, ring.b, .32f), 1.1f, .83f, index == 0 ? 2.6f : -.5f);
-            Label(new Rect(center.x - 125, center.y + radius - 24, 250, 42), index == 0 ? "이안" : "루나", ui.Light, true);
+            Rect tag = new Rect(center.x - 100, center.y + radius - 70, 200, 55);
+            Fill(tag, new Color(Paper.r, Paper.g, Paper.b, .84f));
+            Border(tag, ring, 8);
+            Label(new Rect(tag.x + 8, tag.y + 2, tag.width - 16, 29), index == 0 ? "이안" : "루나", ui.Small, true);
             if (flow.SelectedCharacterIndex == index)
-                Label(new Rect(center.x - 125, center.y + radius + 13, 250, 31), "선택된 기록", ui.Small, true);
+                Label(new Rect(tag.x + 8, tag.y + 28, tag.width - 16, 23), "선택된 기록", ui.Small, true);
         }
 
         private Vector2 MapPoint(RunMapNodeDefinition node)
