@@ -1,5 +1,13 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v12 전투·성장 소유권
+
+`CombatStatusState`는 12종 상태의 수치·수명을 고정 배열로 소유하고 `BattleSession`이 가시 반격, 추진·파열 소모, 요새화 방어와 6종 신규 유물 발동 순서를 조정한다. `RunGrowthState`는 원정 레벨·경험치·성장점·해금 비트·선택한 전투 기술/궁극기를 소유한다. `RunGameSession`만 방 완료 경험치 지급과 구매·선택·전투 기술 명령 기록을 담당하며, `BattleSkillLoadout` 불변 스냅샷을 새 전투에 전달한다.
+
+`LegacyProgression`은 원정 밖의 잔광·여섯 영구 기록 랭크·중복 보상 방지용 최근 시드를 소유한다. `LegacyProgressionStore`는 `legacy.save`를 SHA-256과 같은 폴더 임시 파일 교체로 저장한다. 새 원정은 그 시점의 `LegacyBenefits`만 복사하므로 이후 메인 화면 구매가 진행 중 원정을 바꾸지 않는다. 원정 저장은 형식 2/규칙 12이며 이 영구 효과 스냅샷과 성장 명령을 재현한다.
+
+신규 유물 Texture 6장은 `Awake`에서 한 번 Resources로 읽어 View 수명 동안 재사용한다. OnGUI는 카탈로그 ID로 캐시를 조회하며 디스크 로드나 새 Texture를 만들지 않는다. 상세 계약은 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)다.
+
 ## v11 캐릭터 선택 초상
 
 선택 전용 이안·루나의 눈 감음/눈 뜸 RGBA Texture 네 장을 Resources에서 한 번 불러온다. `PortraitMedallion.shader`는 블러·채도 조작 없이 원형 알파 마스크만 적용하여 512×512 표시본 네 장을 `Awake`에서 굽는다. View는 뒤에 불투명 원을 그리지 않는다. `characterEyeOpen` 두 float만 호버에 따라 0/1로 이동시키며 닫힘/열림 표시본의 alpha를 교차한다. 기본 표시 지름은 540 논리 픽셀이며 위치·크기·테두리는 상태와 무관하게 고정한다. 생성 Texture와 Material은 `OnDestroy`에서 해제한다.
@@ -56,7 +64,7 @@ Presentation / Unity adapters
 
 - 변경 불가능한 카드 정의
 - 카드 식별자, 비용, 수식 연산 종류
-- 실제 런의 FragmentCardCatalog: 궤적 변형 하나와 적중/드로우 능력 1~2개를 묶은 파편 23종. Calculator/Skill 카탈로그는 legacy 회귀용. `CardAbility`는 불변 값이며 CardDefinition이 배열을 복사하여 소유
+- 실제 런의 FragmentCardCatalog: 궤적 변형 하나와 적중/드로우 능력 1~2개를 묶은 파편 31종. Calculator/Skill 카탈로그는 legacy 회귀용. `CardAbility`는 불변 값이며 CardDefinition이 배열을 복사하여 소유
 - `PrototypeCardCatalog`의 기존 완성 그래프는 수학 보관함이며 시작 덱·보상에서 제외
 
 ### Core/Characters
@@ -106,7 +114,7 @@ Presentation / Unity adapters
 ### Core/Relics
 
 - 변경 불가능한 유물 정의와 효과 종류
-- 현재 FragmentRelicCatalog 14종 (PrototypeRelicCatalog 6종은 legacy)
+- 현재 FragmentRelicCatalog 20종 (PrototypeRelicCatalog 6종은 legacy)
 - 유물은 런 상태를 직접 수정하지 않고 전투 생성 시 보정값으로 전달
 
 ### Application
@@ -127,9 +135,9 @@ Presentation / Unity adapters
 
 - 기본 조립은 `GraphaclysmModernView`. Battle/Screens/FragmentView/QuietView/AtlasView partial이 전투·지도·파편 조립을 분리한다. CalculatorView는 현재 방/덱 정리와 legacy 계산기 메서드를 가진다. 기본 런은 계산기 화면으로 진입하지 않는다. 이전 PrototypeView/TacticalView는 명시적 legacy Editor 진단에서만 생성한다.
 - `AstralUi`가 3개 Font와 10개 GUIStyle을 View 수명 동안 재사용한다. 논리 캔버스 1920×1080, 화면별 균일 배율·레터박스. 선은 기존 GUI 행렬에 로컬 TRS를 곱해 축소 화면의 회전 피벗 오류를 피한다.
-- `SkillVisual[41]` (현재 파편 23종 + legacy 계산기 11종 + 기술 13종)은 Awake에서 구성한다. 파편 문양 Vector2[65], legacy 그림 Vector2[41], 비용·능력·상세·위력 배지 문자열을 View 수명 동안 재사용한다.
+- `SkillVisual[49]` (현재 파편 31종 + legacy 계산기 11종 + 기술 13종)은 Awake에서 구성한다. 파편 문양 Vector2[65], legacy 그림 Vector2[41], 비용·능력·상세·위력 배지 문자열을 View 수명 동안 재사용한다.
 - 새 전투가 바인딩될 때 적 수만큼 체력·피해·의도·상태 상세·상태 요약·번호·피격 숫자 string 배열 7개, int 피해 배열 1개, bool 피격 배열 1개를 만들고 재사용한다. 현재 조우는 최대 적 3명이다. 손패 용량만큼 float 호버·string 불가 이유 배열을 만든다. 명령 후 문자열 캐시만 갱신한다.
-- `DescribeStatuses`의 StringBuilder는 상태 변경 후 Refresh에서만 만들며 최대 상태 8종이다. OnGUI는 캐시된 문자열을 읽는다.
+- `DescribeStatuses`의 StringBuilder는 상태 변경 후 Refresh에서만 만들며 최대 상태 12종이다. OnGUI는 캐시된 문자열을 읽는다.
 - 원형 마커용 Texture2D 64×64 1개와 임시 Color[4096]은 Awake에서 만든다. Apply 후 CPU 픽셀 복사본은 버리고 Texture는 OnDestroy에서 해제한다.
 - `AstralSpellRenderer`는 Material 1개를 View 수명 동안 소유한다. Resources/AstralInk.shader가 빌드에 포함된다. Core의 같은 1,536개 파편/768개 legacy 계산기/160개 legacy 곡선 선분(legacy 필드 최대 8,192)을 읽으며 별도 프레임 버퍼나 입자 GameObject를 만들지 않는다. Repaint당 GL.Begin/End 한 쌍으로 예측선·발광 가장자리·백색 중심선을 쌓는다.
 - 한 일반 곡선 선분은 최대 4개 사각형(예측+빛 3층), 공개 끝점 반짝임은 최대 추가 2개다. 최악 상한은 선분당 정점 24개지만 일반 끝점 장식은 공개 경계에서만 나온다. 실제 비용은 새 화면에서 별도 측정해야 한다.

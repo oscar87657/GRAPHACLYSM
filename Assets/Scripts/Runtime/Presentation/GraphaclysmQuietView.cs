@@ -11,8 +11,8 @@ namespace Graphaclysm.Runtime.Presentation
         private Rect EnemyRow(int index) => battle.UsesFragments ? new Rect(1580,128+index*82,308,74) : new Rect(1490,187+index*143,335,130);
         private void DrawQuietPlayer()
         {
-            Fill(new Rect(28,92,314,192),new Color(.055f,.05f,.095f,.88f));
-            Border(new Rect(28,92,314,192),new Color(Gold.r,Gold.g,Gold.b,.48f),14);
+            Fill(new Rect(28,92,314,218),new Color(.055f,.05f,.095f,.88f));
+            Border(new Rect(28,92,314,218),new Color(Gold.r,Gold.g,Gold.b,.48f),14);
             Label(new Rect(48,105,180,38),flow.CurrentCharacter.DisplayName,ui.HeadingLight);
             Label(new Rect(225,108,98,34),hpText,ui.SmallLight,true);
             Fill(new Rect(48,151,274,3),new Color(1,1,1,.13f));
@@ -20,9 +20,13 @@ namespace Graphaclysm.Runtime.Presentation
             DrawStatusChips(battle.Tactics.Statuses,new Rect(48,166,274,28),true,4);
             Rect ultimate = new Rect(48,208,274,43);
             if(ui.Button(ultimate,ultimateText,battle.Tactics.UltimateArmed,!castActive && battle.Tactics.Resonance>=6)) {run.TryToggleUltimate();Refresh();}
-            for(int i=0;i<6;i++) Fill(new Rect(49+i*46,267,39,3),i<battle.Tactics.Resonance?Violet:new Color(.32f,.30f,.39f));
+            for(int i=0;i<6;i++) Fill(new Rect(49+i*46,259,39,3),i<battle.Tactics.Resonance?Violet:new Color(.32f,.30f,.39f));
+            Rect skill = new Rect(48,270,274,31);
+            if(ui.Button(skill,GrowthSkillName(),false,!castActive && battle.CanUseCombatSkill))
+            { if(run.TryUseCombatSkill()) { message="전투 기술을 사용했습니다."; Refresh(); } }
+            RegisterKeyword(skill,GrowthSkillName(),GrowthSkillDescription());
             if(ultimate.Contains(Event.current.mousePosition) || showBattleDetails)
-                RegisterKeyword(ultimate,ultimateText,flow.CurrentCharacter.Archetype==CombatArchetype.Ian ? "공명 6을 써서 이번 작도 피해를 +6 하고 적 이동을 봉쇄합니다." : "공명 6을 써서 자가 적중 범위를 넓히고 정화·보호막 8·회복 5를 적용합니다.");
+                RegisterKeyword(ultimate,ultimateText,UltimateSkillDescription());
             DrawQuietLoom();
             if(battle.Tactics.HasMoved && !castActive)
                 if(ui.Button(new Rect(28,744,145,40),"이동 취소")) UndoMove();
@@ -36,17 +40,17 @@ namespace Graphaclysm.Runtime.Presentation
         }
         private void DrawQuietLoom()
         {
-            Fill(new Rect(28,304,314,420),new Color(.055f,.05f,.095f,.82f));
-            Border(new Rect(28,304,314,420),new Color(Gold.r,Gold.g,Gold.b,.34f),14);
-            Label(new Rect(48,316,274,35),quietWeave,ui.Light);
+            Fill(new Rect(28,326,314,398),new Color(.055f,.05f,.095f,.82f));
+            Border(new Rect(28,326,314,398),new Color(Gold.r,Gold.g,Gold.b,.34f),14);
+            Label(new Rect(48,338,274,35),quietWeave,ui.Light);
             if(battle.PlayedCardCount==0)
             {
-                Diamond(new Vector2(185,492),32,new Color(Violet.r,Violet.g,Violet.b,.62f));
-                Label(new Rect(48,544,274,38),"첫 파편을 놓으세요",ui.SmallLight,true);
+                Diamond(new Vector2(185,514),32,new Color(Violet.r,Violet.g,Violet.b,.62f));
+                Label(new Rect(48,566,274,38),"첫 파편을 놓으세요",ui.SmallLight,true);
             }
             for(int i=0;i<battle.PlayedCardCount;i++)
             {
-                var card=battle.GetPlayedCard(i);float y=365+i*40;
+                var card=battle.GetPlayedCard(i);float y=383+i*40;
                 float enter=!preferences.ReduceMotion && i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(ViewTime-fragmentPlacedAt)*5)*10:0;
                 Color color=i<battle.SealedCardCount?Muted:Violet;
                 Line(new Vector2(48+i*3,y+enter),new Vector2(48+i*3,y+27+enter),color,1.4f);
@@ -56,6 +60,38 @@ namespace Graphaclysm.Runtime.Presentation
             }
             if(battle.PlayedCardCount>battle.SealedCardCount && !castActive)
                 if(ui.Button(new Rect(190,744,152,40),"파편 취소")) Undo();
+        }
+
+        private string GrowthSkillName()
+        {
+            if (!run.Growth.ActiveSkillUnlocked) return "전투 기술 · 성장에서 해금";
+            int variant = run.Growth.ActiveVariant;
+            if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
+                return variant == 1 ? "가시 장막   K" : variant == 2 ? "파열 각인   K" : "흑유리 각인   K";
+            return variant == 1 ? "별의 피난처   K" : variant == 2 ? "유성의 숨   K" : "월면 보법   K";
+        }
+
+        private string GrowthSkillDescription()
+        {
+            if (!run.Growth.ActiveSkillUnlocked) return "지도 화면의 원정 성장(G)에서 성장점 1로 해금할 수 있습니다.";
+            int variant = run.Growth.ActiveVariant;
+            if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
+                return variant == 1 ? "전투당 1회 · 보호막 8과 가시 3" : variant == 2
+                    ? "전투당 1회 · 해로운 상태 정화와 추진 5" : "전투당 1회 · 보호막 5";
+            return variant == 1 ? "전투당 1회 · 해로운 상태 정화와 요새화 7" : variant == 2
+                ? "전투당 1회 · 체력 5 회복과 추진 3" : "전투당 1회 · 이번 턴 추가 이동과 경쾌";
+        }
+
+        private string UltimateSkillDescription()
+        {
+            int variant = run.Growth.UltimateVariant;
+            if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
+                return variant == 1 ? "공명 6 · 이번 작도 피해 +10, 적중한 적에게 파열 3"
+                    : variant == 2 ? "공명 6 · 피해 +6, 고정 2, 자신 적중 시 체력 4 회복"
+                    : "공명 6 · 이번 작도 피해 +6, 적중한 적 이동 봉쇄";
+            return variant == 1 ? "공명 6 · 자가 적중 반경 1.25, 정화, 보호막 12, 회복 7"
+                : variant == 2 ? "공명 6 · 작도 피해 +4, 정화, 보호막 6, 회복 3"
+                : "공명 6 · 자가 적중 반경 확대, 정화, 보호막 8, 회복 5";
         }
         private void DrawQuietEnemyPanel()
         {

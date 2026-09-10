@@ -140,7 +140,7 @@ namespace Graphaclysm.Tests.Combat
         [Test] public void ExpandedCatalogsHaveUniqueIdsAndAllFloorsHaveStrongerBosses()
         {
             var ids=new HashSet<string>();foreach(var c in FragmentCardCatalog.All)Assert.That(ids.Add(c.Id),Is.True);
-            Assert.That(ids.Count,Is.EqualTo(23));ids.Clear();foreach(var r in FragmentRelicCatalog.All)Assert.That(ids.Add(r.Id),Is.True);Assert.That(ids.Count,Is.EqualTo(14));
+            Assert.That(ids.Count,Is.EqualTo(31));ids.Clear();foreach(var r in FragmentRelicCatalog.All)Assert.That(ids.Add(r.Id),Is.True);Assert.That(ids.Count,Is.EqualTo(20));
             var map=DungeonGenerator.Generate(21,PrototypeCharacterCatalog.All[0]);int hp=0,bosses=0;
             for(int i=0;i<map.NodeCount;i++){var node=map.GetNode(i);if(node.Kind!=RunNodeKind.Boss)continue;int sum=0;for(int j=0;j<node.Battle.EnemyCount;j++)sum+=node.Battle.GetEnemy(j).MaxHealth;Assert.That(sum,Is.GreaterThan(hp));hp=sum;bosses++;}
             Assert.That(bosses,Is.EqualTo(3));

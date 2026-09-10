@@ -5,12 +5,13 @@ using Graphaclysm.Core.Combat;
 
 namespace Graphaclysm.Application
 {
-    // Stable numeric IDs are part of save format 1. Bump RulesVersion when content or rules change.
+    // Stable numeric IDs are part of the run save format. Bump RulesVersion when content or rules change.
     public enum RunCommandKind
     {
         SelectNode, PlayCard, UndoCard, Move, UndoMove, ToggleUltimate, Condense,
         Unravel, BeginPlot, ResolvePlot, ResolveEnemy, SelectCardReward, SelectRelicReward,
-        SkipReward, ChooseRoom, LeaveRoom, RemoveCard, SkipRefinement
+        SkipReward, ChooseRoom, LeaveRoom, RemoveCard, SkipRefinement,
+        PurchaseGrowth, SelectGrowth, UseCombatSkill
     }
 
     public readonly struct RunCommand
@@ -22,12 +23,13 @@ namespace Graphaclysm.Application
 
     public sealed class RunSaveData
     {
-        public const int FormatVersion = 1;
-        public const int RulesVersion = 10;
+        public const int FormatVersion = 2;
+        public const int RulesVersion = 12;
         public const int MaximumCommands = 65536;
         public uint Seed;
         public string CharacterId;
         public long SavedUtcTicks;
+        public LegacyBenefits LegacyBenefits;
         public RunCommand[] Commands;
     }
 
@@ -58,7 +60,7 @@ namespace Graphaclysm.Application
         public RunSaveData CaptureSave()
         {
             if (!CanSave) throw new InvalidOperationException("This run cannot be saved.");
-            return new RunSaveData { Seed = Seed, CharacterId = journalCharacter,
+            return new RunSaveData { Seed = Seed, CharacterId = journalCharacter, LegacyBenefits = appliedLegacyBenefits,
                 SavedUtcTicks = DateTime.UtcNow.Ticks, Commands = journal.ToArray() };
         }
 
@@ -71,7 +73,7 @@ namespace Graphaclysm.Application
             if (character == null) return false;
             try
             {
-                var candidate = PrototypeRunFactory.Create(data.Seed, character);
+                var candidate = PrototypeRunFactory.Create(data.Seed, character, data.LegacyBenefits);
                 for (int i = 0; i < data.Commands.Length; i++)
                     if (!candidate.Replay(data.Commands[i])) return false;
                 restored = candidate;
@@ -109,6 +111,9 @@ namespace Graphaclysm.Application
                 case RunCommandKind.LeaveRoom: return TryLeaveRoom();
                 case RunCommandKind.RemoveCard: return TryRemoveDeckCard(a);
                 case RunCommandKind.SkipRefinement: return TrySkipRefinement();
+                case RunCommandKind.PurchaseGrowth: return TryPurchaseGrowthNode(a);
+                case RunCommandKind.SelectGrowth: return TrySelectGrowthNode(a);
+                case RunCommandKind.UseCombatSkill: return TryUseCombatSkill();
                 default: return false;
             }
         }

@@ -15,8 +15,9 @@ namespace Graphaclysm.Application
         private static readonly string[] EnemyNames = { "축 포식자", "공백체", "분기 잔영", "유리 파수꾼", "금속의 메아리", "좌표 도둑" };
         private static readonly double[] TerrainX = { 2.0, 3.1, 5.0, 6.8, 8.1, 2.2, 5.2, 7.7, 3.0, 6.4, 8.4, 1.6 };
         private static readonly double[] TerrainY = { 1.8, 0.2, 2.6, 1.2, -1.8, -2.4, -0.8, 2.7, 3.0, -2.7, 0.3, -0.5 };
-        public static RunMapDefinition Generate(uint seed, CharacterDefinition character)
+        public static RunMapDefinition Generate(uint seed, CharacterDefinition character, int maxHealthBonus = 0)
         {
+            int playerMaxHealth = character.MaxHealth + Math.Max(0, maxHealthBonus);
             var random = new XorShiftRandom(seed ^ 0x6C8E9CF5u);
             var starts = new int[Depths]; var widths = new int[Depths]; int total = 0;
             for (int d = 0; d < Depths; d++) { starts[d] = total; widths[d] = d % RoomsPerFloor == RoomsPerFloor - 1 ? 1 : 2 + random.Next(2); total += widths[d]; }
@@ -51,9 +52,9 @@ namespace Graphaclysm.Application
                     int template = random.Next(EncounterNames.Length);
                     string name = story?.Title ?? (kind == RunNodeKind.Boss ? (random.Next(2) == 0 ? "경계의 기억" : "멎은 성운") : EncounterNames[template]);
                     if(kind == RunNodeKind.Boss) name = d < 8 ? "첫 문 · 유리 감시자" : d < 16 ? "둘째 문 · 밤의 기록자" : "심층 · 무명의 원점";
-                    BattleDefinition battle = story == null ? Encounter(d, kind, template, random, character) : null;
+                    BattleDefinition battle = story == null ? Encounter(d, kind, template, random, character, playerMaxHealth) : null;
                     nodes[index] = new RunMapNodeDefinition("dungeon." + d + "." + j, name, d, lanes[index], kind, battle,
-                        edges[index].ToArray(), story, character.MaxHealth);
+                        edges[index].ToArray(), story, playerMaxHealth);
                 }
             return new RunMapDefinition(nodes, RoomsPerFloor);
         }
@@ -68,7 +69,7 @@ namespace Graphaclysm.Application
             int roll = random.Next(100);
             return roll < 48 ? RunNodeKind.Battle : roll < 68 ? RunNodeKind.Event : roll < 85 ? RunNodeKind.Elite : RunNodeKind.Rest;
         }
-        private static BattleDefinition Encounter(int depth, RunNodeKind kind, int template, IRandomSource random, CharacterDefinition c)
+        private static BattleDefinition Encounter(int depth, RunNodeKind kind, int template, IRandomSource random, CharacterDefinition c, int playerMaxHealth)
         {
             int count = kind == RunNodeKind.Boss ? 3 : 2 + random.Next(2);
             var enemies = new EnemyDefinition[count];
@@ -102,7 +103,7 @@ namespace Graphaclysm.Application
                 enemies[i] = new EnemyDefinition("enemy." + i, EnemyNames[(template + i) % EnemyNames.Length], x, y, health, attack, ai);
             }
             BattleTerrainDefinition[] terrain = CreateTerrain(kind, random, enemies);
-            return new BattleDefinition(c.MaxHealth, c.MaxEnergy, enemies, c.Archetype, fragments: true, terrain: terrain);
+            return new BattleDefinition(playerMaxHealth, c.MaxEnergy, enemies, c.Archetype, fragments: true, terrain: terrain);
         }
 
         private static BattleTerrainDefinition[] CreateTerrain(RunNodeKind encounterKind, IRandomSource random, EnemyDefinition[] enemies)

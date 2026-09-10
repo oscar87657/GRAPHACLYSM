@@ -5,6 +5,7 @@ using System.Reflection;
 using Graphaclysm.Application;
 using Graphaclysm.Core.Characters;
 using Graphaclysm.Core.Combat;
+using Graphaclysm.Core.Relics;
 using Graphaclysm.Runtime.Presentation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -69,12 +70,15 @@ namespace Graphaclysm.Editor
         }
         private void ConfigureView()
         {
+            var legacyStore = new LegacyProgressionStore(dataDirectory);
+            var legacy = legacyStore.Load();
+            Set("legacyStore", legacyStore); Set("legacy", legacy);
             Set("saves", new RunSaveStore(dataDirectory)); Set("preferenceStore", new GamePreferencesStore(dataDirectory));
             var preferences = new GamePreferencesStore(dataDirectory).Load();
             preferences.TutorialCompleted = true; preferences.PauseOnFocusLoss = false;
             Set("preferences", preferences); Invoke("ApplyPreferences", false);
             Set("persistenceEnabled", true);
-            flow = Get<PrototypeGameFlow>("flow"); Invoke("ReadContinue");
+            flow = Get<PrototypeGameFlow>("flow"); flow.LegacyBenefits = legacy.Benefits; Invoke("ReadContinue");
         }
         private IEnumerator Guarded()
         {
@@ -94,7 +98,7 @@ namespace Graphaclysm.Editor
                 yield return next;
             }
             File.WriteAllText(Path.Combine(output, "smoke-result.txt"), "Captures: " + captures + "\nRuntime errors: " + errors +
-                "\nReal generated battle and local save; cold view recreation, card/move undo, condense, pause during plot, help freeze, settings, inventory, overwrite prompt, 1080p/720p.\nNo player save files used. Not a full-run balance or Profiler test.");
+                "\nReal generated battle and local save; permanent tree, run growth, illustrated relic, cold view recreation, card/move undo, condense, pause during plot, help freeze, settings, inventory, overwrite prompt, 1080p/720p.\nNo player save files used. Not a full-run balance or Profiler test.");
             EditorApplication.Exit(errors == 0 ? 0 : 1);
         }
         private void OnLog(string message, string stack, LogType type)
@@ -102,6 +106,11 @@ namespace Graphaclysm.Editor
         private IEnumerator Scenario()
         {
             yield return Shot("01-title-new");
+            var fixtureLegacy = Get<LegacyProgression>("legacy");
+            fixtureLegacy.AwardRun(7001, false, 3); fixtureLegacy.AwardRun(7002, false, 3); fixtureLegacy.AwardRun(7003, false, 3);
+            Set("legacyOpen", true); yield return Shot("01b-legacy-tree"); Set("legacyOpen", false);
+            Check(fixtureLegacy.TryPurchase(3) && fixtureLegacy.TryPurchase(3) && fixtureLegacy.TryPurchase(3), "Legacy fixture purchase failed");
+            flow.LegacyBenefits = fixtureLegacy.Benefits;
             Invoke("OpenSettings"); yield return Shot("02-settings");
             var prefs = Get<GamePreferences>("preferences"); prefs.MasterVolume = 35; prefs.EffectsVolume = 0; prefs.ReduceMotion = true;
             Set("settingsDirty", true); Invoke("CloseSettings");
@@ -116,6 +125,8 @@ namespace Graphaclysm.Editor
             view.DiagnosticHoveredCharacter = 1; yield return Shot("04b-character-hover-luna");
             view.DiagnosticHoveredCharacter = -1; flow.TrySelectCharacter(1); flow.TryStartRun(); Invoke("Refresh");
             yield return Shot("04-map-saved");
+            Set("growthOpen", true); yield return Shot("04c-run-growth"); Set("growthOpen", false);
+            Check(flow.CurrentRun.TryPurchaseGrowthNode(0), "Run skill unlock failed"); Invoke("Refresh");
             Check(File.Exists(Path.Combine(dataDirectory, "run.save")), "New run not saved");
             flow.CurrentRun.TrySelectMapNode(0); Invoke("Refresh");
             Invoke("PlayCard", 0); Check(TryAnyMove(flow.CurrentRun), "Move failed"); Invoke("Refresh");
@@ -129,6 +140,8 @@ namespace Graphaclysm.Editor
             view.DiagnosticHoveredCard = -1; view.DiagnosticKeyword = -1;
             Set("paused", true); yield return Shot("06-pause");
             Invoke("OpenInventory"); yield return Shot("07-inventory");
+            foreach (var relic in FragmentRelicCatalog.All)
+                if (!string.IsNullOrEmpty(relic.ImageResource)) { flow.CurrentRun.Relics.TryAdd(relic); break; }
             Set("inventoryRelics", true); Invoke("SelectInventory", 0); yield return Shot("08-inventory-relics");
             Set("inventoryOpen", false); Invoke("SaveAndReturn");
             yield return Shot("09-title-continue");

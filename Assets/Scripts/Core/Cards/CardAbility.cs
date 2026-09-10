@@ -2,7 +2,12 @@ using System;
 
 namespace Graphaclysm.Core.Cards
 {
-    public enum CardAbilityKind { Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste, Heal, Cleanse }
+    // Status entries deliberately mirror CombatStatusKind; Heal and Cleanse are immediate effects.
+    public enum CardAbilityKind
+    {
+        Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste,
+        Thorns, Momentum, Fortify, Rupture, Heal, Cleanse
+    }
     public enum AbilityTarget { Enemy, Player }
 
     /// <summary>One immutable on-hit rider, bundled with a graph operation.</summary>

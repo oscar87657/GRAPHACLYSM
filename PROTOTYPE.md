@@ -1,6 +1,12 @@
-# GRAPHACLYSM Prototype · v0.15
+# GRAPHACLYSM Prototype · v0.16
 
-2026-09-10 · 옆모습 눈 전환 캐릭터 선택 v11. 전체 전장·책장형 카드·지형은 v10, 저장 기본 기능은 v9 유지.
+2026-09-10 · 전투·유물·원정/영구 성장 v12. 옆모습 눈 전환은 v11, 전체 전장·책장형 카드·지형은 v10을 유지.
+
+## v12 전투와 성장
+
+파편 카드는 31종, 유물은 20종이다. 가시·추진·요새화·파열을 더해 상태는 12종이며 새 카드와 유물도 기존 호버 설명에서 정확한 효과를 읽을 수 있다. 신규 유물 6종에는 투명 배경 전용 그림이 있다.
+
+방을 완료하면 원정 경험치를 얻고 레벨마다 성장점 1을 받는다. G의 캐릭터별 트리에서 전투당 한 번 쓰는 기술과 궁극기 변형을 해금·선택한다. 이 진행은 새 원정에서 초기화된다. 패배·완주 시 받는 잔광은 메인 화면의 영구 기록에서 최대 체력·승리 회복·시작 공명·시작 경험치·시작 보호막·잔광 보너스에 쓴다. 정확한 수치와 저장 경계는 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)를 따른다.
 
 ## v11 캐릭터 선택
 
@@ -12,7 +18,7 @@
 
 생성 전투에는 이동을 막는 기록 기둥과 작도선 교차 시 적중 피해 +2를 주는 굴절 프리즘이 배치된다. 자세한 규칙과 저장 호환은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)을 따른다. 지도는 아직 기존 가로형 3층 원정이며, 탑형 지도와 스토리는 후속 구상 범위다.
 
-최신 검증은 EditMode **140/140**, Full HD/720p **27장**, Runtime errors **0**이다. `Logs/editmode-character-profile-v11.xml`, `Logs/character-profile-v11-smoke-final.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v11에서 다시 검증하지 않았다.
+최신 검증은 EditMode **146/146**, Full HD/720p **29장**, Runtime errors **0**이다. `Logs/editmode-combat-growth-v12.xml`, `Logs/combat-growth-v12-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v12에서 다시 검증하지 않았다.
 
 ## v9 기본 기능
 
@@ -26,7 +32,7 @@ v9 당시 검증은 EditMode **137/137**, Full HD/720p **22장**, Runtime errors
 
 Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. 실행 중이었다면 Play를 종료하고 다시 시작한다. 사용자 Editor를 강제 종료하지 않았고 별도 검증 복사본에서 검사했다.
 
-메인 → 카드 사전에서 23종 카드와 14종 유물, 역할 필터·페이지·상세 효과·첫 파편 실제 곡선 예시를 확인한다. 카드 사전은 덱이나 전투 상태를 바꾸지 않는다. 메인 → 기록 시작 → 이안/루나 → 여정 시작으로 3층 원정에 들어간다.
+메인 → 카드 사전에서 31종 카드와 20종 유물, 역할 필터·페이지·상세 효과·첫 파편 실제 곡선 예시를 확인한다. 카드 사전은 덱이나 전투 상태를 바꾸지 않는다. 메인 → 기록 시작 → 이안/루나 → 여정 시작으로 3층 원정에 들어간다.
 
 ## 조작
 
@@ -42,6 +48,8 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 | 방향키 / 왼쪽 하단 이동 버튼 | 턴당 한 번 무료 이동 |
 | 이동 취소 / Backspace | 작도 전에 위치와 이동 기회 복구 |
 | 궁극기 | 공명 6으로 준비/취소, 실제 방출에 소비 |
+| K / 전투 기술 | 해금한 캐릭터 기술을 전투마다 한 번 사용 |
+| G / 원정 성장 | 레벨·경험치·성장점과 전투 기술·궁극기 변형 확인 |
 | 상세 → 수식 보기 | 현재 O+F(t)의 기준점과 각 단계 규칙 |
 | 적 호버 / 상세 | 상태·예상 피해 |
 | Esc | 일시정지/복귀. 열린 설정·안내·덱·사전에서는 해당 화면 닫기 |
@@ -62,7 +70,7 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 
 총 3층, 층마다 보스를 포함해 8개 방을 방문한다. 생성 노드는 전체 45~66개, 한 경로는 24개 방이다. 현재 층만 지도에 표시한다. 1·2층 보스 뒤 체력 8 회복·유물 보상, 3층 보스 뒤 완주한다. 체력·공명·덱·유물은 층 사이에 유지한다. 후반 층 적 체력·공격력이 증가한다.
 
-유물은 14종이다. 추가 8종은 시작 보호막/공명, 자가 적중 보호막, 첫 방출 피해, 3개 이하/6개 이상 조립 피해, 이동 후 방출 보호막, 승리 공명을 제공한다. [전투 수치와 전체 목록](COMBAT_REDESIGN.md)을 따른다.
+유물은 20종이다. 신규 6종은 응축 보호막, 시작 가시, 프리즘 피해, 이동 추진, 긴 조립 파열, 시작 요새화를 제공한다. [전투 수치와 전체 목록](COMBAT_REDESIGN.md)을 따른다.
 
 ## 검증
 
@@ -79,13 +87,13 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 ```powershell
 $unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe'
 $verifyPath = (Resolve-Path 'Logs\CombatV2VerificationProject').Path
-$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-wide-v8.xml" -logFile "' + $PWD + '\Logs\editmode-wide-v8.log"'
+$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-combat-growth-v12.xml" -logFile "' + $PWD + '\Logs\editmode-combat-growth-v12.log"'
 Start-Process -FilePath $unityExe -ArgumentList $testArgs -WindowStyle Hidden -Wait
-$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.WideV8Smoke.RunBatch -logFile "' + $PWD + '\Logs\wide-v8-smoke-final.log"'
+$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\combat-growth-v12-smoke.log"'
 Start-Process -FilePath $unityExe -ArgumentList $smokeArgs -WindowStyle Hidden -Wait
 ```
 
-화면 검증에는 -nographics/-quit을 붙이지 않는다. runner가 종료한다. V2~V7 fixture는 과거 규칙 기록이다. 현재 기본 검증은 WideV8Smoke다. 작업 전 소스는 Logs/BeforeWideV8-*의 최신 사본, 문서는 Docs/Archive/BeforeWideV8에 있다.
+화면 검증에는 -nographics/-quit을 붙이지 않는다. runner가 종료한다. V2~V8 fixture는 과거 규칙 기록이다. 현재 기본 화면 검증은 v12 항목까지 확장한 BasicsV9Smoke다.
 
 아트는 이안 v2·루나 v6·배경 v3를 유지했고 새 bitmap 생성은 없다. 저장·기본 효과음·페이지형 안내는 v9에 추가했다. 상점·강화·실습형 튜토리얼·배경음악은 미구현이다. 수학은 1,536선분/최대 주파수 96의 근사이며 임의 수식·무제한 프랙탈은 지원하지 않는다.
 

@@ -11,13 +11,15 @@ namespace Graphaclysm.Runtime.Presentation
     public sealed partial class GraphaclysmModernView
     {
         private RunSaveStore saves;
+        private LegacyProgressionStore legacyStore;
+        private LegacyProgression legacy;
         private GamePreferencesStore preferenceStore;
         private GamePreferences preferences;
         private GameAudio sound;
         private RunGameSession savedRun, lastSavedRun, observedRun;
         private CharacterDefinition savedCharacter;
         private int savedRevision = -1;
-        private bool persistenceEnabled, paused, settingsOpen, inventoryOpen, inventoryRelics;
+        private bool persistenceEnabled, paused, settingsOpen, inventoryOpen, inventoryRelics, growthOpen, legacyOpen;
         private int inventoryPage, inventorySelection, helpPage;
         private enum Confirmation { None, NewRun, Quit }
         private Confirmation confirmation;
@@ -25,10 +27,10 @@ namespace Graphaclysm.Runtime.Presentation
         private float viewTime;
         private float nextSaveRetry;
         private RunPhase observedPhase;
-        private bool settingsDirty;
+        private bool settingsDirty, legacyDirty;
         private bool saveFailed;
         private float ViewTime => viewTime;
-        private bool ModalOpen => paused || helpOpen || settingsOpen || inventoryOpen || confirmation != Confirmation.None;
+        private bool ModalOpen => paused || helpOpen || settingsOpen || inventoryOpen || growthOpen || legacyOpen || confirmation != Confirmation.None;
         private bool HasContinue => savedRun != null && savedRun.Phase != RunPhase.Completed && savedRun.Phase != RunPhase.Defeated;
         private static readonly string[] ResolutionLabels = { "1280 × 720", "1600 × 900", "1920 × 1080" };
         private static readonly string[] VolumeLabels = BuildVolumeLabels();
@@ -39,7 +41,7 @@ namespace Graphaclysm.Runtime.Presentation
             "그래프가 적에게 닿으면 피해와 카드의 적중 효과를 줍니다. 같은 선이 자신에게 닿으면 보호막과 자기 강화 효과를 받습니다.\n\n한 번 방출할 때 각 대상은 한 번만 판정합니다. 여러 번 교차해도 같은 피해를 반복하지 않습니다.\n\n공명 6이 모이면 궁극기를 준비할 수 있습니다. 공명은 실제 방출에서 소비합니다.",
             "방향키 또는 왼쪽 이동 버튼으로 턴마다 한 번 이동할 수 있습니다. 적이 조준한 붉은 범위를 확인하고 피하세요.\n\nBackspace는 이동 취소, 마우스 오른쪽 버튼은 마지막 파편 취소입니다.\n\n귀환점 카드는 사용한 순간의 내 위치로 그래프 중심을 옮깁니다. 이후 내가 움직여도 이미 정한 중심은 따라오지 않습니다.",
             "Enter / 방출: 조립한 그래프를 발동하고 조립대를 비웁니다. 적 행동 후 기본 2장을 보충합니다.\n\nSpace / 응축: 조립을 유지하며 체력 2, 두 번째는 4를 씁니다. 기본 1장에 추가 최대 1장을 보충하고 적도 행동합니다. 방출/해체 사이 두 번까지이며 확정된 파편은 취소할 수 없습니다.\n\n해체: 조립을 버리고 적 행동 후 손패를 보충합니다. 손패와 조립은 각각 최대 8장입니다.",
-            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정을 시작하면 이어하기 슬롯이 교체됩니다. 패배하거나 완주한 원정은 이어할 수 없습니다."
+            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다. 방을 완료해 경험치와 성장점을 얻고 G에서 이번 원정의 전투 기술·궁극기를 바꿀 수 있습니다. 전투 기술은 K로 전투마다 한 번 사용합니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정은 원정 성장을 초기화합니다. 패배·완주로 얻는 잔광과 메인 화면의 영구 기록은 계속 남습니다."
         };
 
         private static string[] BuildVolumeLabels()
@@ -50,7 +52,11 @@ namespace Graphaclysm.Runtime.Presentation
             viewTime = Time.unscaledTime;
             persistenceEnabled = !UnityEngine.Application.isBatchMode;
             string directory = persistenceEnabled ? UnityEngine.Application.persistentDataPath : Path.GetFullPath("Logs/BatchUserData");
-            saves = new RunSaveStore(directory); preferenceStore = new GamePreferencesStore(directory);
+            legacyStore = new LegacyProgressionStore(directory);
+            legacy = persistenceEnabled ? legacyStore.Load() : new LegacyProgression();
+            flow.LegacyBenefits = legacy.Benefits;
+            saves = new RunSaveStore(directory);
+            preferenceStore = new GamePreferencesStore(directory);
             preferences = persistenceEnabled ? preferenceStore.Load() : new GamePreferences { TutorialCompleted = true };
             sound = new GameAudio(gameObject); ApplyPreferences(true);
             if (persistenceEnabled) ReadContinue();
@@ -96,7 +102,17 @@ namespace Graphaclysm.Runtime.Presentation
             }
             if (current != null && current.Phase == RunPhase.Battle && !preferences.TutorialCompleted && !helpOpen)
             { helpPage = 0; helpOpen = true; }
+            if (current != null && (current.Phase == RunPhase.Completed || current.Phase == RunPhase.Defeated))
+            {
+                int earned = legacy.AwardRun(current.Seed, current.Phase == RunPhase.Completed, current.CurrentFloor);
+                if (earned > 0)
+                {
+                    legacyDirty = true;
+                    saveNotice = "원정의 잔광 +" + earned + " · 메인 화면의 영구 기록에서 사용할 수 있습니다.";
+                }
+            }
             SaveCurrent();
+            SaveLegacy();
         }
 
         private void ContinueSavedRun()
@@ -128,13 +144,13 @@ namespace Graphaclysm.Runtime.Presentation
         private void SaveAndReturn()
         {
             if (!SaveCurrent(true)) return;
-            castActive = false; paused = false; helpOpen = false; inventoryOpen = false;
+            castActive = false; paused = false; helpOpen = false; inventoryOpen = false; growthOpen = false;
             flow.ReturnToMainMenu(); Refresh();
         }
 
         private void QuitGame()
         {
-            if (!SaveCurrent(true) || !SavePreferences()) return;
+            if (!SaveCurrent(true) || !SavePreferences() || !SaveLegacy()) return;
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
@@ -146,15 +162,15 @@ namespace Graphaclysm.Runtime.Presentation
         {
             if (focused || preferences == null) return;
             if (preferences.PauseOnFocusLoss && flow.CurrentRun != null) paused = true;
-            SaveCurrent(true); SavePreferences();
+            SaveCurrent(true); SavePreferences(); SaveLegacy();
         }
         private void OnApplicationPause(bool suspended)
         {
             if (!suspended || preferences == null) return;
             if (flow.CurrentRun != null) paused = true;
-            SaveCurrent(true); SavePreferences();
+            SaveCurrent(true); SavePreferences(); SaveLegacy();
         }
-        private void OnApplicationQuit() { SaveCurrent(true); SavePreferences(); }
+        private void OnApplicationQuit() { SaveCurrent(true); SavePreferences(); SaveLegacy(); }
 
         private void OpenSettings() { settingsOpen = true; }
         private bool SavePreferences()
@@ -162,6 +178,15 @@ namespace Graphaclysm.Runtime.Presentation
             if (!persistenceEnabled || preferences == null || !settingsDirty) return true;
             if (!preferenceStore.TrySave(preferences)) { saveNotice = "설정을 저장하지 못했습니다. 다시 시도하세요."; return false; }
             settingsDirty = false; return true;
+        }
+
+        private bool SaveLegacy()
+        {
+            if (!persistenceEnabled || legacy == null || !legacyDirty) return true;
+            if (!legacyStore.TrySave(legacy))
+            { saveNotice = "영구 기록을 저장하지 못했습니다. 다시 시도하세요."; return false; }
+            legacyDirty = false;
+            return true;
         }
         private void ApplyPreferences(bool screen)
         {
@@ -186,6 +211,8 @@ namespace Graphaclysm.Runtime.Presentation
             else if (settingsOpen) DrawSettings();
             else if (helpOpen) DrawHelp();
             else if (inventoryOpen) DrawInventory();
+            else if (growthOpen) DrawGrowthTree();
+            else if (legacyOpen) DrawLegacyTree();
             else if (paused) DrawPause();
         }
 
@@ -205,8 +232,9 @@ namespace Graphaclysm.Runtime.Presentation
             if (ui.Button(new Rect(963, 376, 455, 64), "설정")) OpenSettings();
             if (ui.Button(new Rect(480, 466, 455, 64), "보유 덱 · 유물   D")) OpenInventory();
             if (ui.Button(new Rect(963, 466, 455, 64), "작도 안내   F1")) OpenHelp();
-            if (ui.Button(new Rect(480, 578, 938, 64), "저장 후 처음으로")) SaveAndReturn();
-            if (ui.Button(new Rect(480, 668, 938, 64), "저장 후 게임 종료")) confirmation = Confirmation.Quit;
+            if (ui.Button(new Rect(480, 556, 938, 58), "이번 원정 성장   G")) { paused = false; growthOpen = true; }
+            if (ui.Button(new Rect(480, 636, 455, 58), "저장 후 처음으로")) SaveAndReturn();
+            if (ui.Button(new Rect(963, 636, 455, 58), "저장 후 게임 종료")) confirmation = Confirmation.Quit;
             Label(new Rect(480, 767, 938, 105), saveNotice, ui.Small);
         }
 
@@ -278,11 +306,79 @@ namespace Graphaclysm.Runtime.Presentation
                 string name = inventoryRelics ? run.Relics.GetRelic(index).DisplayName : run.Deck[index].DisplayName;
                 if (ui.Button(new Rect(480, 365 + row * 41, 397, 36), name, index == inventorySelection)) SelectInventory(index);
             }
-            Label(new Rect(925, 365, 484, 398), inventoryDetail, ui.Body);
+            if (inventoryRelics && count > 0)
+            {
+                DrawRelicArt(new Rect(1015, 348, 300, 250), run.Relics.GetRelic(inventorySelection));
+                Label(new Rect(925, 615, 484, 148), inventoryDetail, ui.Body, true);
+            }
+            else Label(new Rect(925, 365, 484, 398), inventoryDetail, ui.Body);
             Label(new Rect(587, 799, 180, 52), inventoryPageLabel, ui.Small, true);
             if (ui.Button(new Rect(480, 799, 90, 52), "이전", enabled: inventoryPage > 0)) { inventoryPage--; SelectInventory(inventoryPage * 10); }
             if (ui.Button(new Rect(787, 799, 90, 52), "다음", enabled: (inventoryPage + 1) * 10 < count)) { inventoryPage++; SelectInventory(inventoryPage * 10); }
             if (ui.Button(new Rect(1127, 799, 280, 52), "닫기   D / Esc", true)) inventoryOpen = false;
+        }
+
+        private void DrawGrowthTree()
+        {
+            ModalPanel("이번 원정의 성장");
+            var growth = run.Growth;
+            bool canEdit = run.Phase == RunPhase.MapSelection;
+            Label(new Rect(480, 286, 940, 40), "레벨 " + growth.Level + "   ·   탐사 경험 "
+                + growth.Experience + " / " + growth.ExperienceToNext + "   ·   성장점 " + growth.Points, ui.Body);
+            int[] order = { 0, 2, 3, 1, 4, 5 };
+            for (int slot = 0; slot < order.Length; slot++)
+            {
+                int index = order[slot]; var node = growth.GetNode(index);
+                Rect r = new Rect(480 + (slot % 3) * 318, 352 + (slot / 3) * 220, 290, 174);
+                bool unlocked = growth.IsUnlocked(index);
+                bool selected = node.Group == 1 && growth.ActiveVariant == index - 1
+                    || node.Group == 2 && growth.UltimateVariant == index - 3;
+                Fill(r, new Color(1, 1, 1, unlocked ? .72f : .38f));
+                Border(r, selected ? Violet : unlocked ? Gold : Muted, 14);
+                Label(new Rect(r.x + 14, r.y + 12, r.width - 28, 34), node.Name, ui.Body, true);
+                Label(new Rect(r.x + 17, r.y + 54, r.width - 34, 70), node.Description, ui.Small, true);
+                string action = selected ? "현재 적용 중" : unlocked ? (node.Group == 0 ? "습득 완료" : "이 변주 적용")
+                    : "습득 · " + node.Cost + "점";
+                bool enabled = canEdit && (unlocked ? node.Group > 0 && !selected : growth.CanPurchase(index));
+                if (ui.Button(new Rect(r.x + 18, r.yMax - 42, r.width - 36, 31), action, selected, enabled))
+                {
+                    if (unlocked) run.TrySelectGrowthNode(index); else run.TryPurchaseGrowthNode(index);
+                    Refresh();
+                }
+            }
+            Label(new Rect(480, 805, 650, 50), canEdit
+                ? "탐사 경험은 방을 완료하면 얻습니다. 이 성장은 새 원정에서 초기화됩니다."
+                : "현재 전투에서는 확인만 가능합니다. 다음 지도 화면에서 습득·변경하세요.", ui.Small);
+            if (ui.Button(new Rect(1150, 792, 268, 58), "닫기   G / Esc", true)) growthOpen = false;
+        }
+
+        private void DrawLegacyTree()
+        {
+            ModalPanel("영구 기록");
+            Label(new Rect(480, 286, 940, 40), "보유 잔광  " + legacy.Currency
+                + "   ·   패배 또는 완주한 원정의 빛으로 다음 여정을 돕습니다.", ui.Body);
+            for (int i = 0; i < LegacyProgression.NodeCount; i++)
+            {
+                var node = legacy.GetNode(i);
+                Rect r = new Rect(480 + (i % 3) * 318, 352 + (i / 3) * 220, 290, 174);
+                int rank = legacy.GetRank(i); bool complete = rank >= node.MaxRank;
+                Fill(r, new Color(1, 1, 1, complete ? .72f : .42f)); Border(r, complete ? Violet : Gold, 14);
+                Label(new Rect(r.x + 14, r.y + 12, r.width - 28, 34), node.Name, ui.Body, true);
+                Label(new Rect(r.x + 17, r.y + 50, r.width - 34, 64), node.Description, ui.Small, true);
+                string action = complete ? "완성 · " + rank + " / " + node.MaxRank
+                    : "강화 " + rank + " / " + node.MaxRank + " · 잔광 " + legacy.Cost(i);
+                if (ui.Button(new Rect(r.x + 18, r.yMax - 42, r.width - 36, 31), action, complete, legacy.CanPurchase(i)))
+                {
+                    if (legacy.TryPurchase(i))
+                    {
+                        flow.LegacyBenefits = legacy.Benefits;
+                        legacyDirty = true;
+                        SaveLegacy();
+                    }
+                }
+            }
+            Label(new Rect(480, 805, 650, 50), "영구 기록은 새 게임을 시작해도 보존되며 다음 원정부터 적용됩니다.", ui.Small);
+            if (ui.Button(new Rect(1150, 792, 268, 58), "닫기   Esc", true)) legacyOpen = false;
         }
     }
 }

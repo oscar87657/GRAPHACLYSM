@@ -15,9 +15,15 @@ namespace Graphaclysm.Application
 
         public static RunGameSession Create(uint seed, CharacterDefinition character)
         {
+            return Create(seed, character, default(LegacyBenefits));
+        }
+
+        public static RunGameSession Create(uint seed, CharacterDefinition character, LegacyBenefits benefits)
+        {
             if (character == null) throw new System.ArgumentNullException(nameof(character));
-            var run = new RunGameSession(DungeonGenerator.Generate(seed, character), character.CreateStartingDeckCopy(),
-                FragmentCardCatalog.All, character.HandSize, seed, FragmentRelicCatalog.All);
+            var run = new RunGameSession(DungeonGenerator.Generate(seed, character, benefits.MaxHealth), character.CreateStartingDeckCopy(),
+                FragmentCardCatalog.All, character.HandSize, seed, FragmentRelicCatalog.All, character.Archetype);
+            run.ApplyLegacyBenefits(benefits);
             run.EnableJournal(character.Id);
             return run;
         }

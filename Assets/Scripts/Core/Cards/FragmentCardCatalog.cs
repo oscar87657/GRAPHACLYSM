@@ -30,7 +30,15 @@ namespace Graphaclysm.Core.Cards
             CardDefinition.CreateWeaveFragment("frag.limacon","편월",FragmentKind.Limacon,CardRarity.Common,"한쪽 반경 부풀리기",0,Enemy(CardAbilityKind.Weaken,2),Self(CardAbilityKind.Heal,2)),
             CardDefinition.CreateWeaveFragment("frag.shear","비껴쓴 선",FragmentKind.Shear,CardRarity.Common,"높이에 따라 비틀기",0,Enemy(CardAbilityKind.Exposure,1),Self(CardAbilityKind.Shield,4)),
             CardDefinition.CreateWeaveFragment("frag.phase","엇박자",FragmentKind.PhaseOffset,CardRarity.Uncommon,"가로 박자 앞당기기",1,Self(CardAbilityKind.Cleanse,1)),
-            CardDefinition.CreateWeaveFragment("frag.cube","삼중봉인",FragmentKind.ComplexCube,CardRarity.Rare,"궤적을 세제곱",0,Enemy(CardAbilityKind.Anchor,1,2),Self(CardAbilityKind.Focus,3,2))
+            CardDefinition.CreateWeaveFragment("frag.cube","삼중봉인",FragmentKind.ComplexCube,CardRarity.Rare,"궤적을 세제곱",0,Enemy(CardAbilityKind.Anchor,1,2),Self(CardAbilityKind.Focus,3,2)),
+            CardDefinition.CreateWeaveFragment("frag.cinder","꺼지지 않는 재",FragmentKind.Counterpoint,CardRarity.Uncommon,"역회전 끝에 불씨를 묻기",0,Enemy(CardAbilityKind.Burn,2,3),Enemy(CardAbilityKind.Rupture,2,2)),
+            CardDefinition.CreateWeaveFragment("frag.guardian","가시 성좌",FragmentKind.Orbit,CardRarity.Uncommon,"자신을 감싸는 가시 궤도",0,Self(CardAbilityKind.Thorns,3,2),Self(CardAbilityKind.Shield,4)),
+            CardDefinition.CreateWeaveFragment("frag.momentum","유성 보폭",FragmentKind.TranslateRight,CardRarity.Common,"다음 궤적을 향해 전진",1,Self(CardAbilityKind.Momentum,3,2)),
+            CardDefinition.CreateWeaveFragment("frag.bastion","별빛 보루",FragmentKind.Contract,CardRarity.Uncommon,"빛을 접어 두 겹으로 지키기",1,Self(CardAbilityKind.Fortify,5,2)),
+            CardDefinition.CreateWeaveFragment("frag.shatter","파쇄의 정리",FragmentKind.ComplexCube,CardRarity.Rare,"균열을 세제곱해 깊게 새기기",0,Enemy(CardAbilityKind.Rupture,5,2)),
+            CardDefinition.CreateWeaveFragment("frag.requiem","붉은 만가",FragmentKind.Epitrochoid,CardRarity.Rare,"불타는 바깥 회전을 되감기",0,Enemy(CardAbilityKind.Burn,4,3),Enemy(CardAbilityKind.Rupture,2,2)),
+            CardDefinition.CreateWeaveFragment("frag.refraction","굴절 보법",FragmentKind.Shear,CardRarity.Uncommon,"비껴선 힘을 다음 선으로 넘기기",0,Enemy(CardAbilityKind.Exposure,2,2),Self(CardAbilityKind.Momentum,3,2)),
+            CardDefinition.CreateWeaveFragment("frag.sanctuary","성운의 품",FragmentKind.Petal,CardRarity.Rare,"접힌 꽃잎 안에서 숨 고르기",0,Self(CardAbilityKind.Fortify,6,2),Self(CardAbilityKind.Heal,4))
         };
         public static IReadOnlyList<CardDefinition> All => cards;
         // Utility fragments do not earn free damage simply for occupying a socket.

@@ -2,12 +2,16 @@ using System;
 
 namespace Graphaclysm.Core.Combat
 {
-    public enum CombatStatusKind { Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste }
+    public enum CombatStatusKind
+    {
+        Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste,
+        Thorns, Momentum, Fortify, Rupture
+    }
 
-    /// <summary>Eight fixed status slots per combatant, owned for one battle. No per-turn allocation.</summary>
+    /// <summary>Twelve fixed status slots per combatant, owned for one battle. No per-turn allocation.</summary>
     public sealed class CombatStatusState
     {
-        public const int Capacity = 8;
+        public const int Capacity = 12;
         public const int MaximumMagnitude = 24;
         private readonly int[] magnitudes = new int[Capacity];
         private readonly int[] durations = new int[Capacity];
@@ -53,7 +57,10 @@ namespace Graphaclysm.Core.Combat
         {
             for (int i = 0; i < Capacity; i++)
             {
-                bool isDebuff = i >= (int)CombatStatusKind.Burn && i <= (int)CombatStatusKind.Anchor;
+                CombatStatusKind kind = (CombatStatusKind)i;
+                bool isDebuff = kind == CombatStatusKind.Burn || kind == CombatStatusKind.Weaken
+                    || kind == CombatStatusKind.Exposure || kind == CombatStatusKind.Anchor
+                    || kind == CombatStatusKind.Rupture;
                 if (isDebuff == debuffs) Remove((CombatStatusKind)i);
             }
         }

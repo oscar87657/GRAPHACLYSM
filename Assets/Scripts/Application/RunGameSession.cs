@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Graphaclysm.Core.Cards;
+using Graphaclysm.Core.Characters;
 using Graphaclysm.Core.Combat;
 using Graphaclysm.Core.Decks;
 using Graphaclysm.Core.Relics;
@@ -39,6 +40,10 @@ namespace Graphaclysm.Application
 
         private int persistentHealth;
         private int persistentResonance;
+        private int legacyVictoryHealing;
+        private int legacyStartingResonance;
+        private int legacyStartingShield;
+        private LegacyBenefits appliedLegacyBenefits;
         private int encounterNumber;
         private string calculatorX = "t-3", calculatorY = "t-3";
 
@@ -64,7 +69,8 @@ namespace Graphaclysm.Application
             IReadOnlyList<CardDefinition> rewardPool,
             int handSize,
             uint seed,
-            IReadOnlyList<RelicDefinition> relicPool = null)
+            IReadOnlyList<RelicDefinition> relicPool = null,
+            CombatArchetype archetype = CombatArchetype.None)
         {
             if (rewardPool == null || rewardPool.Count < RewardOptionCount)
             {
@@ -138,6 +144,7 @@ namespace Graphaclysm.Application
             rewardRandom = new XorShiftRandom(runSeed ^ 0xA511E9B3u);
             Deck = new RunDeck(startingDeck);
             Relics = new RunRelicCollection();
+            Growth = new RunGrowthState(archetype);
             Map = new RunMapProgress(map ?? throw new ArgumentNullException(nameof(map)));
             persistentHealth = Map.Definition.PlayerMaxHealth;
             Phase = RunPhase.MapSelection;
@@ -145,6 +152,7 @@ namespace Graphaclysm.Application
 
         public RunDeck Deck { get; }
         public RunRelicCollection Relics { get; }
+        public RunGrowthState Growth { get; }
         public RunMapProgress Map { get; }
         public BattleGameSession CurrentBattle { get; private set; }
         public RunPhase Phase { get; private set; }
@@ -163,6 +171,15 @@ namespace Graphaclysm.Application
             }
         }
         public int Resonance => persistentResonance;
+
+        internal void ApplyLegacyBenefits(LegacyBenefits benefits)
+        {
+            appliedLegacyBenefits = benefits;
+            legacyVictoryHealing = Math.Max(0, benefits.VictoryHealing);
+            legacyStartingResonance = Math.Max(0, benefits.StartingResonance);
+            legacyStartingShield = Math.Max(0, benefits.StartingShield);
+            Growth.AddExperience(benefits.StartingExperience);
+        }
 
         public int EncounterCount
         {
@@ -240,6 +257,15 @@ namespace Graphaclysm.Application
         public bool TryToggleUltimate()
             => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryToggleUltimate(), RunCommandKind.ToggleUltimate);
 
+        public bool TryUseCombatSkill()
+            => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryUseCombatSkill(), RunCommandKind.UseCombatSkill);
+
+        public bool TryPurchaseGrowthNode(int nodeIndex)
+            => Record(Phase == RunPhase.MapSelection && Growth.TryPurchase(nodeIndex), RunCommandKind.PurchaseGrowth, nodeIndex);
+
+        public bool TrySelectGrowthNode(int nodeIndex)
+            => Record(Phase == RunPhase.MapSelection && Growth.TrySelect(nodeIndex), RunCommandKind.SelectGrowth, nodeIndex);
+
         public bool TryUndoLastPlayedCard(out CardDefinition restoredCard)
         {
             if (Phase != RunPhase.Battle)
@@ -273,7 +299,7 @@ namespace Graphaclysm.Application
         {
             persistentHealth = CurrentBattle.Battle.PlayerHealth;
             persistentResonance = Math.Min(6,(CurrentBattle.Battle.Tactics?.Resonance ?? 0) + Relics.GetTotalMagnitude(RelicEffectKind.VictoryResonance));
-            int healing = Relics.GetTotalMagnitude(RelicEffectKind.HealAfterVictory);
+            int healing = Relics.GetTotalMagnitude(RelicEffectKind.HealAfterVictory) + legacyVictoryHealing;
             persistentHealth = healing >= PlayerMaxHealth - persistentHealth
                 ? PlayerMaxHealth
                 : persistentHealth + healing;
@@ -283,6 +309,7 @@ namespace Graphaclysm.Application
             {
                 throw new InvalidOperationException("The active map node could not be completed.");
             }
+            AwardExploration(completedNodeKind);
 
             if(completedNodeKind == RunNodeKind.Boss && Map.Phase != RunMapProgressPhase.Completed)
             { persistentHealth = Math.Min(PlayerMaxHealth,persistentHealth+8); RoomResult = "층 보스 격파 · 체력 8 회복. 다음 층으로 이어집니다."; }
@@ -388,7 +415,8 @@ namespace Graphaclysm.Application
                 health,
                 energyBonus,
                 plotDamageBonus,
-                persistentResonance, Relics);
+                Math.Min(6, persistentResonance + legacyStartingResonance), Relics,
+                Growth.CreateLoadout(), legacyStartingShield);
             if (battle.Equation.IsCalculator) battle.TrySetCalculator(calculatorX, calculatorY, out _);
             uint battleSeed = runSeed + (uint)(nodeIndex + 1) * 0x9E3779B9u;
             int handBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusHandSize);
@@ -520,6 +548,13 @@ namespace Graphaclysm.Application
             {
                 relicRewardOptions[i] = null;
             }
+        }
+
+        private void AwardExploration(RunNodeKind kind)
+        {
+            int experience = kind == RunNodeKind.Boss ? 4 : kind == RunNodeKind.Elite ? 3
+                : kind == RunNodeKind.Battle ? 2 : 1;
+            Growth.AddExperience(experience);
         }
     }
 }

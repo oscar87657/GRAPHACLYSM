@@ -4,6 +4,7 @@ using Graphaclysm.Core.Cards;
 using Graphaclysm.Core.Characters;
 using Graphaclysm.Core.Combat;
 using Graphaclysm.Core.Equations;
+using Graphaclysm.Core.Relics;
 using UnityEngine;
 using static Graphaclysm.Runtime.Presentation.AstralUi;
 
@@ -22,6 +23,7 @@ namespace Graphaclysm.Runtime.Presentation
         private Texture2D backdrop, ianPortrait, lunaPortrait, disc;
         private Texture2D ianProfileClosed, ianProfileOpen, lunaProfileClosed, lunaProfileOpen;
         private Texture2D ianMedallionClosed, ianMedallionOpen, lunaMedallionClosed, lunaMedallionOpen;
+        private Texture2D[] relicArt;
         private Material portraitMaterial;
         private SkillVisual[] visuals;
         private string hpText = "", energyText = "", turnText = "", formulaText = "", outcomeText = "", selfStateText = "";
@@ -38,7 +40,7 @@ namespace Graphaclysm.Runtime.Presentation
         private Rect handInspectionRect;
         private float castStarted;
         private string lastPlotName = "";
-        private static readonly string[] AbilityNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "회복", "정화" };
+        private static readonly string[] AbilityNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "파열", "회복", "정화" };
         private static readonly string[] RarityNames = { "일반", "고급", "희귀", "전설" };
         private const float FieldUnit = 118;
         private static readonly Rect Field = new Rect(370, 68, 10 * FieldUnit, 8 * FieldUnit);
@@ -79,6 +81,12 @@ namespace Graphaclysm.Runtime.Presentation
             ianProfileOpen = Resources.Load<Texture2D>("Art/Generated/ian-profile-eyes-open-v11");
             lunaProfileClosed = Resources.Load<Texture2D>("Art/Generated/luna-profile-eyes-closed-v11");
             lunaProfileOpen = Resources.Load<Texture2D>("Art/Generated/luna-profile-eyes-open-v11");
+            relicArt = new Texture2D[FragmentRelicCatalog.All.Count];
+            for (int i = 0; i < relicArt.Length; i++)
+            {
+                string resource = FragmentRelicCatalog.All[i].ImageResource;
+                if (!string.IsNullOrEmpty(resource)) relicArt[i] = Resources.Load<Texture2D>(resource);
+            }
             spellRenderer = new AstralSpellRenderer();
             BuildVisuals(); BuildDisc(); BuildPortraitMedallions(); InitializeServices(); Refresh();
             UnityEngine.Application.targetFrameRate = 60;
@@ -86,7 +94,7 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void OnDestroy()
         {
-            SaveCurrent(true); SavePreferences();
+            SaveCurrent(true); SavePreferences(); SaveLegacy();
             sound?.Dispose(); spellRenderer?.Dispose();
             if (disc != null) Destroy(disc);
             if (ianMedallionClosed != null) Destroy(ianMedallionClosed);
@@ -189,7 +197,7 @@ namespace Graphaclysm.Runtime.Presentation
             roomResourceText = "체력 " + run.PlayerHealth + " / " + run.PlayerMaxHealth + "    ·    공명 " + run.Resonance + " / 6";
             deckPageText = (deckPage + 1) + " / " + ((run.Deck.Count + 11) / 12);
             deckText = "덱 " + run.Deck.Count + "  ·  유물 " + run.Relics.Count;
-            hpText = (battle == null ? run.PlayerHealth : battle.PlayerHealth) + " / " + character.MaxHealth;
+            hpText = (battle == null ? run.PlayerHealth : battle.PlayerHealth) + " / " + run.PlayerMaxHealth;
             if (battle == null) return;
             energyText = battle.Energy + " / " + battle.PlayerMaxEnergy;
             if(battle.UsesFragments)
@@ -226,7 +234,10 @@ namespace Graphaclysm.Runtime.Presentation
             if (battle.Equation.IsCalculator && battle.Phase == BattlePhase.PlayerPlanning && !battle.CanPlot)
                 outcomeText = battle.Equation.TraceLength > BattleSession.MaximumTraceLength ? "잉크 초과 · 선을 줄이세요" : "필드 안에 선을 그리세요";
             selfStateText = battle.Tactics == null ? "" : DescribeStatuses(battle.Tactics.Statuses);
-            ultimateText = (character.Archetype == CombatArchetype.Ian ? "흑유리 개방" : "백야의 포옹");
+            int ultimateVariant = run.Growth.UltimateVariant;
+            ultimateText = character.Archetype == CombatArchetype.Ian
+                ? (ultimateVariant == 1 ? "산산조각" : ultimateVariant == 2 ? "불멸의 기록" : "흑유리 개방")
+                : (ultimateVariant == 1 ? "만월의 포옹" : ultimateVariant == 2 ? "그믐의 칼날" : "백야의 포옹");
             if (battle.Tactics != null && battle.Tactics.UltimateArmed) ultimateText += " · 준비됨";
             for (int i = 0; i < game.Deck.HandCount; i++)
                 cardFailures[i] = battle.CanPlayCard(game.Deck.GetHandCard(i), out CardPlayFailure failure) ? "" : Failure(failure);
@@ -288,6 +299,8 @@ namespace Graphaclysm.Runtime.Presentation
                 else if (settingsOpen) CloseSettings();
                 else if (helpOpen) CloseHelp();
                 else if (inventoryOpen) inventoryOpen = false;
+                else if (growthOpen) growthOpen = false;
+                else if (legacyOpen) legacyOpen = false;
                 else if (codexOpen) codexOpen = false;
                 else if (run != null) paused = !paused;
                 else if (flow.Phase == GameFlowPhase.CharacterSelection) { flow.ReturnToMainMenu(); Refresh(); }
@@ -299,6 +312,8 @@ namespace Graphaclysm.Runtime.Presentation
                 if (e.keyCode == KeyCode.F1) { if (helpOpen) CloseHelp(); else OpenHelp(); e.Use(); return; }
                 if (e.keyCode == KeyCode.D && run != null && !helpOpen)
                 { if (inventoryOpen) inventoryOpen = false; else OpenInventory(); e.Use(); return; }
+                if (e.keyCode == KeyCode.G && run != null && !helpOpen)
+                { growthOpen = !growthOpen; paused = false; e.Use(); return; }
             }
             if (codexOpen || ModalOpen || run == null || run.Phase != RunPhase.Battle || castActive) return;
             string focused = GUI.GetNameOfFocusedControl();
@@ -320,6 +335,7 @@ namespace Graphaclysm.Runtime.Presentation
                 case KeyCode.DownArrow: Move(0, -1.5); break;
                 case KeyCode.Return: StartCast(); break;
                 case KeyCode.Space: if(battle.UsesFragments) Condense(); break;
+                case KeyCode.K: if (run.TryUseCombatSkill()) { message = "전투 기술을 사용했습니다."; Refresh(); } break;
                 default: return;
             }
             e.Use();
@@ -373,6 +389,10 @@ namespace Graphaclysm.Runtime.Presentation
                 case CardAbilityKind.Focus: return "다음 작도 피해 +" + a.Magnitude;
                 case CardAbilityKind.Anchor: return "이동 봉쇄 · 적 행동 " + a.Duration + "회";
                 case CardAbilityKind.Haste: return "다음 이동 무료 · 적 행동 " + a.Duration + "회";
+                case CardAbilityKind.Thorns: return "체력 피해를 받으면 공격자에게 " + a.Magnitude + " 반격";
+                case CardAbilityKind.Momentum: return "다음 작도 피해 +" + a.Magnitude + " · 발동 후 소모";
+                case CardAbilityKind.Fortify: return "적 행동 직전에 보호막 " + a.Magnitude + " 획득";
+                case CardAbilityKind.Rupture: return "다음에 받는 작도 피해 +" + a.Magnitude + " · 발동 후 소모";
                 default: return AbilityNames[(int)a.Kind] + " " + a.Magnitude + " · 적 행동 " + a.Duration + "회";
             }
         }

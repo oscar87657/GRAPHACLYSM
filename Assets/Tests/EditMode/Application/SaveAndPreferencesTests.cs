@@ -35,6 +35,10 @@ namespace Graphaclysm.Tests.Application
         {
             Assert.That(b.Seed, Is.EqualTo(a.Seed)); Assert.That(b.Phase, Is.EqualTo(a.Phase));
             Assert.That(b.PlayerHealth, Is.EqualTo(a.PlayerHealth)); Assert.That(b.Resonance, Is.EqualTo(a.Resonance));
+            Assert.That(b.PlayerMaxHealth, Is.EqualTo(a.PlayerMaxHealth));
+            Assert.That(b.Growth.Level, Is.EqualTo(a.Growth.Level)); Assert.That(b.Growth.Experience, Is.EqualTo(a.Growth.Experience));
+            Assert.That(b.Growth.Points, Is.EqualTo(a.Growth.Points)); Assert.That(b.Growth.ActiveVariant, Is.EqualTo(a.Growth.ActiveVariant));
+            Assert.That(b.Growth.UltimateVariant, Is.EqualTo(a.Growth.UltimateVariant));
             Assert.That(b.Map.ActiveNodeIndex, Is.EqualTo(a.Map.ActiveNodeIndex));
             Assert.That(b.Map.LastCompletedNodeIndex, Is.EqualTo(a.Map.LastCompletedNodeIndex));
             Assert.That(b.Deck.Count, Is.EqualTo(a.Deck.Count)); Assert.That(b.Relics.Count, Is.EqualTo(a.Relics.Count));
@@ -58,15 +62,16 @@ namespace Graphaclysm.Tests.Application
             Assert.That(y.PendingDrawBonus, Is.EqualTo(x.PendingDrawBonus));
             Assert.That(y.Tactics.X, Is.EqualTo(x.Tactics.X)); Assert.That(y.Tactics.Y, Is.EqualTo(x.Tactics.Y));
             Assert.That(y.Tactics.HasMoved, Is.EqualTo(x.Tactics.HasMoved));
+            Assert.That(y.CombatSkillUsed, Is.EqualTo(x.CombatSkillUsed));
             Assert.That(y.Tactics.UltimateArmed, Is.EqualTo(x.Tactics.UltimateArmed)); Assert.That(y.Tactics.Resonance, Is.EqualTo(x.Tactics.Resonance));
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < CombatStatusState.Capacity; i++)
             { Assert.That(y.Tactics.Statuses.Get((CombatStatusKind)i), Is.EqualTo(x.Tactics.Statuses.Get((CombatStatusKind)i))); Assert.That(y.Tactics.Statuses.Duration((CombatStatusKind)i), Is.EqualTo(x.Tactics.Statuses.Duration((CombatStatusKind)i))); }
             for (int i = 0; i < x.Enemies.Count; i++)
             {
                 var e = x.Enemies[i]; var f = y.Enemies[i];
                 Assert.That(f.Health, Is.EqualTo(e.Health)); Assert.That(f.X, Is.EqualTo(e.X)); Assert.That(f.Y, Is.EqualTo(e.Y));
                 Assert.That(f.AimX, Is.EqualTo(e.AimX)); Assert.That(f.AimY, Is.EqualTo(e.AimY));
-                for (int j = 0; j < 8; j++)
+                for (int j = 0; j < CombatStatusState.Capacity; j++)
                 { Assert.That(f.Statuses.Get((CombatStatusKind)j), Is.EqualTo(e.Statuses.Get((CombatStatusKind)j))); Assert.That(f.Statuses.Duration((CombatStatusKind)j), Is.EqualTo(e.Statuses.Duration((CombatStatusKind)j))); }
             }
             for (int i = 0; i < 48; i++)

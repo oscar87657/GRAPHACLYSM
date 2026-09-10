@@ -16,6 +16,10 @@ namespace Graphaclysm.Runtime.Presentation
             "받는 작도 피해가 수치만큼 증가합니다.",
             "이동할 수 없습니다. 적에게 적용하면 자리 이동도 봉쇄합니다.",
             "이동 비용을 없애며, 현재 파편 전투에서는 다음 이동 때 소비됩니다.",
+            "체력 피해를 받으면 공격자에게 수치만큼 반격 피해를 줍니다.",
+            "다음 그래프의 적중 피해가 증가하고 방출 뒤 소모됩니다.",
+            "적 행동 직전에 수치만큼 보호막으로 전환됩니다.",
+            "다음에 받는 그래프 피해가 증가하고 적중 뒤 소모됩니다.",
             "자가 적중이 발생하면 체력을 즉시 회복합니다.",
             "대상에게 걸린 해로운 상태 또는 강화를 제거합니다."
         };
@@ -87,7 +91,9 @@ namespace Graphaclysm.Runtime.Presentation
                 bool hover = chip.Contains(Event.current.mousePosition);
                 Fill(chip, light ? new Color(1, 1, 1, hover ? .18f : .08f)
                     : new Color(Violet.r, Violet.g, Violet.b, hover ? .22f : .10f));
-                Border(chip, i >= (int)CombatStatusKind.Burn && i <= (int)CombatStatusKind.Anchor ? Threat : Violet, 6);
+                bool debuff = i >= (int)CombatStatusKind.Burn && i <= (int)CombatStatusKind.Anchor
+                    || i == (int)CombatStatusKind.Rupture;
+                Border(chip, debuff ? Threat : Violet, 6);
                 Label(new Rect(chip.x + 3, chip.y, chip.width - 6, chip.height), AbilityNames[i],
                     light ? ui.SmallLight : ui.Small, true);
                 RegisterKeyword(chip, AbilityNames[i], KeywordDescriptions[i]);

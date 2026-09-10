@@ -37,13 +37,18 @@ namespace Graphaclysm.Application
                 case RoomEffect.RelicReward: GenerateRelicRewardOptions(); next = RunPhase.RelicReward; break;
                 case RoomEffect.RemoveCard: next = RunPhase.DeckRefinement; break;
             }
+            RunNodeKind completedKind = Map.Definition.GetNode(Map.ActiveNodeIndex).Kind;
             if (!Map.TryCompleteActiveNode()) throw new InvalidOperationException("Room completion lost its active node.");
+            AwardExploration(completedKind);
             Phase = next == RunPhase.MapSelection && Map.Phase == RunMapProgressPhase.Completed ? RunPhase.Completed : next;
             return Record(true, RunCommandKind.ChooseRoom, index);
         }
         public bool TryLeaveRoom()
         {
-            if (Phase != RunPhase.Room || !Map.TryCompleteActiveNode()) return false;
+            if (Phase != RunPhase.Room) return false;
+            RunNodeKind completedKind = Map.Definition.GetNode(Map.ActiveNodeIndex).Kind;
+            if (!Map.TryCompleteActiveNode()) return false;
+            AwardExploration(completedKind);
             RoomResult = "방을 조용히 지나쳤습니다.";
             Phase = Map.Phase == RunMapProgressPhase.Completed ? RunPhase.Completed : RunPhase.MapSelection;
             return Record(true, RunCommandKind.LeaveRoom);

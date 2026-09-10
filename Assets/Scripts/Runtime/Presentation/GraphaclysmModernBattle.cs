@@ -35,7 +35,7 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(108, 652, 130, 28), "생명", ui.Small);
             Label(new Rect(250, 648, 165, 34), hpText, ui.Number);
             Fill(new Rect(108, 691, 300, 3), new Color(Ink.r, Ink.g, Ink.b, 0.12f));
-            Fill(new Rect(108, 691, 300 * battle.PlayerHealth / flow.CurrentCharacter.MaxHealth, 3), Violet);
+            Fill(new Rect(108, 691, 300 * battle.PlayerHealth / battle.PlayerMaxHealth, 3), Violet);
             Label(new Rect(108, 710, 180, 28), battle.UsesFragments ? "턴 드로우" : "에너지", ui.Small);
             Label(new Rect(290, 704, 125, 36), battle.UsesFragments ? drawStatus : energyText, battle.UsesFragments ? ui.Body : ui.Number);
             Label(new Rect(100, 752, 330, 48), selfStateText, ui.Small);
@@ -46,8 +46,7 @@ namespace Graphaclysm.Runtime.Presentation
                 !castActive && battle.Tactics.Resonance >= TacticalCombatState.UltimateCost))
             { run.TryToggleUltimate(); Refresh(); }
             Rect ultimateInfo = new Rect(100, 911, 330, 73);
-            Label(ultimateInfo, flow.CurrentCharacter.Archetype == CombatArchetype.Ian
-                ? "공명 6  /  피해 +6 · 적 이동 봉쇄" : "공명 6  /  자신 적중 확대\n정화 · 보호막 8 · 회복 5", ui.Small);
+            Label(ultimateInfo, UltimateSkillDescription(), ui.Small);
         }
 
         private void DrawBoard()

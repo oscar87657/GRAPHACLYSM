@@ -140,7 +140,7 @@ namespace Graphaclysm.Runtime.Presentation
                 if(codexRelics)
                 {
                     var relic=FragmentRelicCatalog.All[index];Fill(r,new Color(1,1,1,.5f));Border(r,index==codexSelected?Violet:Gold);
-                    Diamond(new Vector2(r.center.x,r.y+69),32,Gold);Ring(new Vector2(r.center.x,r.y+69),23,Violet);
+                    DrawRelicArt(new Rect(r.x+48,r.y+12,r.width-96,106),relic);
                     Label(new Rect(r.x+13,r.y+121,r.width-26,50),relic.DisplayName,ui.Body,true);
                     Label(new Rect(r.x+15,r.y+176,r.width-30,78),relic.Description,ui.Small,true);
                 }
@@ -155,9 +155,10 @@ namespace Graphaclysm.Runtime.Presentation
             if(codexRelics)
             {
                 var relic=FragmentRelicCatalog.All[codexSelected];
-                Label(new Rect(1210,310,525,75),relic.DisplayName,ui.Heading);
-                Label(new Rect(1210,408,525,140),relic.Description,ui.Body);
-                Label(new Rect(1210,602,525,120),"유물방과 정예·층 보스 보상에서 획득합니다.\n같은 유물은 중복 획득하지 않습니다.",ui.Body);
+                DrawRelicArt(new Rect(1260, 262, 420, 300), relic);
+                Label(new Rect(1210,570,525,55),relic.DisplayName,ui.Heading,true);
+                Label(new Rect(1210,642,525,110),relic.Description,ui.Body,true);
+                Label(new Rect(1210,790,525,100),"유물방과 정예·층 보스 보상에서 획득합니다.\n같은 유물은 중복 획득하지 않습니다.",ui.Body,true);
             }
             else
             {

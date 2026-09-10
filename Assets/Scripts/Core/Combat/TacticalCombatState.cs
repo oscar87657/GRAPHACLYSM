@@ -13,6 +13,7 @@ namespace Graphaclysm.Core.Combat
         public const double MoveDistance = 1.5;
         public const double PlayerRadius = 0.48;
         public CombatArchetype Archetype { get; }
+        public int UltimateVariant { get; }
         public CombatStatusState Statuses { get; } = new CombatStatusState();
         public double X { get; private set; }
         public double Y { get; private set; }
@@ -20,16 +21,20 @@ namespace Graphaclysm.Core.Combat
         public bool UltimateArmed { get; private set; }
         public bool HasMoved { get; private set; }
         private double moveOriginX, moveOriginY;
-        private int savedHaste, savedHasteDuration;
-        public double HitRadius => UltimateArmed && Archetype == CombatArchetype.Luna ? 1.0 : PlayerRadius;
+        private int savedHaste, savedHasteDuration, savedMomentum, savedMomentumDuration;
+        public double HitRadius => UltimateArmed && Archetype == CombatArchetype.Luna
+            ? (UltimateVariant == 1 ? 1.25 : 1.0) : PlayerRadius;
         public int MoveCost => Statuses.Get(CombatStatusKind.Haste) > 0 ? 0 : 1;
         public int AttackBonus => Statuses.Get(CombatStatusKind.Focus)
             - Statuses.Get(CombatStatusKind.Weaken)
-            + (UltimateArmed && Archetype == CombatArchetype.Ian ? 6 : 0);
+            + Statuses.Get(CombatStatusKind.Momentum)
+            + (UltimateArmed && Archetype == CombatArchetype.Ian ? (UltimateVariant == 1 ? 10 : 6) : 0)
+            + (UltimateArmed && Archetype == CombatArchetype.Luna && UltimateVariant == 2 ? 4 : 0);
 
-        internal TacticalCombatState(CombatArchetype archetype, int resonance)
+        internal TacticalCombatState(CombatArchetype archetype, int resonance, int ultimateVariant = 0)
         {
             Archetype = archetype;
+            UltimateVariant = Math.Max(0, Math.Min(2, ultimateVariant));
             Reset(resonance);
         }
 
@@ -56,6 +61,7 @@ namespace Graphaclysm.Core.Combat
         {
             moveOriginX = X; moveOriginY = Y;
             savedHaste = Statuses.Get(CombatStatusKind.Haste); savedHasteDuration = Statuses.Duration(CombatStatusKind.Haste);
+            savedMomentum = Statuses.Get(CombatStatusKind.Momentum); savedMomentumDuration = Statuses.Duration(CombatStatusKind.Momentum);
             X += dx;
             Y += dy;
             HasMoved = true;
@@ -64,8 +70,10 @@ namespace Graphaclysm.Core.Combat
         internal void UndoMove()
         {
             X = moveOriginX; Y = moveOriginY; HasMoved = false;
+            Statuses.Remove(CombatStatusKind.Momentum);
             if (savedHaste > 0) Statuses.Add(CombatStatusKind.Haste, savedHaste, savedHasteDuration);
-            savedHaste = 0; savedHasteDuration = 0;
+            if (savedMomentum > 0) Statuses.Add(CombatStatusKind.Momentum, savedMomentum, savedMomentumDuration);
+            savedHaste = 0; savedHasteDuration = 0; savedMomentum = 0; savedMomentumDuration = 0;
         }
 
         internal bool ToggleUltimate()
@@ -83,8 +91,8 @@ namespace Graphaclysm.Core.Combat
             Statuses.Add(CombatStatusKind.Shield, 3, 1);
             if (!UltimateArmed || Archetype != CombatArchetype.Luna) return 0;
             Statuses.Cleanse(true);
-            Statuses.Add(CombatStatusKind.Shield, 8, 1);
-            return 5;
+            Statuses.Add(CombatStatusKind.Shield, UltimateVariant == 1 ? 12 : UltimateVariant == 2 ? 6 : 8, 1);
+            return UltimateVariant == 1 ? 7 : UltimateVariant == 2 ? 3 : 5;
         }
 
         internal int ApplySelfInscription(InscriptionKind inscription)
@@ -119,6 +127,15 @@ namespace Graphaclysm.Core.Combat
             if (UltimateArmed) Resonance -= UltimateCost;
             Resonance = Math.Min(UltimateCost, Resonance + 1 + (hitSelf && enemiesHit > 0 ? 1 : 0));
             UltimateArmed = false;
+        }
+
+        internal void GrantExtraMove()
+        {
+            HasMoved = false;
+            savedHaste = 0;
+            savedHasteDuration = 0;
+            savedMomentum = 0;
+            savedMomentumDuration = 0;
         }
 
         internal static int ApplyAbility(CombatStatusState statuses, CardAbility ability)

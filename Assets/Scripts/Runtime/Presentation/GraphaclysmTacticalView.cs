@@ -9,7 +9,7 @@ namespace Graphaclysm.Runtime.Presentation
     {
         private static readonly string[] GridXLabels = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
         private static readonly string[] GridYLabels = { "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4" };
-        private static readonly string[] StatusNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌" };
+        private static readonly string[] StatusNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "파열" };
         // View owns hand-capacity buffers; strings rebuild only after commands.
         private string[] cardTooltips;
         private string tacticalText, ultimateText, playerLabel, moveLabel;

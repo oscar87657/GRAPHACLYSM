@@ -53,7 +53,7 @@ namespace Graphaclysm.Application
             return false;
         }
 
-        private static bool TryRead(string file, out RunGameSession run, out CharacterDefinition character)
+        private bool TryRead(string file, out RunGameSession run, out CharacterDefinition character)
         {
             run = null; character = null;
             try
@@ -72,6 +72,9 @@ namespace Graphaclysm.Application
                 {
                     writer.Write(Magic); writer.Write(RunSaveData.FormatVersion); writer.Write(RunSaveData.RulesVersion);
                     writer.Write(data.Seed); writer.Write(data.CharacterId); writer.Write(data.SavedUtcTicks);
+                    writer.Write(data.LegacyBenefits.MaxHealth); writer.Write(data.LegacyBenefits.VictoryHealing);
+                    writer.Write(data.LegacyBenefits.StartingResonance); writer.Write(data.LegacyBenefits.StartingExperience);
+                    writer.Write(data.LegacyBenefits.StartingShield); writer.Write(data.LegacyBenefits.RewardBonus);
                     writer.Write(data.Commands.Length);
                     for (int i = 0; i < data.Commands.Length; i++) { writer.Write((byte)data.Commands[i].Kind); writer.Write(data.Commands[i].Argument); }
                 }
@@ -102,16 +105,24 @@ namespace Graphaclysm.Application
                 {
                     if (reader.ReadInt32() != Magic || reader.ReadInt32() != RunSaveData.FormatVersion || reader.ReadInt32() != RunSaveData.RulesVersion) return false;
                     uint seed = reader.ReadUInt32(); string character = reader.ReadString(); long ticks = reader.ReadInt64();
+                    int maxHealth = reader.ReadInt32(), victoryHealing = reader.ReadInt32();
+                    int startingResonance = reader.ReadInt32(), startingExperience = reader.ReadInt32();
+                    int startingShield = reader.ReadInt32(), rewardBonus = reader.ReadInt32();
+                    if (maxHealth < 0 || maxHealth > 100 || victoryHealing < 0 || victoryHealing > 20
+                        || startingResonance < 0 || startingResonance > 6 || startingExperience < 0 || startingExperience > 20
+                        || startingShield < 0 || startingShield > 24 || rewardBonus < 0 || rewardBonus > 20) return false;
                     int count = reader.ReadInt32();
                     if (seed == 0 || character.Length > 64 || ticks < 0 || ticks > DateTime.MaxValue.Ticks || count < 0 || count > RunSaveData.MaximumCommands || stream.Length - stream.Position != count * 5L) return false;
                     var commands = new RunCommand[count];
                     for (int i = 0; i < count; i++)
                     {
                         byte kind = reader.ReadByte(); int argument = reader.ReadInt32();
-                        if (kind > (byte)RunCommandKind.SkipRefinement) return false;
+                        if (kind > (byte)RunCommandKind.UseCombatSkill) return false;
                         commands[i] = new RunCommand((RunCommandKind)kind, argument);
                     }
-                    data = new RunSaveData { Seed = seed, CharacterId = character, SavedUtcTicks = ticks, Commands = commands };
+                    data = new RunSaveData { Seed = seed, CharacterId = character, SavedUtcTicks = ticks,
+                        LegacyBenefits = new LegacyBenefits(maxHealth, victoryHealing, startingResonance,
+                            startingExperience, startingShield, rewardBonus), Commands = commands };
                     return true;
                 }
             }

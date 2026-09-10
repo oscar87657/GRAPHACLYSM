@@ -42,6 +42,7 @@ namespace Graphaclysm.Application
         public int SelectedCharacterIndex { get; private set; }
         public CharacterDefinition CurrentCharacter { get; private set; }
         public RunGameSession CurrentRun { get; private set; }
+        public LegacyBenefits LegacyBenefits { get; set; }
         public int CharacterCount
         {
             get { return characters.Length; }
@@ -85,7 +86,7 @@ namespace Graphaclysm.Application
             }
 
             CurrentCharacter = characters[SelectedCharacterIndex];
-            CurrentRun = PrototypeRunFactory.Create(nextRunSeed, CurrentCharacter);
+            CurrentRun = PrototypeRunFactory.Create(nextRunSeed, CurrentCharacter, LegacyBenefits);
             nextRunSeed = AdvanceSeed(nextRunSeed);
             Phase = GameFlowPhase.Run;
             return true;
@@ -98,7 +99,7 @@ namespace Graphaclysm.Application
                 return false;
             }
 
-            CurrentRun = PrototypeRunFactory.Create(nextRunSeed, CurrentCharacter);
+            CurrentRun = PrototypeRunFactory.Create(nextRunSeed, CurrentCharacter, LegacyBenefits);
             nextRunSeed = AdvanceSeed(nextRunSeed);
             return true;
         }

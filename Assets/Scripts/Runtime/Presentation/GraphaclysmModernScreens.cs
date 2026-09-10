@@ -1,5 +1,6 @@
 using Graphaclysm.Application;
 using Graphaclysm.Core.Combat;
+using Graphaclysm.Core.Relics;
 using Graphaclysm.Core.Runs;
 using UnityEngine;
 using static Graphaclysm.Runtime.Presentation.AstralUi;
@@ -52,6 +53,7 @@ namespace Graphaclysm.Runtime.Presentation
             if (ui.Button(new Rect(140, 738, 350, 70), "새 기록 시작", !HasContinue)) RequestNewRun();
             if (ui.Button(new Rect(140, 827, 350, 52), "카드 사전")) {codexOpen=true;codexRelics=false;ChangeCodex(0,0);}
             if (ui.Button(new Rect(510, 827, 260, 52), "작도 안내")) OpenHelp();
+            if (ui.Button(new Rect(790, 827, 300, 52), "영구 기록 · 잔광 " + legacy.Currency)) legacyOpen = true;
             if (ui.Button(new Rect(140, 901, 350, 52), "설정")) OpenSettings();
             if (ui.Button(new Rect(510, 901, 260, 52), "게임 종료")) confirmation = Confirmation.Quit;
             Label(new Rect(510, 971, 1120, 65), saveNotice, ui.Small);
@@ -98,6 +100,25 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(1122, 838, 410, 72), ian ? "흑유리 개방 · 피해 +6 / 이동 봉쇄" : "백야의 포옹 · 정화 / 보호막 / 회복", ui.Small);
             if (ui.Button(new Rect(143, 966, 220, 51), "돌아가기")) { flow.ReturnToMainMenu(); Refresh(); }
             if (ui.Button(new Rect(785, 968, 350, 62), (flow.SelectedCharacterIndex == 0 ? "이안" : "루나") + "의 기록 시작", true)) { flow.TryStartRun(); Refresh(); }
+        }
+
+        private Texture2D RelicTexture(RelicDefinition relic)
+        {
+            if (relic == null || relicArt == null) return null;
+            for (int i = 0; i < FragmentRelicCatalog.All.Count; i++)
+                if (FragmentRelicCatalog.All[i].Id == relic.Id) return relicArt[i];
+            return null;
+        }
+
+        private void DrawRelicArt(Rect area, RelicDefinition relic)
+        {
+            Texture2D texture = RelicTexture(relic);
+            if (texture != null) GUI.DrawTexture(area, texture, ScaleMode.ScaleToFit, true);
+            else
+            {
+                Diamond(area.center, Mathf.Min(area.width, area.height) * .38f, Gold);
+                Diamond(area.center, Mathf.Min(area.width, area.height) * .22f, Violet, 2);
+            }
         }
 
         private void DrawCharacterMedallion(int index, Vector2 center, Texture2D closed, Texture2D open)
@@ -161,7 +182,8 @@ namespace Graphaclysm.Runtime.Presentation
                 if (active && GUI.Button(new Rect(p.x - 76, p.y - 40, 152, 156), GUIContent.none, GUIStyle.none))
                 { run.TrySelectMapNode(i); message = ""; GUI.FocusControl(null); Refresh(); break; }
             }
-            Label(new Rect(550, 958, 1210, 60), run.RoomResult, ui.Body, true);
+            Label(new Rect(550, 958, 900, 60), run.RoomResult, ui.Body, true);
+            if (ui.Button(new Rect(1510, 944, 250, 62), "원정 성장   G", true)) growthOpen = true;
         }
 
         private void DrawRewardsOrResult()
@@ -195,8 +217,7 @@ namespace Graphaclysm.Runtime.Presentation
                     {
                         var relic = run.RelicRewardOptions[i]; if (relic == null) continue;
                         Fill(r, new Color(1, 1, 1, 0.5f)); Border(r, hover ? Violet : Gold);
-                        Diamond(new Vector2(r.center.x, r.y + 134), 61, Gold);
-                        Diamond(new Vector2(r.center.x, r.y + 134), 35, Violet, 2);
+                        DrawRelicArt(new Rect(r.x + 48, r.y + 27, r.width - 96, 202), relic);
                         Label(new Rect(r.x + 25, r.y + 234, r.width - 50, 60), relic.DisplayName, ui.Heading, true);
                         Label(new Rect(r.x + 25, r.y + 310, r.width - 50, 79), relic.Description, ui.Body, true);
                     }
@@ -211,6 +232,7 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(145, 264, 1000, 118), victory ? "A Trace Remains" : "Until the Next Light", ui.Display);
             Label(new Rect(150, 423, 840, 55), victory ? "모든 기록을 이었습니다." : "이번 궤적은 여기서 멈춥니다.", ui.Heading);
             Label(new Rect(150, 512, 730, 75), victory ? "흩어진 빛은, 이제 하나의 길이 되었다." : "그리지 못한 선은 다음 만남을 기다린다.", ui.Body);
+            Label(new Rect(150, 612, 730, 42), "영구 기록 잔광 " + legacy.Currency + " · 메인 화면에서 사용할 수 있습니다.", ui.Small);
             if (ui.Button(new Rect(150, 715, 350, 68), "다시 시작", true)) { flow.TryRestartRun(); Refresh(); }
             if (ui.Button(new Rect(150, 804, 350, 55), "다른 여행자 선택")) { flow.ReturnToCharacterSelection(); Refresh(); }
             if (ui.Button(new Rect(150, 878, 350, 55), "처음으로")) { flow.ReturnToMainMenu(); Refresh(); }
