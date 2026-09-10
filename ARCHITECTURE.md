@@ -1,5 +1,15 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v10 전장·카드 UI와 지형
+
+`BattleTerrainDefinition`은 Core의 불변 ID·종류·좌표·반경을 가진다. `BattleDefinition`이 배열을 복사해 소유하고 `DungeonGenerator`가 원정 RNG로 일반·정예 2개, 보스 3개를 만든다. 초기 플레이어·적·다른 지형과 간격을 검증한다. `BattleSession`은 기둥과의 원 충돌로 플레이어/적 이동을 거부하고, `EquationAnalyzer`의 같은 선 샘플로 프리즘 교차를 판정해 적중 피해 +2를 적용한다. Presentation은 공개 정의와 `PrismCharged`를 읽기만 한다.
+
+전투의 수학 좌표는 `x=0~10`, `y=-4~4` 그대로이며 `FieldUnit`을 118로 높여 1180×944 활성 필드를 사용한다. `GraphaclysmBattlefieldView`가 전체 화면 바탕, 지형, 카드/상태 키워드와 가장자리 HUD 보조를 담당한다. 손패는 기존 카드 캐시를 회전해 그리며 호버 카드만 마지막에 다시 그린다. 확대 카드의 키워드 문자열 배열은 `BuildVisuals`에서 한 번 생성한다.
+
+캐릭터 선택은 기존 이안 v2·루나 v6 Texture를 입력으로 `PortraitMedallion.shader`를 통해 512×512 선명본·블러본 네 장을 `Awake`에서 한 번 굽는다. 원본을 수정하지 않으며 생성 Texture와 Material은 `OnDestroy`에서 해제한다. 이는 새 Profiler 측정 결과가 아니다.
+
+생성/전투 규칙 변경으로 `RunSaveData.RulesVersion=10`이다. v9 원정은 v10으로 재생하지 않으며 설정 저장 형식은 유지한다. 상세 내용은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)이다.
+
 ## v9 저장·설정·일시정지
 
 `RunGameSession`은 성공한 Application 명령의 `List<RunCommand>`를 소유한다. 256칸에서 필요할 때 증가하고 최대 65,536개(구조체 데이터 약 512 KiB)다. 초과 상태는 bool로 기록해 저장을 거부하고 마지막 파일을 유지한다. 예측·렌더링·충돌 루프에서는 기록하지 않는다. legacy/custom constructor는 기록을 켜지 않고 `PrototypeRunFactory.Create`만 캐릭터 ID와 함께 활성화한다.

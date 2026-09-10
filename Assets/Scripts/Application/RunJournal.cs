@@ -23,7 +23,7 @@ namespace Graphaclysm.Application
     public sealed class RunSaveData
     {
         public const int FormatVersion = 1;
-        public const int RulesVersion = 9;
+        public const int RulesVersion = 10;
         public const int MaximumCommands = 65536;
         public uint Seed;
         public string CharacterId;

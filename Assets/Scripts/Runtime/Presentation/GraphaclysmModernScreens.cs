@@ -61,21 +61,62 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawCharacters()
         {
-            bool ian = flow.SelectedCharacterIndex == 0;
+            Vector2 left = new Vector2(610, 477), right = new Vector2(1310, 477);
+            float pointerLeft = Vector2.Distance(Event.current.mousePosition, left);
+            float pointerRight = Vector2.Distance(Event.current.mousePosition, right);
+            hoveredCharacter = pointerLeft <= 260 ? 0 : pointerRight <= 260 ? 1 : -1;
+#if UNITY_EDITOR
+            if (DiagnosticHoveredCharacter >= 0 && DiagnosticHoveredCharacter < 2) hoveredCharacter = DiagnosticHoveredCharacter;
+#endif
+            int preview = hoveredCharacter >= 0 ? hoveredCharacter : flow.SelectedCharacterIndex;
+            bool ian = preview == 0;
+            var previewCharacter = flow.GetCharacter(preview);
+            string previewStats = "체력 " + previewCharacter.MaxHealth + "     시작 손패 5 · 보존 한도 8";
             Header("CHOOSE YOUR TRACE", "01 / TRAVELER");
-            Label(new Rect(146, 177, 720, 75), "빛을 기억하는 사람", ui.PageTitle);
-            Label(new Rect(152, 300, 700, 62), ian ? "이안" : "루나", ui.Heading);
-            Label(new Rect(152, 370, 680, 92), ian ? "깨진 유리에도, 지나간 빛은 남아 있어." : "틀린 회전은 없어. 아직 맞물리지 않았을 뿐.", ui.Body);
-            Label(new Rect(152, 502, 680, 45), characterStats, ui.Body);
-            Line(new Vector2(152, 568), new Vector2(758, 568), Gold);
-            Label(new Rect(152, 599, 670, 40), ian ? "흑유리 개방" : "백야의 포옹", ui.Heading);
-            Label(new Rect(152, 649, 650, 86), ian ? "공명 6  /  다음 작도 피해 +6\n적중한 적의 이동을 봉쇄한다." : "공명 6  /  자신이 선에 닿는 범위 확대\n자가 적중 시 정화 · 보호막 8 · 회복 5", ui.Body);
-            if (ui.Button(new Rect(150, 805, 270, 66), "이안", ian)) { flow.TrySelectCharacter(0); Refresh(); }
-            if (ui.Button(new Rect(441, 805, 270, 66), "루나", !ian)) { flow.TrySelectCharacter(1); Refresh(); }
-            Diamond(new Vector2(1344, 514), 329, new Color(Gold.r, Gold.g, Gold.b, 0.43f));
-            DrawPortrait(ian ? new Rect(990,136,698,840) : new Rect(1020,142,650,780), ian ? ianPortrait : lunaPortrait);
+            Label(new Rect(500, 118, 920, 54), "두 기록 사이에서 한 사람을 선택하세요", ui.PageTitle, true);
+            DrawCharacterMedallion(0, left, ianMedallionSoft, ianMedallion);
+            DrawCharacterMedallion(1, right, lunaMedallionSoft, lunaMedallion);
+
+            Fill(new Rect(889, 215, 142, 525), new Color(Paper.r, Paper.g, Paper.b, .88f));
+            Diamond(new Vector2(960, 477), 265, new Color(Gold.r, Gold.g, Gold.b, .66f), 2.2f);
+            Diamond(new Vector2(960, 477), 224, new Color(Violet.r, Violet.g, Violet.b, .48f), 1.4f);
+            Ring(new Vector2(960, 477), 72, new Color(Gold.r, Gold.g, Gold.b, .52f), 1.5f);
+            Label(new Rect(890, 440, 140, 74), "THE\nGATE", ui.Small, true);
+
+            if (GUI.Button(new Rect(left.x - 260, left.y - 260, 520, 520), GUIContent.none, GUIStyle.none))
+            { flow.TrySelectCharacter(0); Refresh(); }
+            if (GUI.Button(new Rect(right.x - 260, right.y - 260, 520, 520), GUIContent.none, GUIStyle.none))
+            { flow.TrySelectCharacter(1); Refresh(); }
+
+            Fill(new Rect(350, 770, 1220, 174), new Color(Paper.r, Paper.g, Paper.b, .9f));
+            Border(new Rect(350, 770, 1220, 174), flow.SelectedCharacterIndex == preview ? Violet : Gold, 18);
+            Label(new Rect(385, 789, 250, 48), ian ? "이안" : "루나", ui.PageTitle);
+            Label(new Rect(650, 790, 450, 42), ian ? "흑유리의 기록자" : "천문 도구의 조율자", ui.Heading);
+            Label(new Rect(385, 842, 710, 67), ian ? "깨진 유리에도, 지나간 빛은 남아 있어." : "틀린 회전은 없어. 아직 맞물리지 않았을 뿐.", ui.Body);
+            Label(new Rect(1122, 790, 410, 43), previewStats, ui.Small);
+            Label(new Rect(1122, 838, 410, 72), ian ? "흑유리 개방 · 피해 +6 / 이동 봉쇄" : "백야의 포옹 · 정화 / 보호막 / 회복", ui.Small);
             if (ui.Button(new Rect(143, 966, 220, 51), "돌아가기")) { flow.ReturnToMainMenu(); Refresh(); }
-            if (ui.Button(new Rect(1450, 936, 345, 76), "이 여정 시작", true)) { flow.TryStartRun(); Refresh(); }
+            if (ui.Button(new Rect(785, 968, 350, 62), (flow.SelectedCharacterIndex == 0 ? "이안" : "루나") + "의 기록 시작", true)) { flow.TryStartRun(); Refresh(); }
+        }
+
+        private void DrawCharacterMedallion(int index, Vector2 center, Texture2D soft, Texture2D sharp)
+        {
+            float focus = characterFocus[index];
+            float radius = 226 + focus * 25;
+            Disc(center, radius + 12, new Color(Ink.r, Ink.g, Ink.b, .92f));
+            Rect image = new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2);
+            Color saved = GUI.color;
+            GUI.color = new Color(1, 1, 1, 1 - focus * .82f);
+            if (soft != null) GUI.DrawTexture(image, soft, ScaleMode.StretchToFill, true);
+            GUI.color = new Color(1, 1, 1, focus);
+            if (sharp != null) GUI.DrawTexture(image, sharp, ScaleMode.StretchToFill, true);
+            GUI.color = saved;
+            Color ring = flow.SelectedCharacterIndex == index ? Violet : new Color(Gold.r, Gold.g, Gold.b, .55f);
+            Ring(center, radius + 5, ring, flow.SelectedCharacterIndex == index ? 3 : 1.4f);
+            Ring(center, radius + 14 + focus * 6, new Color(ring.r, ring.g, ring.b, .38f), 1.2f, .83f, index == 0 ? 2.6f : -.5f);
+            Label(new Rect(center.x - 125, center.y + radius - 24, 250, 42), index == 0 ? "이안" : "루나", ui.Light, true);
+            if (flow.SelectedCharacterIndex == index)
+                Label(new Rect(center.x - 125, center.y + radius + 13, 250, 31), "선택된 기록", ui.Small, true);
         }
 
         private Vector2 MapPoint(RunMapNodeDefinition node)

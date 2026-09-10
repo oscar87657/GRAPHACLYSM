@@ -20,26 +20,33 @@ namespace Graphaclysm.Runtime.Presentation
         private AstralUi ui;
         private AstralSpellRenderer spellRenderer;
         private Texture2D backdrop, ianPortrait, lunaPortrait, disc;
+        private Texture2D ianMedallion, lunaMedallion, ianMedallionSoft, lunaMedallionSoft;
+        private Material portraitMaterial;
         private SkillVisual[] visuals;
         private string hpText = "", energyText = "", turnText = "", formulaText = "", outcomeText = "", selfStateText = "";
-        private string message = "", deckText = "", ultimateText = "", characterStats = "";
+        private string message = "", deckText = "", ultimateText = "";
         private string seedText = "", roomResourceText = "", deckPageText = "";
         private string[] enemyHealth, enemyDamage, enemyIntent, enemyStatuses, enemyStatusSummary, enemyBadges, cardFailures, hitNumbers;
         private int[] damagePreview;
         private bool[] castHits;
         private float[] cardHover;
+        private readonly float[] characterFocus = new float[2];
+        private int hoveredCharacter = -1;
         private bool selfPreview, castSelfHit, castActive, impactApplied, helpOpen, showEquation, castUltimate;
         private int hoveredHand = -1, hoveredEnemy = -1;
+        private Rect handInspectionRect;
         private float castStarted;
         private string lastPlotName = "";
         private static readonly string[] AbilityNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "회복", "정화" };
         private static readonly string[] RarityNames = { "일반", "고급", "희귀", "전설" };
-        private const float FieldUnit = 95;
-        private static readonly Rect Field = new Rect(423, 108, 10 * FieldUnit, 8 * FieldUnit);
+        private const float FieldUnit = 118;
+        private static readonly Rect Field = new Rect(370, 68, 10 * FieldUnit, 8 * FieldUnit);
 
 #if UNITY_EDITOR
         public int DiagnosticHoveredCard { get; set; } = -1;
         public int DiagnosticRewardHover { get; set; } = -1;
+        public int DiagnosticHoveredCharacter { get; set; } = -1;
+        public int DiagnosticKeyword { get; set; } = -1;
         public float DiagnosticCastTime { get; set; } = -1;
 #endif
         private float CastElapsed
@@ -57,6 +64,7 @@ namespace Graphaclysm.Runtime.Presentation
         {
             public CardDefinition Card;
             public string Cost, Abilities, Details, CompactAbilities, PowerBadge;
+            public string[] KeywordNames, KeywordDetails;
             public Vector2[] Glyph;
         }
 
@@ -67,7 +75,7 @@ namespace Graphaclysm.Runtime.Presentation
             ianPortrait = Resources.Load<Texture2D>("Art/Generated/ian-character-portrait-v2");
             lunaPortrait = Resources.Load<Texture2D>("Art/Generated/luna-nocturne-gothic-v6");
             spellRenderer = new AstralSpellRenderer();
-            BuildVisuals(); BuildDisc(); InitializeServices(); Refresh();
+            BuildVisuals(); BuildDisc(); BuildPortraitMedallions(); InitializeServices(); Refresh();
             UnityEngine.Application.targetFrameRate = 60;
         }
 
@@ -76,12 +84,26 @@ namespace Graphaclysm.Runtime.Presentation
             SaveCurrent(true); SavePreferences();
             sound?.Dispose(); spellRenderer?.Dispose();
             if (disc != null) Destroy(disc);
+            if (ianMedallion != null) Destroy(ianMedallion);
+            if (lunaMedallion != null) Destroy(lunaMedallion);
+            if (ianMedallionSoft != null) Destroy(ianMedallionSoft);
+            if (lunaMedallionSoft != null) Destroy(lunaMedallionSoft);
+            if (portraitMaterial != null) Destroy(portraitMaterial);
         }
 
         private void Update()
         {
             if (!ModalOpen) viewTime += Time.unscaledDeltaTime;
             if (!ReferenceEquals(run, flow.CurrentRun) || (run != null && !ReferenceEquals(game, run.CurrentBattle))) Refresh();
+            if (flow.Phase == GameFlowPhase.CharacterSelection)
+            {
+                for (int i = 0; i < characterFocus.Length; i++)
+                {
+                    float target = hoveredCharacter == i ? 1f : flow.SelectedCharacterIndex == i ? 0.28f : 0f;
+                    characterFocus[i] = preferences.ReduceMotion ? target
+                        : Mathf.MoveTowards(characterFocus[i], target, Time.unscaledDeltaTime * 4.5f);
+                }
+            }
             if (ModalOpen) return;
             if (cardHover != null)
                 for (int i = 0; i < cardHover.Length; i++)
@@ -115,7 +137,7 @@ namespace Graphaclysm.Runtime.Presentation
                 (Screen.height - 1080 * scale) * 0.5f, 0), Quaternion.identity, new Vector3(scale, scale, 1));
             try
             {
-                DrawBackdrop(); HandleKeys();
+                DrawBackdrop(); HandleKeys(); BeginBattleHoverFrame();
                 GUI.enabled = !ModalOpen;
                 if (codexOpen) DrawCodex();
                 else if (flow.Phase == GameFlowPhase.MainMenu) DrawTitle();
@@ -127,6 +149,7 @@ namespace Graphaclysm.Runtime.Presentation
                 else DrawRewardsOrResult();
                 GUI.enabled = true;
                 if (saveFailed && !ModalOpen) Label(new Rect(425, 4, 1080, 38), saveNotice, ui.Small, true);
+                if (!ModalOpen) DrawKeywordTooltip();
                 DrawSystemOverlay();
             }
             finally { GUI.matrix = saved; GUI.color = Color.white; GUI.enabled = true; }
@@ -155,7 +178,6 @@ namespace Graphaclysm.Runtime.Presentation
             }
             int selected = flow.Phase == GameFlowPhase.CharacterSelection ? flow.SelectedCharacterIndex : 0;
             CharacterDefinition character = flow.CurrentCharacter ?? flow.GetCharacter(Mathf.Max(0, selected));
-            characterStats = "체력 " + character.MaxHealth + "     시작 손패 5 · 보존 한도 8";
             if (run == null) return;
             seedText = "SEED  " + run.Seed;
             floorTitle = run.CurrentFloor + "층 / " + run.Map.Definition.FloorCount + "층  ·  " + FloorNames[Mathf.Min(run.CurrentFloor-1,2)];
@@ -306,6 +328,9 @@ namespace Graphaclysm.Runtime.Presentation
                 int old = i - FragmentCardCatalog.All.Count;
                 CardDefinition card = i < FragmentCardCatalog.All.Count ? FragmentCardCatalog.All[i] : old < CalculatorCardCatalog.All.Count ? CalculatorCardCatalog.All[old] : SkillCardCatalog.All[old - CalculatorCardCatalog.All.Count];
                 var shortText = new StringBuilder(); var details = new StringBuilder();
+                int keywordCount = card.AbilityCount + (card.DrawBonus > 0 ? 1 : 0);
+                var keywordNames = new string[keywordCount];
+                var keywordDetails = new string[keywordCount];
                 if (card.IsFragment) details.Append(FragmentEquation.Rule(card.Fragment)).Append("\n").Append("조립 위력 +").Append(FragmentCardCatalog.Power(card.Fragment)).Append(" · 합계 최대 10\n");
                 details.Append(card.Description).Append("\n\n");
                 if(!card.IsFragment) details.Append(card.FormulaLabel).Append("\n");
@@ -317,12 +342,20 @@ namespace Graphaclysm.Runtime.Presentation
                     if (ability.Kind != CardAbilityKind.Cleanse && ability.Kind != CardAbilityKind.Anchor) shortText.Append(' ').Append(ability.Magnitude);
                     details.Append(ability.Target == AbilityTarget.Enemy ? "적 적중  /  " : "자신 적중  /  ");
                     details.Append(AbilityDetail(ability)).Append('\n');
+                    keywordNames[a] = AbilityNames[(int)ability.Kind];
+                    keywordDetails[a] = (ability.Target == AbilityTarget.Enemy ? "적 적중 시 · " : "자신 적중 시 · ")
+                        + AbilityDetail(ability);
                 }
                 if(card.DrawBonus > 0)
                 { if(shortText.Length>0) shortText.Append(" · "); shortText.Append("드로우 +").Append(card.DrawBonus);
                   details.Append("다음 보충 +").Append(card.DrawBonus).Append("장 · 파편당 한 번\n응축: 보너스 합계 최대 1장, 나머지는 소멸\n"); }
+                if (card.DrawBonus > 0)
+                {
+                    keywordNames[keywordCount - 1] = "드로우 +" + card.DrawBonus;
+                    keywordDetails[keywordCount - 1] = "다음 보충에 카드 " + card.DrawBonus + "장을 추가합니다. 응축에서는 파편 보너스 합계가 최대 1장입니다.";
+                }
                 if (!card.IsFragment) details.Append("\n선이 닿은 대상에만 발동합니다.");
-                visuals[i] = new SkillVisual { Card = card, PowerBadge = card.IsFragment ? (card.DrawBonus>0 ? "뽑기 +"+card.DrawBonus : "위력 +"+FragmentCardCatalog.Power(card.Fragment)) : "", Cost = card.Cost.ToString(), Abilities = shortText.ToString(), CompactAbilities = shortText.ToString().Replace("  ·  ", "\n").Replace(" · ", "\n").Replace("드로우 +", "뽑기").Replace(" ", ""), Details = details.ToString(), Glyph = MakeGlyph(card) };
+                visuals[i] = new SkillVisual { Card = card, PowerBadge = card.IsFragment ? (card.DrawBonus>0 ? "뽑기 +"+card.DrawBonus : "위력 +"+FragmentCardCatalog.Power(card.Fragment)) : "", Cost = card.Cost.ToString(), Abilities = shortText.ToString(), CompactAbilities = shortText.ToString().Replace("  ·  ", "\n").Replace(" · ", "\n").Replace("드로우 +", "뽑기").Replace(" ", ""), Details = details.ToString(), KeywordNames = keywordNames, KeywordDetails = keywordDetails, Glyph = MakeGlyph(card) };
             }
         }
 
@@ -394,6 +427,37 @@ namespace Graphaclysm.Runtime.Presentation
             for (int y = 0; y < 64; y++) for (int x = 0; x < 64; x++)
                 pixels[y * 64 + x] = new Color(1, 1, 1, Mathf.Clamp01(31 - Vector2.Distance(new Vector2(x, y), new Vector2(31.5f, 31.5f))));
             disc.SetPixels(pixels); disc.Apply(false, true);
+        }
+
+        private void BuildPortraitMedallions()
+        {
+            Shader shader = Resources.Load<Shader>("PortraitMedallion");
+            if (shader == null) return;
+            portraitMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            ianMedallionSoft = BakePortraitMedallion(ianPortrait, new Vector4(.16f, .36f, .68f, .62f), 0);
+            ianMedallion = BakePortraitMedallion(ianPortrait, new Vector4(.16f, .36f, .68f, .62f), 1);
+            lunaMedallionSoft = BakePortraitMedallion(lunaPortrait, new Vector4(.12f, .34f, .76f, .64f), 0);
+            lunaMedallion = BakePortraitMedallion(lunaPortrait, new Vector4(.12f, .34f, .76f, .64f), 1);
+        }
+
+        private Texture2D BakePortraitMedallion(Texture2D source, Vector4 crop, float focus)
+        {
+            if (source == null || portraitMaterial == null) return null;
+            const int size = 512;
+            RenderTexture target = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32,
+                RenderTextureReadWrite.sRGB);
+            RenderTexture previous = RenderTexture.active;
+            portraitMaterial.SetVector("_Crop", crop);
+            portraitMaterial.SetFloat("_Focus", focus);
+            Graphics.Blit(source, target, portraitMaterial);
+            RenderTexture.active = target;
+            var result = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                { hideFlags = HideFlags.HideAndDontSave, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            result.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
+            result.Apply(false, true);
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(target);
+            return result;
         }
 
         private void Disc(Vector2 point, float radius, Color color)

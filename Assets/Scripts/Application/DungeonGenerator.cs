@@ -13,6 +13,8 @@ namespace Graphaclysm.Application
         public const int RoomsPerFloor = 8, FloorCount = 3, Depths = RoomsPerFloor * FloorCount;
         private static readonly string[] EncounterNames = { "부서진 관측실", "흔들리는 다리", "유리의 정원", "빈 악보실", "낮은 회랑", "침묵의 기계", "뒤틀린 중정", "빛의 매듭" };
         private static readonly string[] EnemyNames = { "축 포식자", "공백체", "분기 잔영", "유리 파수꾼", "금속의 메아리", "좌표 도둑" };
+        private static readonly double[] TerrainX = { 2.0, 3.1, 5.0, 6.8, 8.1, 2.2, 5.2, 7.7, 3.0, 6.4, 8.4, 1.6 };
+        private static readonly double[] TerrainY = { 1.8, 0.2, 2.6, 1.2, -1.8, -2.4, -0.8, 2.7, 3.0, -2.7, 0.3, -0.5 };
         public static RunMapDefinition Generate(uint seed, CharacterDefinition character)
         {
             var random = new XorShiftRandom(seed ^ 0x6C8E9CF5u);
@@ -99,7 +101,45 @@ namespace Graphaclysm.Application
                     : EnemyBehaviorDefinition.AlternatingPosition(Math.Max(1, Math.Min(9, 10 - x)), -y * 0.8);
                 enemies[i] = new EnemyDefinition("enemy." + i, EnemyNames[(template + i) % EnemyNames.Length], x, y, health, attack, ai);
             }
-            return new BattleDefinition(c.MaxHealth, c.MaxEnergy, enemies, c.Archetype, fragments: true);
+            BattleTerrainDefinition[] terrain = CreateTerrain(kind, random, enemies);
+            return new BattleDefinition(c.MaxHealth, c.MaxEnergy, enemies, c.Archetype, fragments: true, terrain: terrain);
+        }
+
+        private static BattleTerrainDefinition[] CreateTerrain(RunNodeKind encounterKind, IRandomSource random, EnemyDefinition[] enemies)
+        {
+            int wanted = encounterKind == RunNodeKind.Boss ? 3 : 2;
+            var result = new List<BattleTerrainDefinition>(wanted);
+            int start = random.Next(TerrainX.Length);
+            for (int scan = 0; scan < TerrainX.Length && result.Count < wanted; scan++)
+            {
+                int candidate = (start + scan * 5) % TerrainX.Length;
+                double x = TerrainX[candidate], y = TerrainY[candidate];
+                BattleTerrainKind kind = result.Count == 1 ? BattleTerrainKind.Prism : BattleTerrainKind.Obstacle;
+                double radius = kind == BattleTerrainKind.Obstacle ? 0.68 : 0.48;
+                if (!CanPlaceTerrain(x, y, radius, enemies, result)) continue;
+                result.Add(new BattleTerrainDefinition("terrain." + result.Count, kind, x, y, radius));
+            }
+            return result.ToArray();
+        }
+
+        private static bool CanPlaceTerrain(double x, double y, double radius, EnemyDefinition[] enemies,
+            List<BattleTerrainDefinition> placed)
+        {
+            double dx = x - 4.0, dy = y + 2.0, playerReach = radius + TacticalCombatState.PlayerRadius + 0.35;
+            if (dx * dx + dy * dy < playerReach * playerReach) return false;
+            for (int i = 0; i < enemies.Length; i++)
+            {
+                dx = x - enemies[i].X; dy = y - enemies[i].Y;
+                double reach = radius + BattleSession.EnemyHitRadius + 0.25;
+                if (dx * dx + dy * dy < reach * reach) return false;
+            }
+            for (int i = 0; i < placed.Count; i++)
+            {
+                dx = x - placed[i].X; dy = y - placed[i].Y;
+                double reach = radius + placed[i].Radius + 0.55;
+                if (dx * dx + dy * dy < reach * reach) return false;
+            }
+            return true;
         }
     }
 }

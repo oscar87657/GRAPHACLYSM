@@ -12,7 +12,7 @@ namespace Graphaclysm.Runtime.Presentation
         public static readonly Color Gold = new Color(0.71f, 0.63f, 0.47f);
         public static readonly Color Muted = new Color(0.43f, 0.41f, 0.49f);
         public static readonly Color Threat = new Color(0.8f, 0.43f, 0.53f);
-        public readonly GUIStyle Logo, Display, PageTitle, Heading, Body, Small, Number, Light, SmallLight, Formula;
+        public readonly GUIStyle Logo, Display, PageTitle, Heading, HeadingLight, Body, Small, Number, Light, SmallLight, Formula;
 
         private readonly System.Action onClick;
 
@@ -25,7 +25,7 @@ namespace Graphaclysm.Runtime.Presentation
             if (body == null || orbit == null || serif == null) throw new System.InvalidOperationException("Bundled presentation fonts are missing.");
             Logo = Style(serif, 100, Ink); Display = Style(serif, 58, Ink);
             PageTitle = Style(orbit, 40, Ink);
-            Heading = Style(orbit, 26, Ink); Body = Style(body, 21, Ink);
+            Heading = Style(orbit, 26, Ink); HeadingLight = Style(orbit, 26, Paper); Body = Style(body, 21, Ink);
             Small = Style(body, 17, Muted); Number = Style(orbit, 28, Ink);
             Light = Style(body, 21, Paper); SmallLight = Style(body, 17, new Color(0.74f, 0.71f, 0.82f));
             Formula = Style(orbit, 21, Paper);

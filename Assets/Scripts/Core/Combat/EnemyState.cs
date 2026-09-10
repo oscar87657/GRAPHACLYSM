@@ -53,12 +53,12 @@ namespace Graphaclysm.Core.Combat
                 Definition.Y);
         }
 
-        internal int ResolveIntent()
+        internal int ResolveIntent(bool allowReposition = true)
         {
             switch (Intent.Kind)
             {
                 case EnemyIntentKind.Reposition:
-                    if (Statuses.Get(CombatStatusKind.Anchor) > 0) return 0;
+                    if (!allowReposition || Statuses.Get(CombatStatusKind.Anchor) > 0) return 0;
                     X = Intent.TargetX;
                     Y = Intent.TargetY;
                     return 0;

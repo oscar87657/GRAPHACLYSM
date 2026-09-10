@@ -5,9 +5,11 @@ namespace Graphaclysm.Core.Combat
     public sealed class BattleDefinition
     {
         private readonly EnemyDefinition[] enemies;
+        private readonly BattleTerrainDefinition[] terrain;
 
         public BattleDefinition(int playerMaxHealth, int playerMaxEnergy, EnemyDefinition[] enemies,
-            CombatArchetype archetype = CombatArchetype.None, bool calculator = false, bool fragments = false)
+            CombatArchetype archetype = CombatArchetype.None, bool calculator = false, bool fragments = false,
+            BattleTerrainDefinition[] terrain = null)
         {
             if (playerMaxHealth <= 0)
             {
@@ -31,6 +33,8 @@ namespace Graphaclysm.Core.Combat
             PlayerMaxEnergy = playerMaxEnergy;
             this.enemies = new EnemyDefinition[enemies.Length];
             Array.Copy(enemies, this.enemies, enemies.Length);
+            this.terrain = terrain == null ? Array.Empty<BattleTerrainDefinition>() : new BattleTerrainDefinition[terrain.Length];
+            if (terrain != null) Array.Copy(terrain, this.terrain, terrain.Length);
 
             for (int i = 0; i < this.enemies.Length; i++)
             {
@@ -38,6 +42,11 @@ namespace Graphaclysm.Core.Combat
                 {
                     throw new ArgumentException("Enemy definitions cannot contain null.", nameof(enemies));
                 }
+            }
+            for (int i = 0; i < this.terrain.Length; i++)
+            {
+                if (this.terrain[i] == null)
+                    throw new ArgumentException("Terrain definitions cannot contain null.", nameof(terrain));
             }
         }
 
@@ -50,10 +59,16 @@ namespace Graphaclysm.Core.Combat
         {
             get { return enemies.Length; }
         }
+        public int TerrainCount => terrain.Length;
 
         public EnemyDefinition GetEnemy(int index)
         {
             return enemies[index];
+        }
+
+        public BattleTerrainDefinition GetTerrain(int index)
+        {
+            return terrain[index];
         }
     }
 }

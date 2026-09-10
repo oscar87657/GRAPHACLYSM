@@ -91,11 +91,12 @@ namespace Graphaclysm.Runtime.Presentation
         }
         private void DrawMovementDock()
         {
-            Label(new Rect(65,814,300,30),"이동 · 턴당 한 번",ui.Small);
-            if(ui.Button(new Rect(65,852,66,42),"←",false,!castActive&&!battle.Tactics.HasMoved))Move(-1.5,0);
-            if(ui.Button(new Rect(143,852,66,42),"↑",false,!castActive&&!battle.Tactics.HasMoved))Move(0,1.5);
-            if(ui.Button(new Rect(221,852,66,42),"↓",false,!castActive&&!battle.Tactics.HasMoved))Move(0,-1.5);
-            if(ui.Button(new Rect(299,852,66,42),"→",false,!castActive&&!battle.Tactics.HasMoved))Move(1.5,0);
+            Fill(new Rect(28,797,314,114),new Color(.055f,.05f,.095f,.84f));
+            Label(new Rect(48,805,274,30),"이동 · 턴당 한 번",ui.SmallLight);
+            if(ui.Button(new Rect(48,849,61,42),"←",false,!castActive&&!battle.Tactics.HasMoved))Move(-1.5,0);
+            if(ui.Button(new Rect(119,849,61,42),"↑",false,!castActive&&!battle.Tactics.HasMoved))Move(0,1.5);
+            if(ui.Button(new Rect(190,849,61,42),"↓",false,!castActive&&!battle.Tactics.HasMoved))Move(0,-1.5);
+            if(ui.Button(new Rect(261,849,61,42),"→",false,!castActive&&!battle.Tactics.HasMoved))Move(1.5,0);
         }
         private void ChangeCodex(int filter,int page)
         {
@@ -163,7 +164,8 @@ namespace Graphaclysm.Runtime.Presentation
                 var visual=Visual(FragmentCardCatalog.All[codexSelected]);
                 Label(new Rect(1200,258,545,54),visual.Card.DisplayName,ui.Heading);
                 Label(new Rect(1200,322,545,33),RarityNames[(int)visual.Card.Rarity],ui.Small);
-                Label(new Rect(1200,369,545,282),visual.Details,ui.Body);
+                Label(new Rect(1200,369,545,205),visual.Details,ui.Body);
+                DrawCardKeywords(new Rect(1200,588,545,34),visual,false);
                 Label(new Rect(1200,650,545,34),"첫 파편 예시 · 사용 순서에 따라 변합니다",ui.Small);
                 Rect graph=new Rect(1300,695,350,280);Fill(graph,Ink);
                 Line(new Vector2(graph.x,graph.center.y),new Vector2(graph.xMax,graph.center.y),Muted);

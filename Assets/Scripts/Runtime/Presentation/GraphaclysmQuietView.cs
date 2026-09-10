@@ -8,87 +8,88 @@ namespace Graphaclysm.Runtime.Presentation
         private bool showBattleDetails, showSecondaryActions;
         private string quietWeave = "", quietCondense = "", lastFeedback = "", condenseHint = "";
         private float feedbackUntil;
-        private Rect EnemyRow(int index) => battle.UsesFragments ? new Rect(1450,164+index*84,400,76) : new Rect(1490,187+index*143,335,130);
+        private Rect EnemyRow(int index) => battle.UsesFragments ? new Rect(1580,128+index*82,308,74) : new Rect(1490,187+index*143,335,130);
         private void DrawQuietPlayer()
         {
-            Label(new Rect(65,115,300,43),flow.CurrentCharacter.DisplayName,ui.Heading);
-            Label(new Rect(65,171,300,39),hpText,ui.Number);
-            Fill(new Rect(65,221,300,3),new Color(Ink.r,Ink.g,Ink.b,.13f));
-            Fill(new Rect(65,221,300f*battle.PlayerHealth/battle.PlayerMaxHealth,3),Violet);
-            Rect ultimate = new Rect(65,243,300,43);
+            Fill(new Rect(28,92,314,192),new Color(.055f,.05f,.095f,.88f));
+            Border(new Rect(28,92,314,192),new Color(Gold.r,Gold.g,Gold.b,.48f),14);
+            Label(new Rect(48,105,180,38),flow.CurrentCharacter.DisplayName,ui.HeadingLight);
+            Label(new Rect(225,108,98,34),hpText,ui.SmallLight,true);
+            Fill(new Rect(48,151,274,3),new Color(1,1,1,.13f));
+            Fill(new Rect(48,151,274f*battle.PlayerHealth/battle.PlayerMaxHealth,3),Violet);
+            DrawStatusChips(battle.Tactics.Statuses,new Rect(48,166,274,28),true,4);
+            Rect ultimate = new Rect(48,208,274,43);
             if(ui.Button(ultimate,ultimateText,battle.Tactics.UltimateArmed,!castActive && battle.Tactics.Resonance>=6)) {run.TryToggleUltimate();Refresh();}
-            for(int i=0;i<6;i++) Fill(new Rect(65+i*51,298,45,3),i<battle.Tactics.Resonance?Violet:new Color(.78f,.76f,.80f));
+            for(int i=0;i<6;i++) Fill(new Rect(49+i*46,267,39,3),i<battle.Tactics.Resonance?Violet:new Color(.32f,.30f,.39f));
             if(ultimate.Contains(Event.current.mousePosition) || showBattleDetails)
-                Label(new Rect(65,312,300,48),flow.CurrentCharacter.Archetype==CombatArchetype.Ian ? "공명 6 · 피해 +6 / 적 이동 봉쇄" : "공명 6 · 자기 적중 확대\n정화 · 보호막 8 · 회복 5",ui.Small);
+                RegisterKeyword(ultimate,ultimateText,flow.CurrentCharacter.Archetype==CombatArchetype.Ian ? "공명 6을 써서 이번 작도 피해를 +6 하고 적 이동을 봉쇄합니다." : "공명 6을 써서 자가 적중 범위를 넓히고 정화·보호막 8·회복 5를 적용합니다.");
             DrawQuietLoom();
             if(battle.Tactics.HasMoved && !castActive)
-                if(ui.Button(new Rect(65,756,142,40),"이동 취소")) UndoMove();
+                if(ui.Button(new Rect(28,744,145,40),"이동 취소")) UndoMove();
             DrawMovementDock();
             if(showBattleDetails)
             {
-                Label(new Rect(65,920,300,33),drawStatus,ui.Small);
-                Label(new Rect(65,961,300,86),selfStateText.Length>0?selfStateText:"적용 중인 상태 없음",ui.Small);
+                Fill(new Rect(28,930,314,96),new Color(.055f,.05f,.095f,.86f));
+                Label(new Rect(45,936,280,31),drawStatus,ui.SmallLight);
+                Label(new Rect(45,969,280,48),selfStateText.Length>0?selfStateText:"적용 중인 상태 없음",ui.SmallLight);
             }
         }
         private void DrawQuietLoom()
         {
-            Label(new Rect(65,367,300,35),quietWeave,ui.Body);
+            Fill(new Rect(28,304,314,420),new Color(.055f,.05f,.095f,.82f));
+            Border(new Rect(28,304,314,420),new Color(Gold.r,Gold.g,Gold.b,.34f),14);
+            Label(new Rect(48,316,274,35),quietWeave,ui.Light);
             if(battle.PlayedCardCount==0)
             {
-                Diamond(new Vector2(215,525),28,new Color(Violet.r,Violet.g,Violet.b,.45f));
-                Label(new Rect(65,571,300,38),"첫 파편을 놓으세요",ui.Small,true);
+                Diamond(new Vector2(185,492),32,new Color(Violet.r,Violet.g,Violet.b,.62f));
+                Label(new Rect(48,544,274,38),"첫 파편을 놓으세요",ui.SmallLight,true);
             }
             for(int i=0;i<battle.PlayedCardCount;i++)
             {
-                var card=battle.GetPlayedCard(i);float y=420+i*39;
+                var card=battle.GetPlayedCard(i);float y=365+i*40;
                 float enter=!preferences.ReduceMotion && i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(ViewTime-fragmentPlacedAt)*5)*10:0;
                 Color color=i<battle.SealedCardCount?Muted:Violet;
-                Line(new Vector2(66+i*3,y+enter),new Vector2(66+i*3,y+27+enter),color,1.4f);
-                Label(new Rect(82+i*3,y-2+enter,168,31),card.DisplayName,ui.Body);
-                if(showBattleDetails) Label(new Rect(255,y+enter,108,30),CompactMark(card.Fragment),ui.Small,true);
-                else Diamond(new Vector2(351,y+14+enter),3,Rarity(card.Rarity));
+                Line(new Vector2(48+i*3,y+enter),new Vector2(48+i*3,y+27+enter),color,1.4f);
+                Label(new Rect(63+i*3,y-2+enter,168,31),card.DisplayName,ui.SmallLight);
+                if(showBattleDetails) Label(new Rect(230,y+enter,91,30),CompactMark(card.Fragment),ui.SmallLight,true);
+                else Diamond(new Vector2(315,y+14+enter),3,Rarity(card.Rarity));
             }
             if(battle.PlayedCardCount>battle.SealedCardCount && !castActive)
-                if(ui.Button(new Rect(223,756,142,40),"파편 취소")) Undo();
+                if(ui.Button(new Rect(190,744,152,40),"파편 취소")) Undo();
         }
         private void DrawQuietEnemyPanel()
         {
-            Label(new Rect(1450,118,400,32),"다음 행동",ui.Body);
+            Fill(new Rect(1564,92,340,420),new Color(.055f,.05f,.095f,.88f));
+            Border(new Rect(1564,92,340,420),new Color(Gold.r,Gold.g,Gold.b,.45f),14);
+            Label(new Rect(1580,101,308,32),"다음 행동",ui.Light);
             for(int i=0;i<battle.Enemies.Count;i++)
             {
                 var enemy=battle.Enemies[i];Rect r=EnemyRow(i);
-                if(hoveredEnemy==i) Fill(r,new Color(1,1,1,.38f));
+                if(hoveredEnemy==i) Fill(r,new Color(1,1,1,.10f));
                 Line(new Vector2(r.x,r.yMax),new Vector2(r.xMax,r.yMax),new Color(Gold.r,Gold.g,Gold.b,.25f));
-                Label(new Rect(r.x,r.y+2,39,30),enemyBadges[i],ui.Small);
-                Label(new Rect(r.x+44,r.y+2,350,30),enemy.Definition.DisplayName,ui.Body);
-                Label(new Rect(r.x+44,r.y+39,245,29),enemy.IsAlive?enemyIntent[i]:"소멸",ui.Body);
-                Label(new Rect(r.x+300,r.y+39,100,29),enemyHealth[i],ui.Small);
+                Label(new Rect(r.x,r.y+2,34,30),enemyBadges[i],ui.SmallLight);
+                Label(new Rect(r.x+39,r.y+2,184,30),enemy.Definition.DisplayName,ui.Light);
+                Label(new Rect(r.x+224,r.y+3,84,27),enemyHealth[i],ui.SmallLight,true);
+                Label(new Rect(r.x+39,r.y+35,150,29),enemy.IsAlive?enemyIntent[i]:"소멸",ui.SmallLight);
+                DrawStatusChips(enemy.Statuses,new Rect(r.x+187,r.y+38,121,24),true,2);
             }
-            if(hoveredHand>=0 && hoveredHand<game.Deck.HandCount)
-            {
-                var skill=Visual(game.Deck.GetHandCard(hoveredHand));
-                if(skill!=null)
-                {
-                    Fill(new Rect(1440,438,420,357),new Color(1,1,1,.78f));
-                    Label(new Rect(1458,455,384,40),skill.Card.DisplayName,ui.Heading);
-                    Label(new Rect(1458,505,384,277),skill.Details,ui.Body);
-                }
-            }
-            else if(hoveredEnemy>=0 || showBattleDetails)
+            if(hoveredEnemy>=0 || showBattleDetails)
             {
                 int index=hoveredEnemy>=0?hoveredEnemy:0;
-                Label(new Rect(1450,455,400,35),battle.Enemies[index].Definition.DisplayName,ui.Body);
-                Label(new Rect(1450,500,400,230),enemyStatuses[index].Length>0?enemyStatuses[index]:"적용 중인 상태 없음",ui.Body);
+                Fill(new Rect(1564,526,340,174),new Color(.055f,.05f,.095f,.82f));
+                Label(new Rect(1580,539,308,32),battle.Enemies[index].Definition.DisplayName,ui.Light);
+                Label(new Rect(1580,578,308,108),enemyStatuses[index].Length>0?enemyStatuses[index]:"적용 중인 상태 없음",ui.SmallLight);
             }
-            Label(new Rect(1450,810,400,29),castActive?"선을 새기는 중":outcomeText,ui.Small,true);
-            if(ui.Button(new Rect(1450,850,400,66),castActive?lastPlotName:"방출   ↵",true,!castActive && battle.CanPlot))StartCast();
-            if(ui.Button(new Rect(1450,930,400,51),quietCondense,false,!castActive && battle.CanCondense))Condense();
-            if(ui.Button(new Rect(1762,1002,88,42),"해체",showSecondaryActions,!castActive))showSecondaryActions=!showSecondaryActions;
+            Fill(new Rect(1564,718,340,300),new Color(.055f,.05f,.095f,.88f));
+            Label(new Rect(1580,734,308,31),castActive?"선을 새기는 중":outcomeText,ui.SmallLight,true);
+            if(ui.Button(new Rect(1580,777,308,64),castActive?lastPlotName:"방출   ↵",true,!castActive && battle.CanPlot))StartCast();
+            if(ui.Button(new Rect(1580,855,308,48),quietCondense,false,!castActive && battle.CanCondense))Condense();
+            if(ui.Button(new Rect(1798,921,90,42),"해체",showSecondaryActions,!castActive))showSecondaryActions=!showSecondaryActions;
             if(showSecondaryActions)
             {
-                if(ui.Button(new Rect(1450,1002,295,42),"해체하고 넘기기",false,!castActive)) {showSecondaryActions=false;Unravel();}
+                if(ui.Button(new Rect(1580,921,202,42),"해체하고 넘기기",false,!castActive)) {showSecondaryActions=false;Unravel();}
             }
-            else Label(new Rect(1450,995,290,55),condenseHint,ui.Small);
+            else Label(new Rect(1580,914,202,55),condenseHint,ui.SmallLight);
         }
     }
 }

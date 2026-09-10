@@ -110,13 +110,21 @@ namespace Graphaclysm.Editor
             Invoke("OpenHelp");
             for (int i = 0; i < 5; i++) { Set("helpPage", i); yield return Shot("03-guide-" + (i + 1)); }
             Invoke("CloseHelp");
-            flow.OpenCharacterSelection(); flow.TrySelectCharacter(1); flow.TryStartRun(); Invoke("Refresh");
+            flow.OpenCharacterSelection(); Invoke("Refresh"); yield return Shot("04-character-pair");
+            view.DiagnosticHoveredCharacter = 1; yield return Shot("04b-character-hover-luna");
+            view.DiagnosticHoveredCharacter = -1; flow.TrySelectCharacter(1); flow.TryStartRun(); Invoke("Refresh");
             yield return Shot("04-map-saved");
             Check(File.Exists(Path.Combine(dataDirectory, "run.save")), "New run not saved");
             flow.CurrentRun.TrySelectMapNode(0); Invoke("Refresh");
-            Invoke("PlayCard", 0); Check(flow.CurrentRun.TryMovePlayer(-1.5, 0), "Move failed"); Invoke("Refresh");
+            Invoke("PlayCard", 0); Check(TryAnyMove(flow.CurrentRun), "Move failed"); Invoke("Refresh");
             string card = flow.CurrentRun.CurrentBattle.Battle.GetPlayedCard(0).Id;
+            double movedX = flow.CurrentRun.CurrentBattle.Battle.Tactics.X;
+            double movedY = flow.CurrentRun.CurrentBattle.Battle.Tactics.Y;
             yield return Shot("05-battle-saved");
+            view.DiagnosticHoveredCard = 0; yield return Shot("05b-card-book-hover");
+            view.DiagnosticKeyword = (int)flow.CurrentRun.CurrentBattle.Deck.GetHandCard(0).GetAbility(0).Kind;
+            yield return Shot("05c-keyword-tooltip");
+            view.DiagnosticHoveredCard = -1; view.DiagnosticKeyword = -1;
             Set("paused", true); yield return Shot("06-pause");
             Invoke("OpenInventory"); yield return Shot("07-inventory");
             Set("inventoryRelics", true); Invoke("SelectInventory", 0); yield return Shot("08-inventory-relics");
@@ -131,7 +139,7 @@ namespace Graphaclysm.Editor
             Check(Get<GamePreferences>("preferences").MasterVolume == 35 && Get<GamePreferences>("preferences").ReduceMotion, "Cold settings lost");
             Invoke("ContinueSavedRun");
             Check(flow.CurrentRun.CurrentBattle.Battle.GetPlayedCard(0).Id == card, "Cold continue lost the weave");
-            Check(flow.CurrentRun.CurrentBattle.Battle.Tactics.X == 2.5, "Cold continue lost movement");
+            Check(flow.CurrentRun.CurrentBattle.Battle.Tactics.X == movedX && flow.CurrentRun.CurrentBattle.Battle.Tactics.Y == movedY, "Cold continue lost movement");
             Check(flow.CurrentRun.TryUndoMove(), "Restored movement cannot be undone");
             Check(flow.CurrentRun.TryUndoLastPlayedCard(out _), "Restored card cannot be undone");
             Invoke("Refresh");
@@ -173,6 +181,9 @@ namespace Graphaclysm.Editor
             yield return new WaitForSecondsRealtime(.15f);
         }
         private static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+        private static bool TryAnyMove(RunGameSession run)
+            => run.TryMovePlayer(-1.5, 0) || run.TryMovePlayer(1.5, 0)
+                || run.TryMovePlayer(0, 1.5) || run.TryMovePlayer(0, -1.5);
         private void Set(string name, object value) => typeof(GraphaclysmModernView).GetField(name, Private).SetValue(view, value);
         private T Get<T>(string name) => (T)typeof(GraphaclysmModernView).GetField(name, Private).GetValue(view);
         private void Invoke(string name, params object[] arguments) => typeof(GraphaclysmModernView).GetMethod(name, Private).Invoke(view, arguments);

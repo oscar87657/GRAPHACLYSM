@@ -20,6 +20,10 @@ namespace Graphaclysm.Tests.Application
             return run;
         }
 
+        private static bool TryAnyMove(RunGameSession run)
+            => run.TryMovePlayer(-1.5, 0) || run.TryMovePlayer(1.5, 0)
+                || run.TryMovePlayer(0, 1.5) || run.TryMovePlayer(0, -1.5);
+
         private static RunGameSession RoundTrip(RunGameSession original)
         {
             Assert.That(RunSaveStore.TryDecode(RunSaveStore.Encode(original.CaptureSave()), out var data), Is.True);
@@ -41,6 +45,13 @@ namespace Graphaclysm.Tests.Application
             { Assert.That(b.RewardOptions[i]?.Id, Is.EqualTo(a.RewardOptions[i]?.Id)); Assert.That(b.RelicRewardOptions[i]?.Id, Is.EqualTo(a.RelicRewardOptions[i]?.Id)); }
             if (a.CurrentBattle == null) { Assert.That(b.CurrentBattle, Is.Null); return; }
             var x = a.CurrentBattle.Battle; var y = b.CurrentBattle.Battle;
+            Assert.That(y.TerrainCount, Is.EqualTo(x.TerrainCount));
+            for (int i = 0; i < x.TerrainCount; i++)
+            {
+                Assert.That(y.GetTerrain(i).Kind, Is.EqualTo(x.GetTerrain(i).Kind));
+                Assert.That(y.GetTerrain(i).X, Is.EqualTo(x.GetTerrain(i).X));
+                Assert.That(y.GetTerrain(i).Y, Is.EqualTo(x.GetTerrain(i).Y));
+            }
             Assert.That(y.Phase, Is.EqualTo(x.Phase)); Assert.That(y.Turn, Is.EqualTo(x.Turn));
             Assert.That(y.PlayerHealth, Is.EqualTo(x.PlayerHealth)); Assert.That(y.CondenseCount, Is.EqualTo(x.CondenseCount));
             Assert.That(y.SealedCardCount, Is.EqualTo(x.SealedCardCount)); Assert.That(y.PlayedCardCount, Is.EqualTo(x.PlayedCardCount));
@@ -80,7 +91,7 @@ namespace Graphaclysm.Tests.Application
 
         [Test] public void MidTurnSavePreservesCardOrderAndIndependentUndo()
         {
-            var run = Start(); Assert.That(run.TryMovePlayer(-1.5, 0), Is.True);
+            var run = Start(); Assert.That(TryAnyMove(run), Is.True);
             Assert.That(run.TryPlayHandCard(2, out _, out _), Is.True); Assert.That(run.TryPlayHandCard(0, out _, out _), Is.True);
             var restored = RoundTrip(run);
             Assert.That(restored.TryUndoMove(), Is.EqualTo(run.TryUndoMove()));

@@ -32,24 +32,29 @@ namespace Graphaclysm.Runtime.Presentation
         }
         private void DrawFragmentCard(Rect r, SkillVisual visual, bool hovered, bool large)
         {
-            bool inspect = !codexOpen && (large || (hovered && r.height >= 220) || (!castActive && (run == null || run.Phase != Graphaclysm.Application.RunPhase.Battle)));
+            bool inspect = large;
             Color rarity = Rarity(visual.Card.Rarity), accent = RoleColor(visual.Card.Fragment);
-            Fill(new Rect(r.x+3,r.y+5,r.width,r.height),new Color(.16f,.12f,.24f,.15f));
-            Fill(r, hovered ? Color.white : new Color(.95f,.94f,.93f)); Border(r,rarity);
-            Fill(new Rect(r.x+10,r.y,r.width-20,3),rarity);
-            Label(new Rect(r.x+5,r.y+5,r.width-10,large?48:30),visual.Card.DisplayName,large?ui.Heading:ui.Body,true);
-            DrawFragmentEmblem(new Vector2(r.center.x,r.y+r.height*(r.height<180 ? .34f : .35f)),Mathf.Min(r.width*.26f,r.height*(r.height<180 ? .14f : .17f)),visual,accent);
-            Label(new Rect(r.x+4,r.y+r.height*(inspect ? .50f : .53f),r.width-8,large?42:(r.height<180?24:28)),r.width<200?CompactMark(visual.Card.Fragment):visual.Card.FormulaLabel,large?ui.Heading:ui.Small,true);
+            Fill(new Rect(r.x+7,r.y+8,r.width,r.height),new Color(0,0,0,.28f));
+            Fill(r, hovered ? new Color(.13f,.12f,.19f,.98f) : new Color(.095f,.09f,.15f,.98f));
+            Border(r,rarity,large?17:11);
+            Fill(new Rect(r.x,r.y+14,6,r.height-28),accent);
+            Fill(new Rect(r.x+13,r.y+12,r.width-26,large?52:39),new Color(1,1,1,.055f));
+            Label(new Rect(r.x+18,r.y+10,r.width-36,large?55:42),visual.Card.DisplayName,large?ui.HeadingLight:ui.Light,true);
+            Label(new Rect(r.x+18,r.y+(large?62:50),r.width-36,25),RoleLabels[CardRole(visual.Card.Fragment)]+" · "+RarityNames[(int)visual.Card.Rarity],ui.SmallLight,true);
+            DrawFragmentEmblem(new Vector2(r.center.x,r.y+r.height*(large?.36f:.42f)),Mathf.Min(r.width*(large?.22f:.27f),r.height*(large?.15f:.16f)),visual,accent);
+            Label(new Rect(r.x+12,r.y+r.height*(large?.53f:.61f),r.width-24,large?39:30),large?visual.Card.FormulaLabel:CompactMark(visual.Card.Fragment),large?ui.Light:ui.SmallLight,true);
             if(inspect)
             {
-                Label(new Rect(r.x+7,r.yMax-(large?119:83),r.width-14,large?44:28),visual.Card.Description,large?ui.Body:ui.Small,true);
-                Line(new Vector2(r.x+10,r.yMax-(large?68:51)),new Vector2(r.xMax-10,r.yMax-(large?68:51)),rarity);
-                Label(new Rect(r.x+5,r.yMax-(large?61:48),r.width-10,large?55:46),r.width<165?visual.CompactAbilities:visual.Abilities,large?ui.Body:ui.Small,true);
+                Label(new Rect(r.x+23,r.y+220,r.width-46,54),visual.Card.Description,ui.SmallLight,true);
+                Line(new Vector2(r.x+20,r.y+281),new Vector2(r.xMax-20,r.y+281),new Color(rarity.r,rarity.g,rarity.b,.65f));
+                DrawCardKeywords(new Rect(r.x+22,r.y+292,r.width-44,32),visual,true);
+                Label(new Rect(r.x+22,r.y+331,r.width-44,28),visual.PowerBadge,ui.SmallLight,true);
             }
             else
             {
-                Label(new Rect(r.x+4,r.y+r.height*(r.height<180?.69f:.71f),r.width-8,r.height<180?22:26),r.width<140?RoleLabels[CardRole(visual.Card.Fragment)]:visual.Card.Description,ui.Small,true);
-                Label(new Rect(r.x+4,r.yMax-(r.height<180?24:29),r.width-8,r.height<180?20:25),visual.PowerBadge,ui.Small,true);
+                Label(new Rect(r.x+12,r.yMax-73,r.width-24,37),visual.Card.Description,ui.SmallLight,true);
+                Fill(new Rect(r.x+15,r.yMax-30,r.width-30,1),new Color(rarity.r,rarity.g,rarity.b,.5f));
+                Label(new Rect(r.x+12,r.yMax-29,r.width-24,25),visual.PowerBadge,ui.SmallLight,true);
             }
         }
 

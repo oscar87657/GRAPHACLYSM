@@ -13,11 +13,12 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawBattle()
         {
-            Header("",turnText);
-            if(battle.UsesFragments && ui.Button(new Rect(1240,43,133,34),showBattleDetails?"상세 닫기":"상세")) {showBattleDetails=!showBattleDetails;if(!showBattleDetails)showEquation=false;}
-            DrawPlayerPanel(); DrawBoard(); DrawHand(); DrawEnemyPanel();
+            DrawBoard(); DrawBattleTopBar(); DrawPlayerPanel(); DrawEnemyPanel(); DrawHand();
             if((message.Length>0 && ViewTime<feedbackUntil) || (hoveredHand>=0 && cardFailures[hoveredHand].Length>0))
-                Label(new Rect(423,47,630,28),hoveredHand>=0 && cardFailures[hoveredHand].Length>0?cardFailures[hoveredHand]:message,ui.Small,true);
+            {
+                Fill(new Rect(600, 78, 720, 38), new Color(.06f, .055f, .1f, .88f));
+                Label(new Rect(612,80,696,34),hoveredHand>=0 && cardFailures[hoveredHand].Length>0?cardFailures[hoveredHand]:message,ui.SmallLight,true);
+            }
         }
 
         private void DrawPlayerPanel()
@@ -52,9 +53,9 @@ namespace Graphaclysm.Runtime.Presentation
         private void DrawBoard()
         {
             Rect frame = new Rect(Field.x-23,Field.y-22,Field.width+46,Field.height+44);
-            Fill(new Rect(frame.x + 9, frame.y + 12, frame.width, frame.height), new Color(0.32f, 0.25f, 0.42f, 0.09f));
-            Fill(frame, new Color(0.095f, 0.092f, 0.145f, 0.97f));
-            Border(frame, Gold, 22);
+            Fill(new Rect(0, 0, 1920, 1080), new Color(0.062f, 0.058f, 0.105f, 0.985f));
+            Fill(frame, new Color(0.10f, 0.092f, 0.15f, 0.34f));
+            Border(frame, new Color(Gold.r, Gold.g, Gold.b, .44f), 22);
             if(!battle.UsesFragments) Label(new Rect(Field.x+14,Field.y+8,300,30), "ASTRAL  ARCHIVE", ui.SmallLight);
             if (battle.UsesFragments && showBattleDetails) Label(new Rect(Field.xMax-270,Field.y+8,260,30),burstStatus,ui.SmallLight);
             if (battle.Equation.IsCalculator) Label(new Rect(Field.xMax-260,Field.y+8,250,30), battle.Equation.SelectedAxis == 0 ? "카드 → x(t)" : "카드 → y(t)", ui.SmallLight);
@@ -73,6 +74,7 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(Field.center.x+8,Field.yMax-28,45,24), AxisLabels[4], ui.SmallLight);
             }
             Diamond(GraphOrigin, 9, new Color(Gold.r, Gold.g, Gold.b, 0.55f));
+            DrawTerrain();
 
             hoveredEnemy = -1;
             for (int i = 0; i < battle.Enemies.Count; i++)
@@ -192,27 +194,76 @@ namespace Graphaclysm.Runtime.Presentation
         private void DrawHand()
         {
             int count = game.Deck.HandCount; if (count == 0) return;
-            float width = Mathf.Min(178, (Field.width - (count - 1) * 12) / count);
-            float start = Field.center.x - (count * width + (count - 1) * 12) / 2;
+            int previousHover = hoveredHand;
             hoveredHand = -1;
-            for (int i = 0; i < count; i++)
-                if (new Rect(start + i * (width + 12), 887, width, 170).Contains(Event.current.mousePosition)) hoveredHand = i;
+            if (previousHover >= 0 && previousHover < count && handInspectionRect.Contains(Event.current.mousePosition))
+                hoveredHand = previousHover;
+            for (int i = count - 1; hoveredHand < 0 && i >= 0; i--)
+            {
+                Rect hit = HandCardRect(i, count, false);
+                if (RotatedContains(hit, HandCardAngle(i, count), Event.current.mousePosition))
+                { hoveredHand = i; break; }
+            }
 #if UNITY_EDITOR
             if (DiagnosticHoveredCard >= 0 && DiagnosticHoveredCard < count) hoveredHand = DiagnosticHoveredCard;
 #endif
             for (int i = 0; i < count; i++)
             {
+                if (i == hoveredHand) continue;
                 SkillVisual visual = Visual(game.Deck.GetHandCard(i)); if (visual == null) continue;
-                Rect r = new Rect(start + i * (width + 12), 899 - cardHover[i] * 10, width, 158);
-                DrawSkillCard(r, visual, hoveredHand == i, false);
-                if (!castActive && GUI.Button(r, GUIContent.none, GUIStyle.none)) { PlayCard(i); break; }
+                if (DrawHandCard(i, count, visual, false)) break;
             }
-            if(battle.UsesFragments && count>5 && hoveredHand>=0 && hoveredHand<game.Deck.HandCount)
+            if (hoveredHand >= 0 && hoveredHand < count)
             {
-                SkillVisual focused=Visual(game.Deck.GetHandCard(hoveredHand));
-                if(focused!=null) DrawFragmentCard(new Rect(start+hoveredHand*(width+12)+(width-198)*.5f,822,198,235),focused,true,false);
+                SkillVisual focused = Visual(game.Deck.GetHandCard(hoveredHand));
+                if (focused != null)
+                {
+                    DrawHandCard(hoveredHand, count, focused, true);
+                    float spacing = count <= 1 ? 0 : Mathf.Min(112, 780f / (count - 1));
+                    float center = 960 + (hoveredHand - (count - 1) * .5f) * spacing;
+                    handInspectionRect = new Rect(Mathf.Clamp(center - 155, 390, 1210), 476, 310, 370);
+                    DrawSkillCard(handInspectionRect, focused, true, true);
+                }
             }
-            // Failure feedback is shown once in the battle header.
+            else handInspectionRect = default(Rect);
+        }
+
+        private static float HandCardAngle(int index, int count)
+        {
+            if (count <= 1) return 0;
+            return (index - (count - 1) * .5f) / (count - 1) * 20f;
+        }
+
+        private Rect HandCardRect(int index, int count, bool focused)
+        {
+            float spacing = count <= 1 ? 0 : Mathf.Min(112, 780f / (count - 1));
+            float offset = index - (count - 1) * .5f;
+            float normalized = count <= 1 ? 0 : offset / ((count - 1) * .5f);
+            float lift = focused ? 92 + cardHover[index] * 14 : cardHover[index] * 10;
+            return new Rect(960 + offset * spacing - 92, 910 + Mathf.Abs(normalized) * 34 - lift, 184, 244);
+        }
+
+        private static bool RotatedContains(Rect rect, float angle, Vector2 point)
+        {
+            float radians = -angle * Mathf.Deg2Rad;
+            Vector2 delta = point - rect.center;
+            Vector2 unrotated = new Vector2(delta.x * Mathf.Cos(radians) - delta.y * Mathf.Sin(radians),
+                delta.x * Mathf.Sin(radians) + delta.y * Mathf.Cos(radians)) + rect.center;
+            return rect.Contains(unrotated);
+        }
+
+        private bool DrawHandCard(int index, int count, SkillVisual visual, bool focused)
+        {
+            Rect rect = HandCardRect(index, count, focused);
+            float angle = focused ? 0 : HandCardAngle(index, count);
+            Matrix4x4 saved = GUI.matrix;
+            GUI.matrix = saved * Matrix4x4.TRS(rect.center, Quaternion.Euler(0, 0, angle), Vector3.one)
+                * Matrix4x4.TRS(-rect.center, Quaternion.identity, Vector3.one);
+            DrawSkillCard(rect, visual, focused, false);
+            bool clicked = !castActive && GUI.Button(rect, GUIContent.none, GUIStyle.none);
+            GUI.matrix = saved;
+            if (clicked) PlayCard(index);
+            return clicked;
         }
 
         private void DrawSkillCard(Rect r, SkillVisual visual, bool hovered, bool large)

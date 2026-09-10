@@ -53,6 +53,7 @@ namespace Graphaclysm.Core.Combat
         public const double EnemyHitRadius = 0.48;
         public const double MaximumTraceLength = 64;
         public const int MaximumPlayedCards = EquationState.MaximumModifiers + 3;
+        public const int PrismDamageBonus = 2;
 
         private readonly BattleDefinition definition;
         private readonly EnemyState[] enemies;
@@ -132,6 +133,22 @@ namespace Graphaclysm.Core.Combat
         public EquationState Equation { get; }
         public TacticalCombatState Tactics { get; }
         public bool PreviewPlayerHit => Tactics != null && Tactics.IsHit(Equation);
+        public int TerrainCount => definition.TerrainCount;
+        public bool PrismCharged
+        {
+            get
+            {
+                if (!Equation.HasBase) return false;
+                for (int i = 0; i < definition.TerrainCount; i++)
+                {
+                    BattleTerrainDefinition item = definition.GetTerrain(i);
+                    if (item.Kind == BattleTerrainKind.Prism
+                        && EquationAnalyzer.IntersectsCircle(Equation, item.X, item.Y, item.Radius, Equation.CurveSegmentCount))
+                        return true;
+                }
+                return false;
+            }
+        }
         public bool CanPlot => Phase == BattlePhase.PlayerPlanning && Equation.HasBase
             && (!Equation.IsCalculator || (Equation.TraceLength >= 0.05 && Equation.TraceLength <= MaximumTraceLength));
         public IReadOnlyList<EnemyState> Enemies
@@ -161,6 +178,8 @@ namespace Graphaclysm.Core.Combat
         {
             get { return plotDamageBonus; }
         }
+
+        public BattleTerrainDefinition GetTerrain(int index) => definition.GetTerrain(index);
 
         public void Reset()
         {
@@ -328,6 +347,7 @@ namespace Graphaclysm.Core.Combat
         {
             if (Phase != BattlePhase.PlayerPlanning || Tactics == null
                 || !Tactics.CanMove(dx, dy) || (!UsesFragments && Energy < Tactics.MoveCost)) return false;
+            if (TerrainBlocks(Tactics.X + dx, Tactics.Y + dy, TacticalCombatState.PlayerRadius)) return false;
             for (int i = 0; i < enemies.Length; i++)
             {
                 double x = Tactics.X + dx - enemies[i].X;
@@ -457,7 +477,9 @@ namespace Graphaclysm.Core.Combat
                 EnemyState enemy = enemies[i];
                 if (enemy.IsAlive && PlayerHealth > 0)
                 {
-                    int damage = enemy.ResolveIntent();
+                    bool allowReposition = enemy.Intent.Kind != EnemyIntentKind.Reposition
+                        || !TerrainBlocks(enemy.Intent.TargetX, enemy.Intent.TargetY, EnemyHitRadius);
+                    int damage = enemy.ResolveIntent(allowReposition);
                     if (Tactics != null)
                     {
                         if (!enemy.IsAimingAt(Tactics.X, Tactics.Y, TacticalCombatState.PlayerRadius)) damage = 0;
@@ -521,7 +543,7 @@ namespace Graphaclysm.Core.Combat
                 enemy.Y,
                 EnemyHitRadius);
             if (damage <= 0) return 0;
-            return Math.Max(1, damage + plotDamageBonus + WeaveDamageBonus
+            return Math.Max(1, damage + plotDamageBonus + WeaveDamageBonus + (PrismCharged ? PrismDamageBonus : 0)
                 + (resolvedPlots==0?firstPlotDamage:0) + (UsesFragments && playedCardCount<=3?shortWeaveDamage:0)
                 + (UsesFragments && playedCardCount>=6?longWeaveDamage:0) + (Tactics == null ? 0 : Tactics.AttackBonus)
                 + enemy.Statuses.Get(CombatStatusKind.Exposure));
@@ -539,6 +561,18 @@ namespace Graphaclysm.Core.Combat
                         enemies[i].Statuses.Add(CombatStatusKind.Shield, 12, 1);
                 }
             }
+        }
+
+        private bool TerrainBlocks(double x, double y, double radius)
+        {
+            for (int i = 0; i < definition.TerrainCount; i++)
+            {
+                BattleTerrainDefinition item = definition.GetTerrain(i);
+                if (!item.BlocksMovement) continue;
+                double dx = x - item.X, dy = y - item.Y, reach = radius + item.Radius;
+                if (dx * dx + dy * dy < reach * reach) return true;
+            }
+            return false;
         }
 
         private static int ApplyBundledAbilities(CardDefinition card, AbilityTarget target, CombatStatusState statuses)
