@@ -110,7 +110,9 @@ namespace Graphaclysm.Editor
             Invoke("OpenHelp");
             for (int i = 0; i < 5; i++) { Set("helpPage", i); yield return Shot("03-guide-" + (i + 1)); }
             Invoke("CloseHelp");
-            flow.OpenCharacterSelection(); Invoke("Refresh"); yield return Shot("04-character-pair");
+            flow.OpenCharacterSelection(); Invoke("Refresh"); view.DiagnosticHoveredCharacter = -2;
+            yield return Shot("04-character-pair");
+            view.DiagnosticHoveredCharacter = 0; yield return Shot("04a-character-hover-ian");
             view.DiagnosticHoveredCharacter = 1; yield return Shot("04b-character-hover-luna");
             view.DiagnosticHoveredCharacter = -1; flow.TrySelectCharacter(1); flow.TryStartRun(); Invoke("Refresh");
             yield return Shot("04-map-saved");

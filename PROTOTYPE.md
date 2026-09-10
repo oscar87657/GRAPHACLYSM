@@ -1,14 +1,18 @@
-# GRAPHACLYSM Prototype · v0.14
+# GRAPHACLYSM Prototype · v0.15
 
-2026-09-10 · 캐릭터 선택·전체 전장·책장형 카드·지형 v10. 저장 기본 기능은 v9 유지.
+2026-09-10 · 옆모습 눈 전환 캐릭터 선택 v11. 전체 전장·책장형 카드·지형은 v10, 저장 기본 기능은 v9 유지.
+
+## v11 캐릭터 선택
+
+이안은 왼쪽, 루나는 오른쪽을 향한 새 옆모습 초상을 사용한다. 평소 두 인물은 눈을 감고 있으며 마우스를 올린 인물만 같은 위치와 크기에서 눈을 뜬다. 확대·블러·채도·테두리 하이라이트 변화는 없다. 호버는 하단 설명 미리보기, 클릭은 실제 선택이다. [상세 자산과 검증](Docs/CHARACTER_SELECTION_V11.md)을 따른다.
 
 ## v10 전장과 카드
 
-캐릭터 선택은 중앙 관문 양쪽의 원형 이안·루나 초상을 사용한다. 호버한 인물은 확대되고 블러·저채도가 풀리며, 클릭한 인물로 원정을 시작한다. 전투는 먹빛 좌표판을 전체 화면 배경으로 쓰고 HUD를 양 가장자리에 겹친다. 손패는 아래에서 부채꼴로 겹치며 호버 시 책장형 확대 카드가 열린다. 카드·플레이어/적 상태·지형의 키워드 칩에 마우스를 올리면 정확한 규칙을 읽을 수 있다.
+전투는 먹빛 좌표판을 전체 화면 배경으로 쓰고 HUD를 양 가장자리에 겹친다. 손패는 아래에서 부채꼴로 겹치며 호버 시 책장형 확대 카드가 열린다. 카드·플레이어/적 상태·지형의 키워드 칩에 마우스를 올리면 정확한 규칙을 읽을 수 있다. v10의 캐릭터 확대·블러 선택 연출은 위 v11 방식으로 교체했다.
 
 생성 전투에는 이동을 막는 기록 기둥과 작도선 교차 시 적중 피해 +2를 주는 굴절 프리즘이 배치된다. 자세한 규칙과 저장 호환은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)을 따른다. 지도는 아직 기존 가로형 3층 원정이며, 탑형 지도와 스토리는 후속 구상 범위다.
 
-최신 검증은 EditMode **140/140**, Full HD/720p **26장**, Runtime errors **0**이다. `Logs/editmode-battlefield-v10.xml`, `Logs/battlefield-v10-smoke-final.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v10에서 다시 검증하지 않았다.
+최신 검증은 EditMode **140/140**, Full HD/720p **27장**, Runtime errors **0**이다. `Logs/editmode-character-profile-v11.xml`, `Logs/character-profile-v11-smoke-final.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v11에서 다시 검증하지 않았다.
 
 ## v9 기본 기능
 

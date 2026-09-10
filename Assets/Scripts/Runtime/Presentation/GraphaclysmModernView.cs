@@ -20,7 +20,8 @@ namespace Graphaclysm.Runtime.Presentation
         private AstralUi ui;
         private AstralSpellRenderer spellRenderer;
         private Texture2D backdrop, ianPortrait, lunaPortrait, disc;
-        private Texture2D ianMedallion, lunaMedallion, ianMedallionSoft, lunaMedallionSoft;
+        private Texture2D ianProfileClosed, ianProfileOpen, lunaProfileClosed, lunaProfileOpen;
+        private Texture2D ianMedallionClosed, ianMedallionOpen, lunaMedallionClosed, lunaMedallionOpen;
         private Material portraitMaterial;
         private SkillVisual[] visuals;
         private string hpText = "", energyText = "", turnText = "", formulaText = "", outcomeText = "", selfStateText = "";
@@ -30,7 +31,7 @@ namespace Graphaclysm.Runtime.Presentation
         private int[] damagePreview;
         private bool[] castHits;
         private float[] cardHover;
-        private readonly float[] characterFocus = new float[2];
+        private readonly float[] characterEyeOpen = new float[2];
         private int hoveredCharacter = -1;
         private bool selfPreview, castSelfHit, castActive, impactApplied, helpOpen, showEquation, castUltimate;
         private int hoveredHand = -1, hoveredEnemy = -1;
@@ -74,6 +75,10 @@ namespace Graphaclysm.Runtime.Presentation
             backdrop = Resources.Load<Texture2D>("Art/Generated/astral-archive-background-v3");
             ianPortrait = Resources.Load<Texture2D>("Art/Generated/ian-character-portrait-v2");
             lunaPortrait = Resources.Load<Texture2D>("Art/Generated/luna-nocturne-gothic-v6");
+            ianProfileClosed = Resources.Load<Texture2D>("Art/Generated/ian-profile-eyes-closed-v11");
+            ianProfileOpen = Resources.Load<Texture2D>("Art/Generated/ian-profile-eyes-open-v11");
+            lunaProfileClosed = Resources.Load<Texture2D>("Art/Generated/luna-profile-eyes-closed-v11");
+            lunaProfileOpen = Resources.Load<Texture2D>("Art/Generated/luna-profile-eyes-open-v11");
             spellRenderer = new AstralSpellRenderer();
             BuildVisuals(); BuildDisc(); BuildPortraitMedallions(); InitializeServices(); Refresh();
             UnityEngine.Application.targetFrameRate = 60;
@@ -84,10 +89,10 @@ namespace Graphaclysm.Runtime.Presentation
             SaveCurrent(true); SavePreferences();
             sound?.Dispose(); spellRenderer?.Dispose();
             if (disc != null) Destroy(disc);
-            if (ianMedallion != null) Destroy(ianMedallion);
-            if (lunaMedallion != null) Destroy(lunaMedallion);
-            if (ianMedallionSoft != null) Destroy(ianMedallionSoft);
-            if (lunaMedallionSoft != null) Destroy(lunaMedallionSoft);
+            if (ianMedallionClosed != null) Destroy(ianMedallionClosed);
+            if (ianMedallionOpen != null) Destroy(ianMedallionOpen);
+            if (lunaMedallionClosed != null) Destroy(lunaMedallionClosed);
+            if (lunaMedallionOpen != null) Destroy(lunaMedallionOpen);
             if (portraitMaterial != null) Destroy(portraitMaterial);
         }
 
@@ -97,11 +102,11 @@ namespace Graphaclysm.Runtime.Presentation
             if (!ReferenceEquals(run, flow.CurrentRun) || (run != null && !ReferenceEquals(game, run.CurrentBattle))) Refresh();
             if (flow.Phase == GameFlowPhase.CharacterSelection)
             {
-                for (int i = 0; i < characterFocus.Length; i++)
+                for (int i = 0; i < characterEyeOpen.Length; i++)
                 {
-                    float target = hoveredCharacter == i ? 1f : flow.SelectedCharacterIndex == i ? 0.28f : 0f;
-                    characterFocus[i] = preferences.ReduceMotion ? target
-                        : Mathf.MoveTowards(characterFocus[i], target, Time.unscaledDeltaTime * 4.5f);
+                    float target = hoveredCharacter == i ? 1f : 0f;
+                    characterEyeOpen[i] = preferences.ReduceMotion ? target
+                        : Mathf.MoveTowards(characterEyeOpen[i], target, Time.unscaledDeltaTime * 5.5f);
                 }
             }
             if (ModalOpen) return;
@@ -434,21 +439,19 @@ namespace Graphaclysm.Runtime.Presentation
             Shader shader = Resources.Load<Shader>("PortraitMedallion");
             if (shader == null) return;
             portraitMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-            ianMedallionSoft = BakePortraitMedallion(ianPortrait, new Vector4(.16f, .36f, .68f, .62f), 0);
-            ianMedallion = BakePortraitMedallion(ianPortrait, new Vector4(.16f, .36f, .68f, .62f), 1);
-            lunaMedallionSoft = BakePortraitMedallion(lunaPortrait, new Vector4(.12f, .34f, .76f, .64f), 0);
-            lunaMedallion = BakePortraitMedallion(lunaPortrait, new Vector4(.12f, .34f, .76f, .64f), 1);
+            ianMedallionClosed = BakePortraitMedallion(ianProfileClosed);
+            ianMedallionOpen = BakePortraitMedallion(ianProfileOpen);
+            lunaMedallionClosed = BakePortraitMedallion(lunaProfileClosed);
+            lunaMedallionOpen = BakePortraitMedallion(lunaProfileOpen);
         }
 
-        private Texture2D BakePortraitMedallion(Texture2D source, Vector4 crop, float focus)
+        private Texture2D BakePortraitMedallion(Texture2D source)
         {
             if (source == null || portraitMaterial == null) return null;
             const int size = 512;
             RenderTexture target = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32,
                 RenderTextureReadWrite.sRGB);
             RenderTexture previous = RenderTexture.active;
-            portraitMaterial.SetVector("_Crop", crop);
-            portraitMaterial.SetFloat("_Focus", focus);
             Graphics.Blit(source, target, portraitMaterial);
             RenderTexture.active = target;
             var result = new Texture2D(size, size, TextureFormat.RGBA32, false)

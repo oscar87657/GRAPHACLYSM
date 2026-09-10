@@ -66,7 +66,8 @@ namespace Graphaclysm.Runtime.Presentation
             float pointerRight = Vector2.Distance(Event.current.mousePosition, right);
             hoveredCharacter = pointerLeft <= 260 ? 0 : pointerRight <= 260 ? 1 : -1;
 #if UNITY_EDITOR
-            if (DiagnosticHoveredCharacter >= 0 && DiagnosticHoveredCharacter < 2) hoveredCharacter = DiagnosticHoveredCharacter;
+            if (DiagnosticHoveredCharacter == -2) hoveredCharacter = -1;
+            else if (DiagnosticHoveredCharacter >= 0 && DiagnosticHoveredCharacter < 2) hoveredCharacter = DiagnosticHoveredCharacter;
 #endif
             int preview = hoveredCharacter >= 0 ? hoveredCharacter : flow.SelectedCharacterIndex;
             bool ian = preview == 0;
@@ -74,8 +75,8 @@ namespace Graphaclysm.Runtime.Presentation
             string previewStats = "체력 " + previewCharacter.MaxHealth + "     시작 손패 5 · 보존 한도 8";
             Header("CHOOSE YOUR TRACE", "01 / TRAVELER");
             Label(new Rect(500, 118, 920, 54), "두 기록 사이에서 한 사람을 선택하세요", ui.PageTitle, true);
-            DrawCharacterMedallion(0, left, ianMedallionSoft, ianMedallion);
-            DrawCharacterMedallion(1, right, lunaMedallionSoft, lunaMedallion);
+            DrawCharacterMedallion(0, left, ianMedallionClosed, ianMedallionOpen);
+            DrawCharacterMedallion(1, right, lunaMedallionClosed, lunaMedallionOpen);
 
             Fill(new Rect(889, 215, 142, 525), new Color(Paper.r, Paper.g, Paper.b, .88f));
             Diamond(new Vector2(960, 477), 265, new Color(Gold.r, Gold.g, Gold.b, .66f), 2.2f);
@@ -99,21 +100,21 @@ namespace Graphaclysm.Runtime.Presentation
             if (ui.Button(new Rect(785, 968, 350, 62), (flow.SelectedCharacterIndex == 0 ? "이안" : "루나") + "의 기록 시작", true)) { flow.TryStartRun(); Refresh(); }
         }
 
-        private void DrawCharacterMedallion(int index, Vector2 center, Texture2D soft, Texture2D sharp)
+        private void DrawCharacterMedallion(int index, Vector2 center, Texture2D closed, Texture2D open)
         {
-            float focus = characterFocus[index];
-            float radius = 226 + focus * 25;
+            float eyeOpen = characterEyeOpen[index];
+            const float radius = 238;
             Disc(center, radius + 12, new Color(Ink.r, Ink.g, Ink.b, .92f));
             Rect image = new Rect(center.x - radius, center.y - radius, radius * 2, radius * 2);
             Color saved = GUI.color;
-            GUI.color = new Color(1, 1, 1, 1 - focus * .82f);
-            if (soft != null) GUI.DrawTexture(image, soft, ScaleMode.StretchToFill, true);
-            GUI.color = new Color(1, 1, 1, focus);
-            if (sharp != null) GUI.DrawTexture(image, sharp, ScaleMode.StretchToFill, true);
+            GUI.color = new Color(1, 1, 1, 1 - eyeOpen);
+            if (closed != null) GUI.DrawTexture(image, closed, ScaleMode.StretchToFill, true);
+            GUI.color = new Color(1, 1, 1, eyeOpen);
+            if (open != null) GUI.DrawTexture(image, open, ScaleMode.StretchToFill, true);
             GUI.color = saved;
-            Color ring = flow.SelectedCharacterIndex == index ? Violet : new Color(Gold.r, Gold.g, Gold.b, .55f);
-            Ring(center, radius + 5, ring, flow.SelectedCharacterIndex == index ? 3 : 1.4f);
-            Ring(center, radius + 14 + focus * 6, new Color(ring.r, ring.g, ring.b, .38f), 1.2f, .83f, index == 0 ? 2.6f : -.5f);
+            Color ring = new Color(Gold.r, Gold.g, Gold.b, .62f);
+            Ring(center, radius + 5, ring, 1.5f);
+            Ring(center, radius + 14, new Color(ring.r, ring.g, ring.b, .32f), 1.1f, .83f, index == 0 ? 2.6f : -.5f);
             Label(new Rect(center.x - 125, center.y + radius - 24, 250, 42), index == 0 ? "이안" : "루나", ui.Light, true);
             if (flow.SelectedCharacterIndex == index)
                 Label(new Rect(center.x - 125, center.y + radius + 13, 250, 31), "선택된 기록", ui.Small, true);

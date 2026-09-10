@@ -1,12 +1,18 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v11 캐릭터 선택 초상
+
+선택 전용 이안·루나의 눈 감음/눈 뜸 RGBA Texture 네 장을 Resources에서 한 번 불러온다. `PortraitMedallion.shader`는 블러·채도 조작 없이 원형 알파 마스크만 적용하여 512×512 표시본 네 장을 `Awake`에서 굽는다. `characterEyeOpen` 두 float만 호버에 따라 0/1로 이동시키며 닫힘/열림 표시본의 alpha를 교차한다. 위치·크기·테두리는 상태와 무관하게 고정한다. 생성 Texture와 Material은 `OnDestroy`에서 해제한다.
+
+Presentation만 바뀌므로 Core/Application 규칙과 `RunSaveData.RulesVersion=10`은 유지한다. 자세한 자산 계약은 [캐릭터 선택 v11](Docs/CHARACTER_SELECTION_V11.md)이다.
+
 ## v10 전장·카드 UI와 지형
 
 `BattleTerrainDefinition`은 Core의 불변 ID·종류·좌표·반경을 가진다. `BattleDefinition`이 배열을 복사해 소유하고 `DungeonGenerator`가 원정 RNG로 일반·정예 2개, 보스 3개를 만든다. 초기 플레이어·적·다른 지형과 간격을 검증한다. `BattleSession`은 기둥과의 원 충돌로 플레이어/적 이동을 거부하고, `EquationAnalyzer`의 같은 선 샘플로 프리즘 교차를 판정해 적중 피해 +2를 적용한다. Presentation은 공개 정의와 `PrismCharged`를 읽기만 한다.
 
 전투의 수학 좌표는 `x=0~10`, `y=-4~4` 그대로이며 `FieldUnit`을 118로 높여 1180×944 활성 필드를 사용한다. `GraphaclysmBattlefieldView`가 전체 화면 바탕, 지형, 카드/상태 키워드와 가장자리 HUD 보조를 담당한다. 손패는 기존 카드 캐시를 회전해 그리며 호버 카드만 마지막에 다시 그린다. 확대 카드의 키워드 문자열 배열은 `BuildVisuals`에서 한 번 생성한다.
 
-캐릭터 선택은 기존 이안 v2·루나 v6 Texture를 입력으로 `PortraitMedallion.shader`를 통해 512×512 선명본·블러본 네 장을 `Awake`에서 한 번 굽는다. 원본을 수정하지 않으며 생성 Texture와 Material은 `OnDestroy`에서 해제한다. 이는 새 Profiler 측정 결과가 아니다.
+v10 당시 캐릭터 선택은 기존 이안 v2·루나 v6 Texture에서 선명본·블러본을 구웠다. 이 경로는 v11의 선택 전용 옆모습 네 장과 고정 크기 눈 전환으로 대체했다.
 
 생성/전투 규칙 변경으로 `RunSaveData.RulesVersion=10`이다. v9 원정은 v10으로 재생하지 않으며 설정 저장 형식은 유지한다. 상세 내용은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)이다.
 
