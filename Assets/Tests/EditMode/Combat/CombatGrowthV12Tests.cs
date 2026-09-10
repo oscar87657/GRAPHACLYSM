@@ -11,7 +11,7 @@ using NUnit.Framework;
 
 namespace Graphaclysm.Tests.Combat
 {
-    public sealed class CombatFlowV13Tests
+    public sealed class CombatReadabilityV14Tests
     {
         private static BattleDefinition Battle(CombatArchetype archetype = CombatArchetype.Ian)
             => new BattleDefinition(50, 4,
@@ -24,20 +24,24 @@ namespace Graphaclysm.Tests.Combat
         }
 
         [Test]
-        public void RunGrowthOffersThreeExclusiveBranchChoicesAndResetsWithANewRun()
+        public void RunGrowthUsesParentedExclusiveBranchesAndResetsWithANewRun()
         {
             var growth = new RunGrowthState(CombatArchetype.Ian);
             growth.AddExperience(30);
             Assert.That(growth.Level, Is.GreaterThan(6));
+            Assert.That(growth.TryPurchase(2), Is.False, "A child cannot be purchased before its parent.");
             Assert.That(growth.TryPurchase(0), Is.True);
             Assert.That(growth.TryPurchase(1), Is.False);
             Assert.That(growth.TryPurchase(2), Is.True);
             Assert.That(growth.ActiveVariant, Is.EqualTo(1));
-            Assert.That(growth.ModuleVariant, Is.EqualTo(1));
+            Assert.That(growth.ModuleVariant, Is.Zero);
             Assert.That(growth.TryPurchase(3), Is.False);
-            Assert.That(growth.TryPurchase(4), Is.True);
+            Assert.That(growth.TryPurchase(4), Is.False, "The execution child remains unreachable after choosing the wide form.");
+            Assert.That(growth.TryPurchase(6), Is.True);
             Assert.That(growth.UltimateVariant, Is.EqualTo(1));
-            Assert.That(growth.TryPurchase(5), Is.False);
+            Assert.That(growth.TryPurchase(7), Is.False);
+            Assert.That(growth.TryPurchase(9), Is.True);
+            Assert.That(growth.UnlockedMask, Is.EqualTo((1 << 0) | (1 << 2) | (1 << 6) | (1 << 9)));
             Assert.That(growth.TrySelect(0), Is.False);
             var fresh = new RunGrowthState(CombatArchetype.Ian);
             Assert.That(fresh.Level, Is.EqualTo(1));
@@ -110,6 +114,44 @@ namespace Graphaclysm.Tests.Combat
                 Assert.That(equation.Frequency, Is.EqualTo(frequencies[i]));
                 Assert.That(equation.BuildFormula(), Does.Contain(FragmentEquation.Rule(kinds[i])));
             }
+        }
+
+        [Test]
+        public void DeepSkillNodesCreateFiveLanesAndRewardExecutionKills()
+        {
+            var five = new BattleSession(Battle(), 50, 0, 0, 0, null,
+                new BattleSkillLoadout(1, 0, 0, 1 << 2));
+            Assert.That(five.TryUseCombatSkill(), Is.True);
+            Assert.That(five.LastSkillLaneCount, Is.EqualTo(5));
+            Assert.That(five.LastSkillDamage, Is.EqualTo(5));
+
+            var execution = new BattleSession(new BattleDefinition(50, 4,
+                new[] { new EnemyDefinition("target", "Target", 5.6, -2, 8, 0) }, CombatArchetype.Ian, fragments: true),
+                50, 0, 0, 0, null, new BattleSkillLoadout(2, 0, 0, 1 << 4));
+            Assert.That(execution.TryUseCombatSkill(), Is.True);
+            Assert.That(execution.LastSkillCooldownReset, Is.True);
+            Assert.That(execution.Tactics.Resonance, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DeepUltimateNodesChangeDamageAndRefundResonance()
+        {
+            var sharp = new BattleSession(Battle(), 50, 0, 0, 6, null,
+                new BattleSkillLoadout(0, 0, 1, 1 << 9));
+            Assert.That(sharp.TryToggleUltimate(), Is.True);
+            Assert.That(sharp.Tactics.AttackBonus, Is.EqualTo(14));
+
+            var refund = new BattleSession(new BattleDefinition(50, 4, new[]
+            {
+                new EnemyDefinition("east", "East", 5.6, -2, 50, 0),
+                new EnemyDefinition("north", "North", 4, -.4, 50, 0)
+            }, CombatArchetype.Ian, fragments: true), 50, 0, 0, 6, null,
+                new BattleSkillLoadout(0, 0, 1, 1 << 8));
+            Assert.That(refund.TryPlayCard(FragmentCardCatalog.Find("frag.home"), out _), Is.True);
+            Assert.That(refund.TryToggleUltimate(), Is.True);
+            Assert.That(refund.TryBeginPlot(), Is.True);
+            Assert.That(refund.ResolvePlot().HitCount, Is.EqualTo(2));
+            Assert.That(refund.Tactics.Resonance, Is.EqualTo(2));
         }
 
         [Test]
@@ -205,12 +247,14 @@ namespace Graphaclysm.Tests.Combat
                 var run = PrototypeRunFactory.Create(481, PrototypeCharacterCatalog.All[0], benefits);
                 Assert.That(run.PlayerMaxHealth, Is.EqualTo(PrototypeCharacterCatalog.All[0].MaxHealth + 6));
                 Assert.That(run.TryPurchaseGrowthNode(0), Is.True);
-                Assert.That(run.TryPurchaseGrowthNode(2), Is.True);
+                Assert.That(run.TryPurchaseGrowthNode(3), Is.True);
                 Assert.That(RunSaveStore.TryDecode(RunSaveStore.Encode(run.CaptureSave()), out var data), Is.True);
                 Assert.That(RunGameSession.TryRestore(data, out var restored, out _), Is.True);
                 Assert.That(restored.PlayerMaxHealth, Is.EqualTo(run.PlayerMaxHealth));
                 Assert.That(restored.Growth.Level, Is.EqualTo(run.Growth.Level));
                 Assert.That(restored.Growth.ActiveVariant, Is.EqualTo(1));
+                Assert.That(restored.Growth.ModuleVariant, Is.EqualTo(1));
+                Assert.That(restored.Growth.UnlockedMask, Is.EqualTo(run.Growth.UnlockedMask));
                 Assert.That(restored.TrySelectMapNode(0), Is.True);
                 Assert.That(restored.CurrentBattle.Battle.Tactics.Resonance, Is.EqualTo(2));
                 Assert.That(restored.CurrentBattle.Battle.Tactics.Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(4));

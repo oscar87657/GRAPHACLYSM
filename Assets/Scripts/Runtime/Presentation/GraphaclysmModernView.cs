@@ -37,12 +37,12 @@ namespace Graphaclysm.Runtime.Presentation
         private int hoveredCharacter = -1;
         private bool selfPreview, castSelfHit, castActive, impactApplied, helpOpen, showEquation, castUltimate;
         private int hoveredHand = -1, hoveredEnemy = -1;
-        private Rect handInspectionRect;
+        private Rect handInspectionRect, handHoverBridge;
         private float castStarted;
         private float skillFxUntil;
         private double skillFxOriginX, skillFxOriginY, skillFxEndX, skillFxEndY;
         private bool skillFxWide, skillFxReset;
-        private int skillFxHits;
+        private int skillFxHits, skillFxLaneCount = 1;
         private string skillFxLabel = "";
         private string lastPlotName = "";
         private static readonly string[] AbilityNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "파열", "회복", "정화" };
@@ -55,6 +55,7 @@ namespace Graphaclysm.Runtime.Presentation
         public int DiagnosticRewardHover { get; set; } = -1;
         public int DiagnosticHoveredCharacter { get; set; } = -1;
         public int DiagnosticKeyword { get; set; } = -1;
+        public string DiagnosticKeywordBody { get; set; } = "";
         public float DiagnosticCastTime { get; set; } = -1;
 #endif
         private float CastElapsed
@@ -296,6 +297,7 @@ namespace Graphaclysm.Runtime.Presentation
             skillFxOriginX = source.LastSkillOriginX; skillFxOriginY = source.LastSkillOriginY;
             skillFxEndX = source.LastSkillEndX; skillFxEndY = source.LastSkillEndY;
             skillFxWide = source.LastSkillWide; skillFxReset = source.LastSkillCooldownReset; skillFxHits = source.LastSkillHitCount;
+            skillFxLaneCount = source.LastSkillLaneCount;
             skillFxLabel = skillFxReset ? "처치 · 즉시 재사용" : "적중 " + skillFxHits;
             skillFxUntil = ViewTime + (preferences.ReduceMotion ? .35f : .9f);
             message = skillFxReset ? "처치 공명 · 전투 기술을 바로 다시 사용할 수 있습니다." : "궤적 기술 · 적 " + skillFxHits + "명 적중";

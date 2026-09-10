@@ -196,15 +196,16 @@ namespace Graphaclysm.Runtime.Presentation
             int count = game.Deck.HandCount; if (count == 0) return;
             int previousHover = hoveredHand;
             hoveredHand = -1;
-            if (previousHover >= 0 && previousHover < count && (handInspectionRect.Contains(Event.current.mousePosition)
-                || keywordKeepsCard && (keywordTooltipRect.Contains(Event.current.mousePosition) || keywordHoverBridge.Contains(Event.current.mousePosition))))
-                hoveredHand = previousHover;
-            for (int i = count - 1; hoveredHand < 0 && i >= 0; i--)
+            for (int i = count - 1; i >= 0; i--)
             {
                 Rect hit = HandCardRect(i, count, false);
                 if (RotatedContains(hit, HandCardAngle(i, count), Event.current.mousePosition))
                 { hoveredHand = i; break; }
             }
+            if (hoveredHand < 0 && previousHover >= 0 && previousHover < count
+                && (handInspectionRect.Contains(Event.current.mousePosition) || handHoverBridge.Contains(Event.current.mousePosition)
+                    || keywordKeepsCard && (keywordTooltipRect.Contains(Event.current.mousePosition) || keywordHoverBridge.Contains(Event.current.mousePosition))))
+                hoveredHand = previousHover;
 #if UNITY_EDITOR
             if (DiagnosticHoveredCard >= 0 && DiagnosticHoveredCard < count) hoveredHand = DiagnosticHoveredCard;
 #endif
@@ -223,10 +224,16 @@ namespace Graphaclysm.Runtime.Presentation
                     float spacing = count <= 1 ? 0 : Mathf.Min(112, 780f / (count - 1));
                     float center = 960 + (hoveredHand - (count - 1) * .5f) * spacing;
                     handInspectionRect = new Rect(Mathf.Clamp(center - 155, 390, 1210), 476, 310, 370);
+                    Rect handCard = HandCardRect(hoveredHand, count, true);
+                    handHoverBridge = Rect.MinMaxRect(
+                        Mathf.Min(handInspectionRect.xMin, handCard.xMin) - 8,
+                        handInspectionRect.yMin - 8,
+                        Mathf.Max(handInspectionRect.xMax, handCard.xMax) + 8,
+                        handCard.yMax + 8);
                     DrawSkillCard(handInspectionRect, focused, true, true);
                 }
             }
-            else handInspectionRect = default(Rect);
+            else { handInspectionRect = default(Rect); handHoverBridge = default(Rect); }
         }
 
         private static float HandCardAngle(int index, int count)
@@ -278,8 +285,8 @@ namespace Graphaclysm.Runtime.Presentation
             float pad = large ? 25 : 12;
             Label(new Rect(r.x + pad, r.y + 9, r.width - pad * 2 - 20, large ? 55 : 35), visual.Card.DisplayName, large ? ui.Heading : ui.Body);
             Label(new Rect(r.xMax - pad - 21, r.y + 9, 25, large ? 55 : 35), visual.Cost, large ? ui.Number : ui.Body, true);
-            Vector2 center = new Vector2(r.center.x, r.y + r.height * 0.46f);
-            float size = Mathf.Min(r.width * 0.30f, r.height * 0.20f);
+            Vector2 center = new Vector2(r.center.x, r.y + r.height * (large ? .38f : .43f));
+            float size = Mathf.Min(r.width * 0.30f, r.height * (large ? .15f : .18f));
             Line(center - Vector2.right * size * 1.18f, center + Vector2.right * size * 1.18f, new Color(Gold.r, Gold.g, Gold.b, 0.38f));
             Line(center - Vector2.up * size * 1.1f, center + Vector2.up * size * 1.1f, new Color(Gold.r, Gold.g, Gold.b, 0.38f));
             for (int j = 1; j < visual.Glyph.Length; j++)
@@ -287,9 +294,20 @@ namespace Graphaclysm.Runtime.Presentation
                 Vector2 a = visual.Glyph[j - 1], b = visual.Glyph[j]; a.y = -a.y; b.y = -b.y;
                 Line(center + a * size, center + b * size, Violet, large ? 2.4f : 1.8f);
             }
-            Label(new Rect(r.x + pad, r.yMax - (large ? 128 : 69), r.width - pad * 2, large ? 48 : 40), visual.Card.Description, large ? ui.Body : ui.Small, true);
-            Line(new Vector2(r.x + pad, r.yMax - (large ? 71 : 32)), new Vector2(r.xMax - pad, r.yMax - (large ? 71 : 32)), new Color(rarity.r, rarity.g, rarity.b, 0.55f));
-            Label(new Rect(r.x + 5, r.yMax - (large ? 66 : 29), r.width - 10, large ? 51 : 25), visual.Abilities, large ? ui.Body : ui.Small, true);
+            if (large)
+            {
+                Label(new Rect(r.x + pad, r.y + 205, r.width - pad * 2, 58), visual.Card.Description, ui.Body, true);
+                Line(new Vector2(r.x + pad, r.y + 276), new Vector2(r.xMax - pad, r.y + 276), new Color(rarity.r, rarity.g, rarity.b, 0.55f));
+                if (visual.KeywordNames != null && visual.KeywordNames.Length > 0)
+                    DrawCardKeywords(new Rect(r.x + pad, r.y + 287, r.width - pad * 2, 34), visual, false, r);
+                Label(new Rect(r.x + pad, r.y + 328, r.width - pad * 2, 30), visual.Abilities, ui.Small, true);
+            }
+            else
+            {
+                Label(new Rect(r.x + pad, r.yMax - 69, r.width - pad * 2, 40), visual.Card.Description, ui.Small, true);
+                Line(new Vector2(r.x + pad, r.yMax - 32), new Vector2(r.xMax - pad, r.yMax - 32), new Color(rarity.r, rarity.g, rarity.b, 0.55f));
+                Label(new Rect(r.x + 5, r.yMax - 29, r.width - 10, 25), visual.Abilities, ui.Small, true);
+            }
         }
 
         private void DrawCastAccents()
@@ -347,6 +365,11 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 Line(a+normal*28,b+normal*28,glow,3);
                 Line(a-normal*28,b-normal*28,glow,3);
+                if (skillFxLaneCount >= 5)
+                {
+                    Line(a+normal*55,b+normal*55,glow,2.5f);
+                    Line(a-normal*55,b-normal*55,glow,2.5f);
+                }
             }
             Line(a,b,new Color(1,.94f,1,remaining),3);
             Diamond(b,skillFxReset?28:18,glow,2);

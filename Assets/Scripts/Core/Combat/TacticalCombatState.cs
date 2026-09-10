@@ -14,6 +14,7 @@ namespace Graphaclysm.Core.Combat
         public const double PlayerRadius = 0.48;
         public CombatArchetype Archetype { get; }
         public int UltimateVariant { get; }
+        public int SkillTraitMask { get; }
         public CombatStatusState Statuses { get; } = new CombatStatusState();
         public double X { get; private set; }
         public double Y { get; private set; }
@@ -24,20 +25,23 @@ namespace Graphaclysm.Core.Combat
         private double moveOriginX, moveOriginY;
         private int savedHaste, savedHasteDuration, savedMomentum, savedMomentumDuration;
         public double HitRadius => UltimateArmed && Archetype == CombatArchetype.Luna
-            ? (UltimateVariant == 1 ? 1.25 : 1.0) : PlayerRadius;
+            ? (UltimateVariant == 1 ? (HasTrait(9) ? 1.5 : 1.25) : 1.0) : PlayerRadius;
         public int MoveCost => Statuses.Get(CombatStatusKind.Haste) > 0 ? 0 : 1;
         public int AttackBonus => Statuses.Get(CombatStatusKind.Focus)
             - Statuses.Get(CombatStatusKind.Weaken)
             + Statuses.Get(CombatStatusKind.Momentum)
-            + (UltimateArmed && Archetype == CombatArchetype.Ian ? (UltimateVariant == 1 ? 10 : 6) : 0)
-            + (UltimateArmed && Archetype == CombatArchetype.Luna && UltimateVariant == 2 ? 4 : 0);
+            + (UltimateArmed && Archetype == CombatArchetype.Ian ? (UltimateVariant == 1 ? 10 + (HasTrait(9) ? 4 : 0) : 6) : 0)
+            + (UltimateArmed && Archetype == CombatArchetype.Luna && UltimateVariant == 2 ? 4 + (HasTrait(10) ? 4 : 0) : 0);
 
-        internal TacticalCombatState(CombatArchetype archetype, int resonance, int ultimateVariant = 0)
+        internal TacticalCombatState(CombatArchetype archetype, int resonance, int ultimateVariant = 0, int skillTraitMask = 0)
         {
             Archetype = archetype;
             UltimateVariant = Math.Max(0, Math.Min(2, ultimateVariant));
+            SkillTraitMask = skillTraitMask;
             Reset(resonance);
         }
+
+        private bool HasTrait(int nodeIndex) => (SkillTraitMask & (1 << nodeIndex)) != 0;
 
         internal void Reset(int resonance)
         {
@@ -94,8 +98,12 @@ namespace Graphaclysm.Core.Combat
             Statuses.Add(CombatStatusKind.Shield, 3, 1);
             if (!UltimateArmed || Archetype != CombatArchetype.Luna) return 0;
             Statuses.Cleanse(true);
-            Statuses.Add(CombatStatusKind.Shield, UltimateVariant == 1 ? 12 : UltimateVariant == 2 ? 6 : 8, 1);
-            return UltimateVariant == 1 ? 7 : UltimateVariant == 2 ? 3 : 5;
+            int shield = UltimateVariant == 1 ? 12 : UltimateVariant == 2 ? 6 : 8;
+            int healing = UltimateVariant == 1 ? 7 : UltimateVariant == 2 ? 3 : 5;
+            if (Archetype == CombatArchetype.Luna && HasTrait(9)) { shield += 4; healing += 2; }
+            if (HasTrait(11)) { shield += 4; healing += 4; }
+            Statuses.Add(CombatStatusKind.Shield, shield, 1);
+            return healing;
         }
 
         internal int ApplySelfInscription(InscriptionKind inscription)
@@ -127,12 +135,17 @@ namespace Graphaclysm.Core.Combat
 
         internal void CompletePlot(bool hitSelf, int enemiesHit)
         {
-            if (UltimateArmed) Resonance -= UltimateCost;
+            bool usedUltimate = UltimateArmed;
+            if (usedUltimate) Resonance -= UltimateCost;
             int earned = enemiesHit >= 2 ? 1 : 0;
             if (hitSelf && enemiesHit > 0) earned += 2;
+            if (usedUltimate && enemiesHit >= 2 && HasTrait(8)) earned++;
             Resonance = Math.Min(UltimateCost, Resonance + earned);
             UltimateArmed = false;
         }
+
+        internal void GainResonance(int amount)
+        { Resonance = Math.Max(0, Math.Min(UltimateCost, Resonance + amount)); }
 
         internal void SkillDashTo(double x, double y)
         {

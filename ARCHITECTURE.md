@@ -1,10 +1,16 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v14 정보 UI와 성장 그래프 소유권
+
+`RunGrowthState`는 12비트 해금 마스크와 각 노드의 부모·배타 그룹을 소유한다. `CanPurchase`는 성장점·레벨·선행 노드·같은 갈림길을 함께 검사하고 `BattleSkillLoadout`이 마스크를 새 전투에 전달한다. `BattleSession`과 `TacticalCombatState`는 오중 궤적, 처치 공명, 궁극기 공명 환급과 캐릭터별 하위 효과를 계산한다.
+
+Presentation은 성장 노드의 고정 좌표와 부모선을 그릴 뿐 구매 가능 여부를 다시 판단하지 않는다. 카드 keyword는 원본 카드·확대본·source·bridge·tooltip Rect를 보존하고, 상태 칩은 Core의 magnitude/duration을 함께 읽는다. 저장은 형식 2/규칙 14이며 v13 이하는 재생하지 않는다. [전투 정보·성좌 성장 v14](Docs/COMBAT_READABILITY_V14.md)를 따른다.
+
 ## v13 전투 흐름 소유권
 
 `FragmentEquation.TryAppend`는 빈 prefix의 첫 카드에 한해 `BattleSession`이 전달한 플레이어 좌표를 `origin[0]`에 고정한다. 네 신규 변환도 기존 `(Capacity+1)×1536` x/y prefix 버퍼 안에서 계산하며 보수 주파수 상한을 공유한다.
 
-`BattleSession`은 전투 기술 대상 선택, 선분-적 거리 판정, 피해·모듈 처리, 3턴 쿨타임과 마지막 연출용 좌표/적중 요약을 소유한다. `TacticalCombatState.SkillDashTo`는 좌표와 이동 소비를 적용하되 되돌리기 표식을 만들지 않는다. `RunGrowthState`의 6비트는 세 개의 배타 그룹이며 `BattleSkillLoadout`은 기술 형태·모듈·궁극기 번호만 새 전투에 복사한다. `RunGameSession`은 대상 인덱스를 명령에 기록하고 기술 처치 승리도 공통 완료 경로로 보낸다.
+`BattleSession`은 전투 기술 대상 선택, 선분-적 거리 판정, 피해·모듈 처리, 3턴 쿨타임과 마지막 연출용 좌표/적중 요약을 소유한다. `TacticalCombatState.SkillDashTo`는 좌표와 이동 소비를 적용하되 되돌리기 표식을 만들지 않는다. 이 절의 6비트 성장은 위 v14의 12비트 의존 성좌로 확장되었다. `RunGameSession`은 대상 인덱스를 명령에 기록하고 기술 처치 승리도 공통 완료 경로로 보낸다.
 
 Presentation은 고정 `Rect` 두 개로 키워드 툴팁과 포인터 이동 통로를 기억하고, 마지막 기술의 숫자/좌표만 View 필드에 복사해 한 줄 또는 세 줄을 그린다. 수학·충돌 루프에 새 컬렉션 할당은 없다. 원정 저장은 형식 2/규칙 13이며 v12 이하 명령은 재생하지 않는다. [전투 흐름·분기 성장 v13](Docs/COMBAT_FLOW_V13.md)을 따른다.
 
@@ -12,7 +18,7 @@ Presentation은 고정 `Rect` 두 개로 키워드 툴팁과 포인터 이동 �
 
 `CombatStatusState`는 12종 상태의 수치·수명을 고정 배열로 소유하고 `BattleSession`이 가시 반격, 추진·파열 소모, 요새화 방어와 6종 신규 유물 발동 순서를 조정한다. 이 절의 자유 전환형 기술 설명은 v13의 배타 분기로 대체되었다.
 
-`LegacyProgression`은 원정 밖의 잔광·여섯 영구 기록 랭크·중복 보상 방지용 최근 시드를 소유한다. `LegacyProgressionStore`는 `legacy.save`를 SHA-256과 같은 폴더 임시 파일 교체로 저장한다. 새 원정은 그 시점의 `LegacyBenefits`만 복사하므로 이후 메인 화면 구매가 진행 중 원정을 바꾸지 않는다. v12 당시 원정 규칙은 12였으며 최신 규칙은 위 v13 절의 13이다.
+`LegacyProgression`은 원정 밖의 잔광·여섯 영구 기록 랭크·중복 보상 방지용 최근 시드를 소유한다. `LegacyProgressionStore`는 `legacy.save`를 SHA-256과 같은 폴더 임시 파일 교체로 저장한다. 새 원정은 그 시점의 `LegacyBenefits`만 복사하므로 이후 메인 화면 구매가 진행 중 원정을 바꾸지 않는다. v12 당시 원정 규칙은 12였으며 최신 규칙은 위 v14 절의 14다.
 
 신규 유물 Texture 6장은 `Awake`에서 한 번 Resources로 읽어 View 수명 동안 재사용한다. OnGUI는 카탈로그 ID로 캐시를 조회하며 디스크 로드나 새 Texture를 만들지 않는다. 상세 계약은 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)다.
 

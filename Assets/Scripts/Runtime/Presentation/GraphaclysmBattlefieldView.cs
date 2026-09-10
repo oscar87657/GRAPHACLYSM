@@ -25,36 +25,61 @@ namespace Graphaclysm.Runtime.Presentation
         };
 
         private string hoveredKeywordTitle = "", hoveredKeywordBody = "";
-        private Rect keywordTooltipRect, keywordHoverBridge;
+        private Rect keywordTooltipRect, keywordHoverBridge, keywordSourceRect, keywordOwnerRect;
         private bool keywordKeepsCard;
         private int hoveredTerrain = -1;
+        private static readonly string[] StatusShortNames =
+        { "보호", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새", "파열" };
+        private static readonly string[,] StatusValueLabels = BuildStatusValueLabels();
+        private static readonly string[] MoreStatusLabels =
+        { "+0", "+1", "+2", "+3", "+4", "+5", "+6", "+7", "+8", "+9", "+10", "+11", "+12" };
+
+        private static string[,] BuildStatusValueLabels()
+        {
+            var labels = new string[CombatStatusState.MaximumMagnitude + 1, 10];
+            for (int magnitude = 0; magnitude <= CombatStatusState.MaximumMagnitude; magnitude++)
+                for (int duration = 0; duration < 10; duration++) labels[magnitude, duration] = magnitude + " · " + duration + "T";
+            return labels;
+        }
+
+        private static string StatusValueLabel(int magnitude, int duration)
+            => magnitude >= 0 && magnitude <= CombatStatusState.MaximumMagnitude && duration >= 0 && duration < 10
+                ? StatusValueLabels[magnitude, duration] : magnitude + " · " + duration + "T";
 
         private void BeginBattleHoverFrame()
         {
             Vector2 pointer = Event.current.mousePosition;
             bool keep = hoveredKeywordTitle.Length > 0
-                && (keywordTooltipRect.Contains(pointer) || keywordHoverBridge.Contains(pointer));
+                && (keywordTooltipRect.Contains(pointer) || keywordHoverBridge.Contains(pointer)
+                    || keywordSourceRect.Contains(pointer) || keywordOwnerRect.Contains(pointer));
             if (!keep)
             {
                 hoveredKeywordTitle = "";
                 hoveredKeywordBody = "";
                 keywordTooltipRect = default(Rect);
                 keywordHoverBridge = default(Rect);
+                keywordSourceRect = default(Rect);
+                keywordOwnerRect = default(Rect);
                 keywordKeepsCard = false;
             }
             hoveredTerrain = -1;
         }
 
         private void RegisterKeyword(Rect area, string title, string body, bool keepsCard = false)
+        { RegisterKeyword(area, title, body, keepsCard, area); }
+
+        private void RegisterKeyword(Rect area, string title, string body, bool keepsCard, Rect owner)
         {
             if (!area.Contains(Event.current.mousePosition)) return;
             hoveredKeywordTitle = title;
             hoveredKeywordBody = body;
-            float x = area.xMax + 14;
-            if (x + 350 > 1896) x = area.x - 364;
-            x = Mathf.Clamp(x, 24, 1920 - 374);
-            float y = Mathf.Clamp(area.center.y - 63, 78, 1080 - 154);
-            keywordTooltipRect = new Rect(x, y, 350, 126);
+            keywordSourceRect = area;
+            keywordOwnerRect = owner;
+            float x = area.xMax + 16;
+            if (x + 420 > 1896) x = area.x - 436;
+            x = Mathf.Clamp(x, 24, 1920 - 444);
+            float y = Mathf.Clamp(area.center.y - 86, 78, 1080 - 194);
+            keywordTooltipRect = new Rect(x, y, 420, 170);
             keywordHoverBridge = Rect.MinMaxRect(
                 Mathf.Min(area.xMin, keywordTooltipRect.xMin) - 8,
                 Mathf.Min(area.yMin, keywordTooltipRect.yMin) - 8,
@@ -63,25 +88,42 @@ namespace Graphaclysm.Runtime.Presentation
             keywordKeepsCard = keepsCard;
         }
 
+        private void RegisterStatusKeyword(Rect area, int index, int magnitude, int duration)
+        {
+            if (!area.Contains(Event.current.mousePosition)) return;
+            RegisterKeyword(area, AbilityNames[index], KeywordDescriptions[index] + "\n현재 수치 " + magnitude
+                + " · 남은 적 행동 " + duration + "회");
+        }
+
+        private void RegisterStatusListKeyword(Rect area, CombatStatusState statuses)
+        {
+            if (!area.Contains(Event.current.mousePosition)) return;
+            RegisterKeyword(area, "적용 중인 상태 전체", DescribeStatuses(statuses, CombatStatusState.Capacity, true));
+        }
+
         private void DrawKeywordTooltip()
         {
 #if UNITY_EDITOR
             if (DiagnosticKeyword >= 0 && DiagnosticKeyword < KeywordDescriptions.Length)
             {
                 hoveredKeywordTitle = AbilityNames[DiagnosticKeyword];
-                hoveredKeywordBody = KeywordDescriptions[DiagnosticKeyword];
+                hoveredKeywordBody = DiagnosticKeywordBody.Length > 0 ? DiagnosticKeywordBody : KeywordDescriptions[DiagnosticKeyword];
             }
 #endif
             if (hoveredKeywordTitle.Length == 0) return;
-            Rect panel = keywordTooltipRect.width > 0 ? keywordTooltipRect : new Rect(1546, 78, 350, 126);
+            Rect panel = keywordTooltipRect.width > 0 ? keywordTooltipRect : new Rect(1450, 78, 420, 170);
             float x = panel.x, y = panel.y;
             Fill(panel, new Color(.075f, .068f, .12f, .97f));
             Border(panel, Gold, 12);
-            Label(new Rect(x + 18, y + 10, 314, 32), hoveredKeywordTitle, ui.Light);
-            Label(new Rect(x + 18, y + 43, 314, 70), hoveredKeywordBody, ui.SmallLight);
+            Label(new Rect(x + 20, y + 12, panel.width - 40, 34), hoveredKeywordTitle, ui.Light);
+            Line(new Vector2(x + 20, y + 52), new Vector2(panel.xMax - 20, y + 52), new Color(Gold.r, Gold.g, Gold.b, .45f));
+            Label(new Rect(x + 20, y + 60, panel.width - 40, panel.height - 72), hoveredKeywordBody, ui.SmallLight);
         }
 
         private void DrawCardKeywords(Rect area, SkillVisual visual, bool light)
+        { DrawCardKeywords(area, visual, light, area); }
+
+        private void DrawCardKeywords(Rect area, SkillVisual visual, bool light, Rect owner)
         {
             int count = visual.KeywordNames == null ? 0 : visual.KeywordNames.Length;
             if (count == 0) return;
@@ -96,28 +138,49 @@ namespace Graphaclysm.Runtime.Presentation
                 Border(chip, hover ? Gold : new Color(Violet.r, Violet.g, Violet.b, .62f), 7);
                 Label(new Rect(chip.x + 4, chip.y, chip.width - 8, chip.height), visual.KeywordNames[i],
                     light ? ui.SmallLight : ui.Small, true);
-                RegisterKeyword(chip, visual.KeywordNames[i], visual.KeywordDetails[i], true);
+                RegisterKeyword(chip, visual.KeywordNames[i], visual.KeywordDetails[i], true, owner);
             }
         }
 
         private void DrawStatusChips(CombatStatusState statuses, Rect area, bool light, int maximum = 4)
         {
             if (statuses == null) return;
+            int active = 0;
+            for (int i = 0; i < CombatStatusState.Capacity; i++) if (statuses.Get((CombatStatusKind)i) > 0) active++;
+            if (active == 0) return;
+            int visible = active > maximum ? Mathf.Max(1, maximum - 1) : active;
+            int slots = visible + (active > maximum ? 1 : 0);
+            float gap = 5;
+            float width = (area.width - gap * (slots - 1)) / slots;
             int shown = 0;
-            for (int i = 0; i < CombatStatusState.Capacity && shown < maximum; i++)
+            for (int i = 0; i < CombatStatusState.Capacity && shown < visible; i++)
             {
-                if (statuses.Get((CombatStatusKind)i) <= 0) continue;
-                Rect chip = new Rect(area.x + shown * 72, area.y, 66, area.height);
+                CombatStatusKind kind = (CombatStatusKind)i;
+                int magnitude = statuses.Get(kind);
+                if (magnitude <= 0) continue;
+                int duration = statuses.Duration(kind);
+                Rect chip = new Rect(area.x + shown * (width + gap), area.y, width, area.height);
                 bool hover = chip.Contains(Event.current.mousePosition);
                 Fill(chip, light ? new Color(1, 1, 1, hover ? .18f : .08f)
                     : new Color(Violet.r, Violet.g, Violet.b, hover ? .22f : .10f));
                 bool debuff = i >= (int)CombatStatusKind.Burn && i <= (int)CombatStatusKind.Anchor
                     || i == (int)CombatStatusKind.Rupture;
                 Border(chip, debuff ? Threat : Violet, 6);
-                Label(new Rect(chip.x + 3, chip.y, chip.width - 6, chip.height), AbilityNames[i],
+                Label(new Rect(chip.x + 2, chip.y + 1, chip.width - 4, chip.height * .52f), StatusShortNames[i],
                     light ? ui.SmallLight : ui.Small, true);
-                RegisterKeyword(chip, AbilityNames[i], KeywordDescriptions[i]);
+                Label(new Rect(chip.x + 2, chip.y + chip.height * .43f, chip.width - 4, chip.height * .52f),
+                    StatusValueLabel(magnitude, duration), light ? ui.SmallLight : ui.Small, true);
+                RegisterStatusKeyword(chip, i, magnitude, duration);
                 shown++;
+            }
+            if (active > maximum)
+            {
+                Rect more = new Rect(area.x + shown * (width + gap), area.y, width, area.height);
+                bool hover = more.Contains(Event.current.mousePosition);
+                Fill(more, new Color(Violet.r, Violet.g, Violet.b, hover ? .24f : .12f));
+                Border(more, hover ? Gold : Violet, 6);
+                Label(more, MoreStatusLabels[active - shown], light ? ui.SmallLight : ui.Small, true);
+                RegisterStatusListKeyword(more, statuses);
             }
         }
 

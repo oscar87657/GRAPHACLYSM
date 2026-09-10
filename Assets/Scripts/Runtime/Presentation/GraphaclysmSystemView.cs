@@ -3,6 +3,7 @@ using System.IO;
 using Graphaclysm.Application;
 using Graphaclysm.Core.Characters;
 using Graphaclysm.Core.Combat;
+using Graphaclysm.Core.Runs;
 using UnityEngine;
 using static Graphaclysm.Runtime.Presentation.AstralUi;
 
@@ -20,7 +21,19 @@ namespace Graphaclysm.Runtime.Presentation
         private CharacterDefinition savedCharacter;
         private int savedRevision = -1;
         private bool persistenceEnabled, paused, settingsOpen, inventoryOpen, inventoryRelics, growthOpen, legacyOpen;
-        private int inventoryPage, inventorySelection, helpPage;
+        private int inventoryPage, inventorySelection, helpPage, growthFocusedNode = -1;
+        private static readonly Vector2 GrowthRoot = new Vector2(960, 145);
+        private static readonly Vector2 GrowthSkillHub = new Vector2(565, 275);
+        private static readonly Vector2 GrowthUltimateHub = new Vector2(1355, 275);
+        private static readonly Vector2[] GrowthNodePositions =
+        {
+            new Vector2(395, 420), new Vector2(735, 420),
+            new Vector2(305, 615), new Vector2(485, 615), new Vector2(645, 615), new Vector2(825, 615),
+            new Vector2(1185, 420), new Vector2(1525, 420),
+            new Vector2(1095, 615), new Vector2(1275, 615), new Vector2(1435, 615), new Vector2(1615, 615)
+        };
+        private static readonly string[] GrowthNodeSymbols =
+        { "Ⅲ", "Ⅰ", "Ⅴ", "◇", "↻", "✦", "☄", "∞", "+1", "+", "+", "♥" };
         private enum Confirmation { None, NewRun, Quit }
         private Confirmation confirmation;
         private string saveNotice = "", savedSummary = "이어갈 기록이 없습니다.", inventoryPageLabel = "", inventoryDetail = "";
@@ -320,36 +333,94 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawGrowthTree()
         {
-            ModalPanel("이번 원정의 성장");
             var growth = run.Growth;
             bool canEdit = run.Phase == RunPhase.MapSelection;
-            Label(new Rect(480, 286, 940, 40), "레벨 " + growth.Level + "   ·   탐사 경험 "
-                + growth.Experience + " / " + growth.ExperienceToNext + "   ·   성장점 " + growth.Points, ui.Body);
-            string[] rows = { "전투 기술 형태", "궤적 모듈", "궁극기 변주" };
-            for (int row = 0; row < 3; row++)
+            Fill(new Rect(0, 0, 1920, 1080), new Color(.035f, .032f, .065f, .965f));
+            Label(new Rect(55, 34, 560, 58), "이번 원정의 성좌", ui.PageTitle);
+            Label(new Rect(58, 94, 700, 38), "레벨 " + growth.Level + "   ·   탐사 경험 "
+                + growth.Experience + " / " + growth.ExperienceToNext + "   ·   성장점 " + growth.Points, ui.Light);
+            Label(new Rect(1510, 45, 220, 35), "GROWTH CONSTELLATION", ui.SmallLight, true);
+            if (ui.Button(new Rect(1740, 38, 125, 48), "닫기  G", true)) { growthOpen = false; return; }
+
+            Line(GrowthRoot, GrowthSkillHub, new Color(Violet.r, Violet.g, Violet.b, .62f), 3);
+            Line(GrowthRoot, GrowthUltimateHub, new Color(Gold.r, Gold.g, Gold.b, .62f), 3);
+            for (int i = 0; i < RunGrowthState.NodeCount; i++)
             {
-                Label(new Rect(480, 348 + row * 147, 124, 40), rows[row], ui.Small);
-                for (int side = 0; side < 2; side++)
-                {
-                    int index = row * 2 + side; var node = growth.GetNode(index);
-                    Rect r = new Rect(610 + side * 414, 337 + row * 147, 382, 130);
-                    bool unlocked = growth.IsUnlocked(index);
-                    bool siblingChosen = growth.IsUnlocked(row * 2 + 1 - side);
-                    Fill(r, new Color(1, 1, 1, unlocked ? .75f : siblingChosen ? .24f : .40f));
-                    Border(r, unlocked ? Violet : siblingChosen ? new Color(Muted.r,Muted.g,Muted.b,.42f) : Gold, 14);
-                    Label(new Rect(r.x + 14, r.y + 10, r.width - 28, 30), node.Name, ui.Body, true);
-                    Label(new Rect(r.x + 17, r.y + 42, r.width - 34, 45), node.Description, ui.Small, true);
-                    string action = unlocked ? "선택한 갈래" : siblingChosen ? "반대 갈래 선택됨"
-                        : growth.Level < node.RequiredLevel ? "레벨 " + node.RequiredLevel + " 필요" : "이 갈래 선택 · " + node.Cost + "점";
-                    if (ui.Button(new Rect(r.x + 18, r.yMax - 36, r.width - 36, 28), action, unlocked,
-                        canEdit && growth.CanPurchase(index)))
-                    { run.TryPurchaseGrowthNode(index); Refresh(); }
-                }
+                var node = growth.GetNode(i);
+                Vector2 start = node.ParentIndex >= 0 ? GrowthNodePositions[node.ParentIndex]
+                    : i < 2 ? GrowthSkillHub : GrowthUltimateHub;
+                Color connection = growth.IsUnlocked(i) ? Violet : growth.CanPurchase(i) ? Gold : new Color(Muted.r, Muted.g, Muted.b, .38f);
+                Line(start, GrowthNodePositions[i], connection, growth.IsUnlocked(i) ? 4 : 2);
             }
-            Label(new Rect(480, 795, 650, 55), canEdit
-                ? "각 단계에서 한 갈래만 고를 수 있습니다. 선택은 이번 원정 동안 유지되고 새 원정에서 초기화됩니다."
-                : "현재 전투에서는 확인만 가능합니다. 다음 지도 화면에서 습득·변경하세요.", ui.Small);
-            if (ui.Button(new Rect(1150, 792, 268, 58), "닫기   G / Esc", true)) growthOpen = false;
+
+            Disc(GrowthRoot, 48, new Color(.16f, .12f, .24f)); Ring(GrowthRoot, 49, Gold, 3);
+            Diamond(GrowthRoot, 25, new Color(.9f, .82f, 1f), 2);
+            Label(new Rect(GrowthRoot.x - 110, GrowthRoot.y + 55, 220, 30), "기억의 핵", ui.SmallLight, true);
+            DrawGrowthHub(GrowthSkillHub, "이동 기술", Violet, "K");
+            DrawGrowthHub(GrowthUltimateHub, "궁극기", Gold, "6");
+
+            int hovered = -1;
+            for (int i = 0; i < RunGrowthState.NodeCount; i++)
+                if (DrawGrowthNode(i, growth, canEdit)) hovered = i;
+            if (hovered >= 0) growthFocusedNode = hovered;
+
+            Rect detail = new Rect(270, 765, 1380, 205);
+            Fill(detail, new Color(.085f, .075f, .13f, .96f)); Border(detail, new Color(Gold.r, Gold.g, Gold.b, .68f), 18);
+            if (growthFocusedNode >= 0 && growthFocusedNode < RunGrowthState.NodeCount)
+            {
+                var node = growth.GetNode(growthFocusedNode);
+                Label(new Rect(305, 786, 460, 42), node.Name, ui.HeadingLight);
+                Label(new Rect(305, 837, 875, 76), node.Description, ui.Light);
+                Label(new Rect(1200, 790, 410, 38), GrowthNodeStatus(growthFocusedNode, growth, canEdit), ui.Light, true);
+                Label(new Rect(1200, 838, 410, 56), "필요 레벨 " + node.RequiredLevel + "   ·   비용 " + node.Cost + "점", ui.SmallLight, true);
+            }
+            else
+            {
+                Label(new Rect(305, 792, 500, 42), "갈라지는 전투 방식", ui.HeadingLight);
+                Label(new Rect(305, 844, 1010, 70), "원을 따라 기술 형태를 고른 뒤 연결된 하위 노드로 전술을 완성하세요. 밝은 선만 이어갈 수 있으며 같은 갈림길의 반대쪽은 이번 원정 동안 잠깁니다.", ui.Light);
+            }
+            Label(new Rect(270, 985, 1050, 48), canEdit
+                ? "노드에 마우스를 올려 상세 효과를 확인하고 클릭해 습득합니다. 새 원정에서는 모두 초기화됩니다."
+                : "전투 중에는 확인만 가능합니다. 다음 지도 화면에서 노드를 습득하세요.", ui.SmallLight);
+        }
+
+        private void DrawGrowthHub(Vector2 center, string title, Color color, string symbol)
+        {
+            Disc(center, 39, new Color(color.r, color.g, color.b, .25f)); Ring(center, 40, color, 2.5f);
+            Label(new Rect(center.x - 35, center.y - 25, 70, 50), symbol, ui.Light, true);
+            Label(new Rect(center.x - 100, center.y + 47, 200, 30), title, ui.SmallLight, true);
+        }
+
+        private bool DrawGrowthNode(int index, RunGrowthState growth, bool canEdit)
+        {
+            Vector2 center = GrowthNodePositions[index];
+            var node = growth.GetNode(index);
+            bool unlocked = growth.IsUnlocked(index), available = growth.CanPurchase(index);
+            bool hover = new Rect(center.x - 52, center.y - 52, 104, 128).Contains(Event.current.mousePosition);
+            Color color = unlocked ? new Color(.67f, .49f, .92f) : available ? Gold : new Color(.34f, .33f, .42f);
+            Disc(center, hover ? 43 : 38, new Color(color.r, color.g, color.b, unlocked ? .58f : hover ? .34f : .18f));
+            Ring(center, hover ? 44 : 40, color, unlocked ? 4 : 2);
+            if (unlocked) Ring(center, 32, new Color(.9f, .82f, 1f, .75f), 1.5f);
+            Label(new Rect(center.x - 42, center.y - 28, 84, 56), GrowthNodeSymbols[index], ui.Light, true);
+            Label(new Rect(center.x - 82, center.y + 48, 164, 48), node.Name, ui.SmallLight, true);
+            if (GUI.Button(new Rect(center.x - 52, center.y - 52, 104, 148), GUIContent.none, GUIStyle.none))
+            {
+                growthFocusedNode = index;
+                if (canEdit && available && run.TryPurchaseGrowthNode(index)) { PlayClick(); Refresh(); }
+            }
+            return hover;
+        }
+
+        private static string GrowthNodeStatus(int index, RunGrowthState growth, bool canEdit)
+        {
+            if (growth.IsUnlocked(index)) return "습득 완료";
+            var node = growth.GetNode(index);
+            for (int i = 0; i < RunGrowthState.NodeCount; i++)
+                if (i != index && growth.GetNode(i).Group == node.Group && growth.IsUnlocked(i)) return "반대 갈래 선택됨";
+            if (node.ParentIndex >= 0 && !growth.IsUnlocked(node.ParentIndex)) return "선행 노드 필요";
+            if (growth.Level < node.RequiredLevel) return "레벨 부족";
+            if (growth.Points < node.Cost) return "성장점 부족";
+            return canEdit ? "클릭하여 습득" : "지도에서 습득 가능";
         }
 
         private void DrawLegacyTree()

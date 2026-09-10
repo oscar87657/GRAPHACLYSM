@@ -1,6 +1,12 @@
-# GRAPHACLYSM Prototype · v0.17
+# GRAPHACLYSM Prototype · v0.18
 
-2026-09-10 · 플레이어 기준 작도·쿨타임 이동 기술·배타 분기 성장 v13. 유물/영구 성장은 v12, 옆모습 눈 전환은 v11, 전체 전장·지형은 v10을 유지.
+2026-09-10 · 카드/상태 정보와 12노드 성좌 성장 v14. 플레이어 기준 작도는 v13, 유물/영구 성장은 v12, 옆모습 눈 전환은 v11을 유지.
+
+## v14 전투 정보와 성좌 성장
+
+대형 카드의 수식·설명·키워드·위력 구획을 분리해 보상 화면의 글자 겹침을 없앴다. 손패에서 확대 카드와 키워드 설명으로 이동하는 동안 hover가 유지된다. 버프·디버프 칩은 이름과 함께 현재 수치·남은 적 행동 횟수를 직접 표시하며 `+N`에서 숨은 상태 전체를 읽는다.
+
+G는 중심 핵에서 이동 기술과 궁극기로 갈라지는 12노드 성좌를 연다. 형태를 고른 뒤 연결된 하위 두 갈래 중 하나를 다시 선택하며, 오중 궤적·처치 공명·궁극기 공명 환급·추가 피해/방어/회복이 실제 전투를 바꾼다. [상세 규칙과 검증](Docs/COMBAT_READABILITY_V14.md)을 따른다.
 
 ## v13 전투 흐름과 분기
 
@@ -24,7 +30,7 @@ K는 가리킨 적 방향으로 이동하면서 경로의 적을 공격하고 3�
 
 생성 전투에는 이동을 막는 기록 기둥과 작도선 교차 시 적중 피해 +2를 주는 굴절 프리즘이 배치된다. 자세한 규칙과 저장 호환은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)을 따른다. 지도는 아직 기존 가로형 3층 원정이며, 탑형 지도와 스토리는 후속 구상 범위다.
 
-최신 검증은 EditMode **148/148**, Full HD/720p **30장**, 게임 Runtime errors **0**이다. `Logs/editmode-combat-flow-v13.xml`, `Logs/combat-flow-v13-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v13에서 다시 검증하지 않았다.
+최신 검증은 EditMode **150/150**, Full HD/720p **32장**, 게임 Runtime errors **0**이다. `Logs/editmode-ui-tree-v14.xml`, `Logs/ui-tree-v14-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v14에서 다시 검증하지 않았다.
 
 ## v9 기본 기능
 
@@ -93,9 +99,9 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 ```powershell
 $unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe'
 $verifyPath = (Resolve-Path 'Logs\CombatV2VerificationProject').Path
-$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-combat-flow-v13.xml" -logFile "' + $PWD + '\Logs\editmode-combat-flow-v13.log"'
+$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-ui-tree-v14.xml" -logFile "' + $PWD + '\Logs\editmode-ui-tree-v14.log"'
 Start-Process -FilePath $unityExe -ArgumentList $testArgs -WindowStyle Hidden -Wait
-$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\combat-flow-v13-smoke.log"'
+$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\ui-tree-v14-smoke.log"'
 Start-Process -FilePath $unityExe -ArgumentList $smokeArgs -WindowStyle Hidden -Wait
 ```
 

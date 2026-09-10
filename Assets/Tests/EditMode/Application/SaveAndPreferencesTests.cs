@@ -40,6 +40,7 @@ namespace Graphaclysm.Tests.Application
             Assert.That(b.Growth.Points, Is.EqualTo(a.Growth.Points)); Assert.That(b.Growth.ActiveVariant, Is.EqualTo(a.Growth.ActiveVariant));
             Assert.That(b.Growth.ModuleVariant, Is.EqualTo(a.Growth.ModuleVariant));
             Assert.That(b.Growth.UltimateVariant, Is.EqualTo(a.Growth.UltimateVariant));
+            Assert.That(b.Growth.UnlockedMask, Is.EqualTo(a.Growth.UnlockedMask));
             Assert.That(b.Map.ActiveNodeIndex, Is.EqualTo(a.Map.ActiveNodeIndex));
             Assert.That(b.Map.LastCompletedNodeIndex, Is.EqualTo(a.Map.LastCompletedNodeIndex));
             Assert.That(b.Deck.Count, Is.EqualTo(a.Deck.Count)); Assert.That(b.Relics.Count, Is.EqualTo(a.Relics.Count));

@@ -96,6 +96,7 @@ namespace Graphaclysm.Core.Combat
         public int LastSkillHitCount { get; private set; }
         public int LastSkillDamage { get; private set; }
         public bool LastSkillWide { get; private set; }
+        public int LastSkillLaneCount { get; private set; }
         public bool LastSkillCooldownReset { get; private set; }
         public bool CanUseCombatSkill => Phase == BattlePhase.PlayerPlanning && Tactics != null
             && CombatSkillCooldown == 0 && HasLivingEnemy();
@@ -148,7 +149,8 @@ namespace Graphaclysm.Core.Combat
             if (definition.Archetype != CombatArchetype.None)
                 Tactics = new TacticalCombatState(definition.Archetype,
                     this.startingResonance,
-                    skillLoadout.UltimateVariant);
+                    skillLoadout.UltimateVariant,
+                    skillLoadout.TraitMask);
             enemies = new EnemyState[definition.EnemyCount];
 
             for (int i = 0; i < enemies.Length; i++)
@@ -231,7 +233,7 @@ namespace Graphaclysm.Core.Combat
             PlayerHealth = startingHealth;
             Energy = playerMaxEnergy;
             Turn = 1; resolvedPlots = 0; CondenseCount = 0; preserveFragments = false; CombatSkillCooldown = 0;
-            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillWide = false; LastSkillCooldownReset = false;
+            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillWide = false; LastSkillLaneCount = 1; LastSkillCooldownReset = false;
             movementEnergySpent = 0;
             Tactics?.Reset(startingResonance);
             if(startShield>0) Tactics?.Statuses.Add(CombatStatusKind.Shield,startShield,1);
@@ -435,10 +437,11 @@ namespace Graphaclysm.Core.Combat
 
             int variant = skillLoadout.ActiveVariant;
             LastSkillWide = variant == 1;
-            double width = variant == 1 ? 1.15 : .5;
+            LastSkillLaneCount = variant == 1 ? (skillLoadout.HasTrait(2) ? 5 : 3) : 1;
+            double width = variant == 1 ? (LastSkillLaneCount == 5 ? 1.65 : 1.15) : .5;
             int damage = Tactics.Archetype == CombatArchetype.Ian
-                ? (variant == 1 ? 6 : variant == 2 ? 10 : 7)
-                : (variant == 1 ? 5 : variant == 2 ? 8 : 6);
+                ? (variant == 1 ? (LastSkillLaneCount == 5 ? 5 : 6) : variant == 2 ? 10 : 7)
+                : (variant == 1 ? (LastSkillLaneCount == 5 ? 4 : 5) : variant == 2 ? 8 : 6);
             int hitCount = 0, dealt = 0; bool killed = false;
             for (int i = 0; i < enemies.Length; i++)
             {
@@ -466,6 +469,7 @@ namespace Graphaclysm.Core.Combat
                 { PlayerHealth = Math.Min(PlayerMaxHealth, PlayerHealth + 3); Tactics.Statuses.Add(CombatStatusKind.Momentum, 3, 2); }
             }
             LastSkillCooldownReset = variant == 2 && killed;
+            if (LastSkillCooldownReset && skillLoadout.HasTrait(4)) Tactics.GainResonance(1);
             CombatSkillCooldown = LastSkillCooldownReset ? 0 : CombatSkillCooldownTurns;
             movementEnergySpent = 0;
             if (AreAllEnemiesDefeated()) Phase = BattlePhase.Victory;
@@ -522,7 +526,8 @@ namespace Graphaclysm.Core.Combat
                 }
                 if (Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian)
                 {
-                    enemy.Statuses.Add(CombatStatusKind.Anchor, Tactics.UltimateVariant == 2 ? 2 : 1, 1);
+                    int anchor = Tactics.UltimateVariant == 2 ? 2 + (skillLoadout.HasTrait(10) ? 1 : 0) : 1;
+                    enemy.Statuses.Add(CombatStatusKind.Anchor, anchor, 1);
                     if (Tactics.UltimateVariant == 1) enemy.Statuses.Add(CombatStatusKind.Rupture, 3, 2);
                 }
                 if (UsesFragments && playedCardCount >= 6 && longWeaveRupture > 0)

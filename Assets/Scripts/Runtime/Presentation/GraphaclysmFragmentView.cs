@@ -41,14 +41,14 @@ namespace Graphaclysm.Runtime.Presentation
             Fill(new Rect(r.x+13,r.y+12,r.width-26,large?52:39),new Color(1,1,1,.055f));
             Label(new Rect(r.x+18,r.y+10,r.width-36,large?55:42),visual.Card.DisplayName,large?ui.HeadingLight:ui.Light,true);
             Label(new Rect(r.x+18,r.y+(large?62:50),r.width-36,25),RoleLabels[CardRole(visual.Card.Fragment)]+" · "+RarityNames[(int)visual.Card.Rarity],ui.SmallLight,true);
-            DrawFragmentEmblem(new Vector2(r.center.x,r.y+r.height*(large?.36f:.42f)),Mathf.Min(r.width*(large?.22f:.27f),r.height*(large?.15f:.16f)),visual,accent);
-            Label(new Rect(r.x+12,r.y+r.height*(large?.53f:.61f),r.width-24,large?39:30),large?visual.Card.FormulaLabel:CompactMark(visual.Card.Fragment),large?ui.Light:ui.SmallLight,true);
+            DrawFragmentEmblem(new Vector2(r.center.x,r.y+r.height*(large?.35f:.42f)),Mathf.Min(r.width*(large?.18f:.27f),r.height*(large?.12f:.16f)),visual,accent);
+            Label(new Rect(r.x+12,r.y+(large?194:r.height*.61f),r.width-24,large?36:30),large?visual.Card.FormulaLabel:CompactMark(visual.Card.Fragment),large?ui.Light:ui.SmallLight,true);
             if(inspect)
             {
-                Label(new Rect(r.x+23,r.y+220,r.width-46,54),visual.Card.Description,ui.SmallLight,true);
-                Line(new Vector2(r.x+20,r.y+281),new Vector2(r.xMax-20,r.y+281),new Color(rarity.r,rarity.g,rarity.b,.65f));
-                DrawCardKeywords(new Rect(r.x+22,r.y+292,r.width-44,32),visual,true);
-                Label(new Rect(r.x+22,r.y+331,r.width-44,28),visual.PowerBadge,ui.SmallLight,true);
+                Label(new Rect(r.x+23,r.y+232,r.width-46,48),visual.Card.Description,ui.SmallLight,true);
+                Line(new Vector2(r.x+20,r.y+289),new Vector2(r.xMax-20,r.y+289),new Color(rarity.r,rarity.g,rarity.b,.65f));
+                DrawCardKeywords(new Rect(r.x+22,r.y+299,r.width-44,34),visual,true,r);
+                Label(new Rect(r.x+22,r.y+341,r.width-44,28),visual.PowerBadge,ui.SmallLight,true);
             }
             else
             {

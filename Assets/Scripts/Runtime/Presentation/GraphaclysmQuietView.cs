@@ -17,8 +17,8 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(225,108,98,34),hpText,ui.SmallLight,true);
             Fill(new Rect(48,151,274,3),new Color(1,1,1,.13f));
             Fill(new Rect(48,151,274f*battle.PlayerHealth/battle.PlayerMaxHealth,3),Violet);
-            DrawStatusChips(battle.Tactics.Statuses,new Rect(48,166,274,28),true,4);
-            Rect ultimate = new Rect(48,208,274,43);
+            DrawStatusChips(battle.Tactics.Statuses,new Rect(48,164,274,38),true,4);
+            Rect ultimate = new Rect(48,210,274,43);
             if(ui.Button(ultimate,ultimateText,battle.Tactics.UltimateArmed,!castActive && battle.Tactics.Resonance>=6)) {run.TryToggleUltimate();Refresh();}
             for(int i=0;i<6;i++) Fill(new Rect(49+i*46,259,39,3),i<battle.Tactics.Resonance?Violet:new Color(.32f,.30f,.39f));
             Rect skill = new Rect(48,270,274,31);
@@ -73,28 +73,35 @@ namespace Graphaclysm.Runtime.Presentation
         {
             int variant = run.Growth.ActiveVariant;
             int module = run.Growth.ModuleVariant;
+            bool fiveLanes = run.Growth.IsUnlocked(2);
+            bool executionResonance = run.Growth.IsUnlocked(4);
             string form;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
             {
-                form = variant == 1 ? "넓은 세 갈래로 이동하며 피해 6" : variant == 2
-                    ? "직선으로 이동하며 피해 10 · 처치 시 즉시 재사용" : "직선으로 이동하며 피해 7";
+                form = variant == 1 ? (fiveLanes ? "넓은 다섯 갈래로 이동하며 피해 5" : "넓은 세 갈래로 이동하며 피해 6") : variant == 2
+                    ? "직선으로 이동하며 피해 10 · 처치 시 즉시 재사용" + (executionResonance ? "·공명 +1" : "") : "직선으로 이동하며 피해 7";
                 return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 적중마다 보호막" : module == 2 ? " · 파열 3" : "");
             }
-            form = variant == 1 ? "넓은 세 갈래로 이동하며 피해 5" : variant == 2
-                ? "직선으로 이동하며 피해 8 · 처치 시 즉시 재사용" : "직선으로 이동하며 피해 6";
+            form = variant == 1 ? (fiveLanes ? "넓은 다섯 갈래로 이동하며 피해 4" : "넓은 세 갈래로 이동하며 피해 5") : variant == 2
+                ? "직선으로 이동하며 피해 8 · 처치 시 즉시 재사용" + (executionResonance ? "·공명 +1" : "") : "직선으로 이동하며 피해 6";
             return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 정화/보호막/요새화" : module == 2 ? " · 회복/추진" : "");
         }
 
         private string UltimateSkillDescription()
         {
             int variant = run.Growth.UltimateVariant;
+            bool resonanceRefund = run.Growth.IsUnlocked(8);
+            bool firstAugment = run.Growth.IsUnlocked(9);
+            bool secondAugment = run.Growth.IsUnlocked(10);
+            bool selfAugment = run.Growth.IsUnlocked(11);
+            string charge = "\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2" + (resonanceRefund ? " · 궁극 다중 적중 환급 +1" : "");
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "공명 6 · 피해 +10, 파열 3\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
-                    : variant == 2 ? "공명 6 · 피해 +6, 고정 2, 자신 적중 시 회복 4\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
-                    : "공명 6 · 피해 +6, 적중한 적 이동 봉쇄\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2";
-            return variant == 1 ? "공명 6 · 자가 반경 1.25, 정화, 보호막 12, 회복 7\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
-                : variant == 2 ? "공명 6 · 피해 +4, 정화, 보호막 6, 회복 3\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
-                : "공명 6 · 자가 반경 확대, 정화, 보호막 8, 회복 5\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2";
+                return variant == 1 ? "공명 6 · 피해 +" + (firstAugment ? 14 : 10) + ", 파열 3" + charge
+                    : variant == 2 ? "공명 6 · 피해 +6, 고정 " + (secondAugment ? 3 : 2) + ", 자신 적중 시 회복 " + (selfAugment ? 8 : 4) + charge
+                    : "공명 6 · 피해 +6, 적중한 적 이동 봉쇄" + charge;
+            return variant == 1 ? "공명 6 · 자가 반경 " + (firstAugment ? "1.50" : "1.25") + ", 정화, 보호막 " + (firstAugment ? 16 : 12) + ", 회복 " + (firstAugment ? 9 : 7) + charge
+                : variant == 2 ? "공명 6 · 피해 +" + (secondAugment ? 8 : 4) + ", 정화, 보호막 " + (selfAugment ? 10 : 6) + ", 회복 " + (selfAugment ? 7 : 3) + charge
+                : "공명 6 · 자가 반경 확대, 정화, 보호막 8, 회복 5" + charge;
         }
         private void DrawQuietEnemyPanel()
         {
@@ -110,7 +117,7 @@ namespace Graphaclysm.Runtime.Presentation
                 Label(new Rect(r.x+39,r.y+2,184,30),enemy.Definition.DisplayName,ui.Light);
                 Label(new Rect(r.x+224,r.y+3,84,27),enemyHealth[i],ui.SmallLight,true);
                 Label(new Rect(r.x+39,r.y+35,150,29),enemy.IsAlive?enemyIntent[i]:"소멸",ui.SmallLight);
-                DrawStatusChips(enemy.Statuses,new Rect(r.x+187,r.y+38,121,24),true,2);
+                DrawStatusChips(enemy.Statuses,new Rect(r.x+172,r.y+34,136,34),true,2);
             }
             if(hoveredEnemy>=0 || showBattleDetails)
             {
