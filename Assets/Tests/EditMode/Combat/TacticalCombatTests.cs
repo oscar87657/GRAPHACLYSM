@@ -78,7 +78,7 @@ namespace Graphaclysm.Tests.Combat
             Assert.That(report.HitCount, Is.Zero);
             Assert.That(report.PlayerHit, Is.True);
             Assert.That(battle.Tactics.Statuses.Get(CombatStatusKind.Focus), Is.EqualTo(2));
-            Assert.That(battle.Tactics.Resonance, Is.EqualTo(1));
+            Assert.That(battle.Tactics.Resonance, Is.Zero);
             battle.ResolveEnemyTurn();
             Play(battle, "input.x", "op.square", "sigil.ward");
             report = Plot(battle);

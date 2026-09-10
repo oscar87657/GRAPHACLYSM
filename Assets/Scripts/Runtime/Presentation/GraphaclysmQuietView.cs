@@ -22,13 +22,12 @@ namespace Graphaclysm.Runtime.Presentation
             if(ui.Button(ultimate,ultimateText,battle.Tactics.UltimateArmed,!castActive && battle.Tactics.Resonance>=6)) {run.TryToggleUltimate();Refresh();}
             for(int i=0;i<6;i++) Fill(new Rect(49+i*46,259,39,3),i<battle.Tactics.Resonance?Violet:new Color(.32f,.30f,.39f));
             Rect skill = new Rect(48,270,274,31);
-            if(ui.Button(skill,GrowthSkillName(),false,!castActive && battle.CanUseCombatSkill))
-            { if(run.TryUseCombatSkill()) { message="전투 기술을 사용했습니다."; Refresh(); } }
-            RegisterKeyword(skill,GrowthSkillName(),GrowthSkillDescription());
+            if(ui.Button(skill,combatSkillText,false,!castActive && battle.CanUseCombatSkill)) UseCombatSkill();
+            RegisterKeyword(skill,GrowthSkillName(),combatSkillDescription);
             if(ultimate.Contains(Event.current.mousePosition) || showBattleDetails)
-                RegisterKeyword(ultimate,ultimateText,UltimateSkillDescription());
+                RegisterKeyword(ultimate,ultimateText,ultimateDescription);
             DrawQuietLoom();
-            if(battle.Tactics.HasMoved && !castActive)
+            if(battle.Tactics.CanUndoMove && !castActive)
                 if(ui.Button(new Rect(28,744,145,40),"이동 취소")) UndoMove();
             DrawMovementDock();
             if(showBattleDetails)
@@ -64,34 +63,38 @@ namespace Graphaclysm.Runtime.Presentation
 
         private string GrowthSkillName()
         {
-            if (!run.Growth.ActiveSkillUnlocked) return "전투 기술 · 성장에서 해금";
             int variant = run.Growth.ActiveVariant;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "가시 장막   K" : variant == 2 ? "파열 각인   K" : "흑유리 각인   K";
-            return variant == 1 ? "별의 피난처   K" : variant == 2 ? "유성의 숨   K" : "월면 보법   K";
+                return variant == 1 ? "삼중 유리길   K" : variant == 2 ? "집행의 직선   K" : "유리 쇄도   K";
+            return variant == 1 ? "삼중 월광   K" : variant == 2 ? "낙성 추격   K" : "월광 도약   K";
         }
 
         private string GrowthSkillDescription()
         {
-            if (!run.Growth.ActiveSkillUnlocked) return "지도 화면의 원정 성장(G)에서 성장점 1로 해금할 수 있습니다.";
             int variant = run.Growth.ActiveVariant;
+            int module = run.Growth.ModuleVariant;
+            string form;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "전투당 1회 · 보호막 8과 가시 3" : variant == 2
-                    ? "전투당 1회 · 해로운 상태 정화와 추진 5" : "전투당 1회 · 보호막 5";
-            return variant == 1 ? "전투당 1회 · 해로운 상태 정화와 요새화 7" : variant == 2
-                ? "전투당 1회 · 체력 5 회복과 추진 3" : "전투당 1회 · 이번 턴 추가 이동과 경쾌";
+            {
+                form = variant == 1 ? "넓은 세 갈래로 이동하며 피해 6" : variant == 2
+                    ? "직선으로 이동하며 피해 10 · 처치 시 즉시 재사용" : "직선으로 이동하며 피해 7";
+                return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 적중마다 보호막" : module == 2 ? " · 파열 3" : "");
+            }
+            form = variant == 1 ? "넓은 세 갈래로 이동하며 피해 5" : variant == 2
+                ? "직선으로 이동하며 피해 8 · 처치 시 즉시 재사용" : "직선으로 이동하며 피해 6";
+            return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 정화/보호막/요새화" : module == 2 ? " · 회복/추진" : "");
         }
 
         private string UltimateSkillDescription()
         {
             int variant = run.Growth.UltimateVariant;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "공명 6 · 이번 작도 피해 +10, 적중한 적에게 파열 3"
-                    : variant == 2 ? "공명 6 · 피해 +6, 고정 2, 자신 적중 시 체력 4 회복"
-                    : "공명 6 · 이번 작도 피해 +6, 적중한 적 이동 봉쇄";
-            return variant == 1 ? "공명 6 · 자가 적중 반경 1.25, 정화, 보호막 12, 회복 7"
-                : variant == 2 ? "공명 6 · 작도 피해 +4, 정화, 보호막 6, 회복 3"
-                : "공명 6 · 자가 적중 반경 확대, 정화, 보호막 8, 회복 5";
+                return variant == 1 ? "공명 6 · 피해 +10, 파열 3\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
+                    : variant == 2 ? "공명 6 · 피해 +6, 고정 2, 자신 적중 시 회복 4\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
+                    : "공명 6 · 피해 +6, 적중한 적 이동 봉쇄\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2";
+            return variant == 1 ? "공명 6 · 자가 반경 1.25, 정화, 보호막 12, 회복 7\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
+                : variant == 2 ? "공명 6 · 피해 +4, 정화, 보호막 6, 회복 3\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2"
+                : "공명 6 · 자가 반경 확대, 정화, 보호막 8, 회복 5\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2";
         }
         private void DrawQuietEnemyPanel()
         {

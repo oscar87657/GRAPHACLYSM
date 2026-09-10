@@ -34,10 +34,10 @@ namespace Graphaclysm.Tests.Combat
         [Test]
         public void PrismIntersectionAddsOneVisibleDamageBonus()
         {
-            var prism = new BattleTerrainDefinition("prism", BattleTerrainKind.Prism, 5, 1.6, 0.3);
-            var plain = new BattleSession(new BattleDefinition(42, 4, new[] { Target(6.6, 0) },
+            var prism = new BattleTerrainDefinition("prism", BattleTerrainKind.Prism, 4, -.4, 0.3);
+            var plain = new BattleSession(new BattleDefinition(42, 4, new[] { Target(5.6, -2) },
                 CombatArchetype.Ian, fragments: true));
-            var charged = new BattleSession(new BattleDefinition(42, 4, new[] { Target(6.6, 0) },
+            var charged = new BattleSession(new BattleDefinition(42, 4, new[] { Target(5.6, -2) },
                 CombatArchetype.Ian, fragments: true, terrain: new[] { prism }));
             CardDefinition orbit = FragmentCardCatalog.Find("frag.orbit");
 

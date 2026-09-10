@@ -1,12 +1,18 @@
-# GRAPHACLYSM Prototype · v0.16
+# GRAPHACLYSM Prototype · v0.17
 
-2026-09-10 · 전투·유물·원정/영구 성장 v12. 옆모습 눈 전환은 v11, 전체 전장·책장형 카드·지형은 v10을 유지.
+2026-09-10 · 플레이어 기준 작도·쿨타임 이동 기술·배타 분기 성장 v13. 유물/영구 성장은 v12, 옆모습 눈 전환은 v11, 전체 전장·지형은 v10을 유지.
+
+## v13 전투 흐름과 분기
+
+빈 조립대의 첫 파편은 현재 플레이어 위치에서 시작한다. 유성 보폭·별빛 보루·굴절 보법·성운의 품은 각각 일곱 갈래 폭발·만화경 접기·파쇄 회전·5:2 리본으로 실제 전체 궤적을 크게 바꾼다. 카드 키워드에서 툴팁으로 포인터를 옮겨도 확대 카드와 설명이 유지된다.
+
+K는 가리킨 적 방향으로 이동하면서 경로의 적을 공격하고 3번의 적 행동 뒤 다시 쓸 수 있다. 레벨 2/3/4에서 기술 형태·궤적 모듈·궁극기 변주를 각각 둘 중 하나만 고른다. 넓은 세 갈래와 처치 시 즉시 초기화되는 직선 등 플레이 방식이 달라지며 새 원정에서 초기화된다. 공명은 적 2명 이상 적중 +1, 자신과 적 동시 적중 +2 조건으로만 얻는다. [정확한 규칙과 검증](Docs/COMBAT_FLOW_V13.md)을 따른다.
 
 ## v12 전투와 성장
 
 파편 카드는 31종, 유물은 20종이다. 가시·추진·요새화·파열을 더해 상태는 12종이며 새 카드와 유물도 기존 호버 설명에서 정확한 효과를 읽을 수 있다. 신규 유물 6종에는 투명 배경 전용 그림이 있다.
 
-방을 완료하면 원정 경험치를 얻고 레벨마다 성장점 1을 받는다. G의 캐릭터별 트리에서 전투당 한 번 쓰는 기술과 궁극기 변형을 해금·선택한다. 이 진행은 새 원정에서 초기화된다. 패배·완주 시 받는 잔광은 메인 화면의 영구 기록에서 최대 체력·승리 회복·시작 공명·시작 경험치·시작 보호막·잔광 보너스에 쓴다. 정확한 수치와 저장 경계는 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)를 따른다.
+방을 완료하면 원정 경험치를 얻고 레벨마다 성장점 1을 받는다. v12의 자유 전환 강화 목록은 위 v13 배타 분기로 교체했다. 패배·완주 시 받는 잔광은 메인 화면의 영구 기록에서 최대 체력·승리 회복·시작 공명·시작 경험치·시작 보호막·잔광 보너스에 쓴다. 유물과 영구 성장 수치는 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)를 따른다.
 
 ## v11 캐릭터 선택
 
@@ -18,7 +24,7 @@
 
 생성 전투에는 이동을 막는 기록 기둥과 작도선 교차 시 적중 피해 +2를 주는 굴절 프리즘이 배치된다. 자세한 규칙과 저장 호환은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)을 따른다. 지도는 아직 기존 가로형 3층 원정이며, 탑형 지도와 스토리는 후속 구상 범위다.
 
-최신 검증은 EditMode **146/146**, Full HD/720p **29장**, Runtime errors **0**이다. `Logs/editmode-combat-growth-v12.xml`, `Logs/combat-growth-v12-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v12에서 다시 검증하지 않았다.
+최신 검증은 EditMode **148/148**, Full HD/720p **30장**, 게임 Runtime errors **0**이다. `Logs/editmode-combat-flow-v13.xml`, `Logs/combat-flow-v13-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v13에서 다시 검증하지 않았다.
 
 ## v9 기본 기능
 
@@ -48,8 +54,8 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 | 방향키 / 왼쪽 하단 이동 버튼 | 턴당 한 번 무료 이동 |
 | 이동 취소 / Backspace | 작도 전에 위치와 이동 기회 복구 |
 | 궁극기 | 공명 6으로 준비/취소, 실제 방출에 소비 |
-| K / 전투 기술 | 해금한 캐릭터 기술을 전투마다 한 번 사용 |
-| G / 원정 성장 | 레벨·경험치·성장점과 전투 기술·궁극기 변형 확인 |
+| K / 전투 기술 | 가리킨 적 방향으로 이동 공격, 기본 대기 3턴 |
+| G / 원정 성장 | 레벨 2/3/4의 기술 형태·모듈·궁극기 배타 분기 선택 |
 | 상세 → 수식 보기 | 현재 O+F(t)의 기준점과 각 단계 규칙 |
 | 적 호버 / 상세 | 상태·예상 피해 |
 | Esc | 일시정지/복귀. 열린 설정·안내·덱·사전에서는 해당 화면 닫기 |
@@ -60,9 +66,9 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 
 ## 새 카드와 응축
 
-귀환점은 사용 당시 플레이어 위치로 기준점을 옮긴다. 서쪽의 문은 기준점 왼쪽 2, 승천은 위로 1.5다. 그래프와 중심에서 퍼지는 작도 이펙트가 함께 이동한다. 이후 파편은 이동한 기준점에서 F를 변형한다. 여백·낙화의 F 내부 평행 이동은 이후 회전에 영향을 받는 다른 연산이다.
+빈 조립대의 첫 파편은 사용 당시 플레이어 위치를 기준점으로 삼는다. 귀환점은 조립 중에도 다시 현재 위치로 기준점을 옮긴다. 서쪽의 문은 기준점 왼쪽 2, 승천은 위로 1.5다. 그래프와 중심에서 퍼지는 작도 이펙트가 함께 이동한다. 이후 파편은 정한 기준점에서 F를 변형한다.
 
-속삭임은 작은 1/4 역회전, 오엽성은 5갈래 반경, 격류는 1.7배 확대, 긴 황혼은 가로 1.4·세로 0.65다. 카드마다 위력과 능력 수치를 구분했다. 조립 위력은 카드별 0~3, 합계 최대 10이다.
+속삭임은 작은 1/4 역회전, 오엽성은 5갈래 반경, 격류는 1.7배 확대, 긴 황혼은 가로 1.4·세로 0.65다. 유성 보폭·별빛 보루·굴절 보법·성운의 품은 새 7갈래·접기·파쇄·5:2 재표본 변환이다. 조립 위력은 카드별 0~3, 합계 최대 10이다.
 
 응축 비용은 보호막과 무관하며 체력이 비용 이하이면 쓸 수 없다. 기본 보충은 1장, 파편의 추가 드로우는 합계 최대 1장만 적용한다. 넘친 보너스는 소비하고 이후 방출에서 복원하지 않는다. 턴 드로우 유물은 응축에 적용하지 않는다. 방출/해체 후에는 기본 2장+일반 턴 보충 유물이 적용된다. 예약·손패 각각 최대 8장, 응축은 방출/해체 사이 두 번이다.
 
@@ -87,13 +93,13 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 ```powershell
 $unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe'
 $verifyPath = (Resolve-Path 'Logs\CombatV2VerificationProject').Path
-$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-combat-growth-v12.xml" -logFile "' + $PWD + '\Logs\editmode-combat-growth-v12.log"'
+$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-combat-flow-v13.xml" -logFile "' + $PWD + '\Logs\editmode-combat-flow-v13.log"'
 Start-Process -FilePath $unityExe -ArgumentList $testArgs -WindowStyle Hidden -Wait
-$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\combat-growth-v12-smoke.log"'
+$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\combat-flow-v13-smoke.log"'
 Start-Process -FilePath $unityExe -ArgumentList $smokeArgs -WindowStyle Hidden -Wait
 ```
 
-화면 검증에는 -nographics/-quit을 붙이지 않는다. runner가 종료한다. V2~V8 fixture는 과거 규칙 기록이다. 현재 기본 화면 검증은 v12 항목까지 확장한 BasicsV9Smoke다.
+화면 검증에는 -nographics/-quit을 붙이지 않는다. runner가 종료한다. V2~V8 fixture는 과거 규칙 기록이다. 현재 기본 화면 검증은 v13 항목까지 확장한 BasicsV9Smoke다.
 
 아트는 이안 v2·루나 v6·배경 v3를 유지했고 새 bitmap 생성은 없다. 저장·기본 효과음·페이지형 안내는 v9에 추가했다. 상점·강화·실습형 튜토리얼·배경음악은 미구현이다. 수학은 1,536선분/최대 주파수 96의 근사이며 임의 수식·무제한 프랙탈은 지원하지 않는다.
 

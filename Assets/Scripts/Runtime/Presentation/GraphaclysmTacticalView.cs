@@ -163,8 +163,8 @@ namespace Graphaclysm.Runtime.Presentation
             Rect rect = new Rect(width - 405, 155, 360, 210);
             DrawRect(rect, new Color(0.08f, 0.09f, 0.16f, 0.99f));
             GUI.Label(rect, battle.Tactics.Archetype == CombatArchetype.Ian
-                ? "흑유리 개방\n다음 작도 적중 피해 +6. 적중한 적의 이번 이동을 봉쇄합니다.\n\n공명 6 소비 · 준비 취소 가능\n작도 +1 / 자신과 적 동시 적중 +1\n남은 공명은 다음 전투로 이어집니다."
-                : "백야의 포옹\n다음 작도의 자신 적중 반경이 1로 확대됩니다. 자신 적중 시 정화·보호막 8·회복 5를 추가로 받습니다.\n\n공명 6 소비 · 준비 취소 가능\n작도 +1 / 자신과 적 동시 적중 +1", tooltipStyle);
+                ? "흑유리 개방\n다음 작도 적중 피해 +6. 적중한 적의 이번 이동을 봉쇄합니다.\n\n공명 6 소비 · 준비 취소 가능\n적 2명 이상 +1 / 자신과 적 동시 적중 +2\n남은 공명은 다음 전투로 이어집니다."
+                : "백야의 포옹\n다음 작도의 자신 적중 반경이 1로 확대됩니다. 자신 적중 시 정화·보호막 8·회복 5를 추가로 받습니다.\n\n공명 6 소비 · 준비 취소 가능\n적 2명 이상 +1 / 자신과 적 동시 적중 +2", tooltipStyle);
         }
 
         private static string GetCardRole(CardType type)

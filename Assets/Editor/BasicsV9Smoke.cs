@@ -182,6 +182,14 @@ namespace Graphaclysm.Editor
             yield return new WaitForSecondsRealtime(2.3f);
             Check(flow.CurrentRun.Phase != RunPhase.Battle || flow.CurrentRun.CurrentBattle.Battle.Phase == BattlePhase.PlayerPlanning, "Resumed cast stuck");
             yield return Shot("12-resumed-battle");
+            if (flow.CurrentRun.Phase == RunPhase.Battle)
+            {
+                BattleSession skillBattle = flow.CurrentRun.CurrentBattle.Battle;
+                Invoke("UseCombatSkill");
+                Check(skillBattle.CombatSkillCooldown == BattleSession.CombatSkillCooldownTurns
+                    || skillBattle.LastSkillCooldownReset, "Cooldown skill did not resolve");
+                yield return Shot("12a-path-skill");
+            }
             SetSize(1280, 720); Set("paused", true); yield return Shot("13-pause-720p");
             Invoke("OpenSettings"); yield return Shot("14-settings-720p"); Invoke("CloseSettings");
             Invoke("OpenHelp"); Set("helpPage", 3); yield return Shot("15-guide-720p"); Invoke("CloseHelp");

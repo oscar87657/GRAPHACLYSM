@@ -6,11 +6,12 @@ using Graphaclysm.Core.Characters;
 using Graphaclysm.Core.Combat;
 using Graphaclysm.Core.Relics;
 using Graphaclysm.Core.Runs;
+using Graphaclysm.Core.Equations;
 using NUnit.Framework;
 
 namespace Graphaclysm.Tests.Combat
 {
-    public sealed class CombatGrowthV12Tests
+    public sealed class CombatFlowV13Tests
     {
         private static BattleDefinition Battle(CombatArchetype archetype = CombatArchetype.Ian)
             => new BattleDefinition(50, 4,
@@ -23,68 +24,113 @@ namespace Graphaclysm.Tests.Combat
         }
 
         [Test]
-        public void RunGrowthLevelsPurchasesAndSwitchesVariantsWithoutLeakingIntoANewRun()
+        public void RunGrowthOffersThreeExclusiveBranchChoicesAndResetsWithANewRun()
         {
             var growth = new RunGrowthState(CombatArchetype.Ian);
             growth.AddExperience(30);
             Assert.That(growth.Level, Is.GreaterThan(6));
             Assert.That(growth.TryPurchase(0), Is.True);
+            Assert.That(growth.TryPurchase(1), Is.False);
             Assert.That(growth.TryPurchase(2), Is.True);
             Assert.That(growth.ActiveVariant, Is.EqualTo(1));
-            Assert.That(growth.TryPurchase(3), Is.True);
-            Assert.That(growth.ActiveVariant, Is.EqualTo(2));
-            Assert.That(growth.TrySelect(2), Is.True);
-            Assert.That(growth.ActiveVariant, Is.EqualTo(1));
-            Assert.That(growth.TryPurchase(1), Is.True);
-            var resonanceBattle = new BattleSession(Battle(), 50, 0, 0, 0, null, growth.CreateLoadout());
-            Assert.That(resonanceBattle.Tactics.Resonance, Is.EqualTo(1));
+            Assert.That(growth.ModuleVariant, Is.EqualTo(1));
+            Assert.That(growth.TryPurchase(3), Is.False);
+            Assert.That(growth.TryPurchase(4), Is.True);
+            Assert.That(growth.UltimateVariant, Is.EqualTo(1));
+            Assert.That(growth.TryPurchase(5), Is.False);
+            Assert.That(growth.TrySelect(0), Is.False);
             var fresh = new RunGrowthState(CombatArchetype.Ian);
             Assert.That(fresh.Level, Is.EqualTo(1));
             Assert.That(fresh.Points, Is.Zero);
-            Assert.That(fresh.ActiveSkillUnlocked, Is.False);
+            Assert.That(fresh.ActiveVariant, Is.Zero);
         }
 
         [Test]
-        public void CharacterCombatSkillUsesSelectedRoleOncePerBattle()
+        public void CombatSkillMovesAlongAPathHitsAndUsesAThreeTurnCooldown()
         {
             var ian = new BattleSession(Battle(), 50, 0, 0, 0, null,
-                new BattleSkillLoadout(true, 1, 0, 0));
+                new BattleSkillLoadout(1, 1, 0));
+            double startX = ian.Tactics.X;
             Assert.That(ian.TryUseCombatSkill(), Is.True);
-            Assert.That(ian.Tactics.Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(8));
-            Assert.That(ian.Tactics.Statuses.Get(CombatStatusKind.Thorns), Is.EqualTo(3));
+            Assert.That(ian.Tactics.X, Is.GreaterThan(startX));
+            Assert.That(ian.Enemies[0].Health, Is.EqualTo(94));
+            Assert.That(ian.Tactics.Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(5));
+            Assert.That(ian.CombatSkillCooldown, Is.EqualTo(3));
             Assert.That(ian.TryUseCombatSkill(), Is.False);
+            for (int i = 0; i < 3; i++) { Assert.That(ian.TryUnravel(), Is.True); ian.ResolveEnemyTurn(); }
+            Assert.That(ian.CombatSkillCooldown, Is.Zero);
+            Assert.That(ian.CanUseCombatSkill, Is.True);
 
             var luna = new BattleSession(Battle(CombatArchetype.Luna), 50, 0, 0, 0, null,
-                new BattleSkillLoadout(true, 0, 0, 0));
-            Assert.That(luna.TryMovePlayer(-1.5, 0), Is.True);
+                new BattleSkillLoadout(2, 0, 0));
             Assert.That(luna.TryUseCombatSkill(), Is.True);
-            Assert.That(luna.Tactics.HasMoved, Is.False);
-            Assert.That(luna.TryMovePlayer(0, 1.5), Is.True);
+            Assert.That(luna.Enemies[0].Health, Is.EqualTo(92));
+            Assert.That(luna.Tactics.HasMoved, Is.True);
+            Assert.That(luna.Tactics.CanUndoMove, Is.False);
         }
 
         [Test]
-        public void MomentumChangesTheNextGraphPreviewAndIsConsumedOnRelease()
+        public void SkillModulesChangeThePathAttackInsteadOfOnlyRaisingNumbers()
         {
-            var baseline = new BattleSession(Battle());
-            Assert.That(baseline.TryPlayCard(FragmentCardCatalog.Find("frag.home"), out _), Is.True);
-            int normal = baseline.PreviewDamage(baseline.Enemies[0]);
-            Assert.That(normal, Is.GreaterThan(0));
+            var fracture = new BattleSession(Battle(), 50, 0, 0, 0, null,
+                new BattleSkillLoadout(0, 2, 0));
+            Assert.That(fracture.TryUseCombatSkill(), Is.True);
+            Assert.That(fracture.Enemies[0].Statuses.Get(CombatStatusKind.Rupture), Is.EqualTo(3));
 
-            var boosted = new BattleSession(Battle(), 50, 0, 0, 0, null,
-                new BattleSkillLoadout(true, 2, 0, 0));
-            Assert.That(boosted.TryUseCombatSkill(), Is.True);
-            Assert.That(boosted.TryPlayCard(FragmentCardCatalog.Find("frag.home"), out _), Is.True);
-            Assert.That(boosted.PreviewDamage(boosted.Enemies[0]), Is.EqualTo(normal + 5));
-            Assert.That(boosted.TryBeginPlot(), Is.True);
-            boosted.ResolvePlot();
-            Assert.That(boosted.Tactics.Statuses.Get(CombatStatusKind.Momentum), Is.Zero);
+            var execution = new BattleSession(new BattleDefinition(50, 4,
+                new[] { new EnemyDefinition("target", "Target", 5.6, -2, 8, 0) }, CombatArchetype.Ian, fragments: true),
+                50, 0, 0, 0, null, new BattleSkillLoadout(2, 0, 0));
+            Assert.That(execution.TryUseCombatSkill(), Is.True);
+            Assert.That(execution.Enemies[0].IsAlive, Is.False);
+            Assert.That(execution.LastSkillCooldownReset, Is.True);
+            Assert.That(execution.CombatSkillCooldown, Is.Zero);
+        }
+
+        [Test]
+        public void WideBranchHitsThreeLanesAndNewFragmentsChangeTheWholeSilhouette()
+        {
+            var wide = new BattleSession(new BattleDefinition(50, 4, new[]
+            {
+                new EnemyDefinition("center", "Center", 7, -2, 30, 0),
+                new EnemyDefinition("upper", "Upper", 5.3, -.9, 30, 0),
+                new EnemyDefinition("lower", "Lower", 5.3, -3.1, 30, 0)
+            }, CombatArchetype.Ian, fragments: true), 50, 0, 0, 0, null, new BattleSkillLoadout(1, 0, 0));
+            Assert.That(wide.TryUseCombatSkill(0), Is.True);
+            Assert.That(wide.LastSkillHitCount, Is.EqualTo(3));
+
+            FragmentKind[] kinds = { FragmentKind.CometBurst, FragmentKind.KaleidoscopeFold,
+                FragmentKind.ShardFracture, FragmentKind.NebulaRibbon };
+            int[] frequencies = { 8, 10, 7, 5 };
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                var equation = new FragmentEquation();
+                Assert.That(equation.TryAppend(kinds[i], 2.5, -1.25), Is.True);
+                Assert.That(equation.OriginX, Is.EqualTo(2.5));
+                Assert.That(equation.OriginY, Is.EqualTo(-1.25));
+                Assert.That(equation.Frequency, Is.EqualTo(frequencies[i]));
+                Assert.That(equation.BuildFormula(), Does.Contain(FragmentEquation.Rule(kinds[i])));
+            }
+        }
+
+        [Test]
+        public void ResonanceRequiresMultiTargetOrSelfEnemyGeometry()
+        {
+            var battle = new BattleSession(new BattleDefinition(50, 4, new[]
+            {
+                new EnemyDefinition("east", "East", 5.6, -2, 50, 0),
+                new EnemyDefinition("north", "North", 4, -.4, 50, 0)
+            }, CombatArchetype.Ian, fragments: true));
+            Assert.That(battle.TryPlayCard(FragmentCardCatalog.Find("frag.home"), out _), Is.True);
+            Assert.That(battle.TryBeginPlot(), Is.True);
+            Assert.That(battle.ResolvePlot().HitCount, Is.EqualTo(2));
+            Assert.That(battle.Tactics.Resonance, Is.EqualTo(1));
         }
 
         [Test]
         public void RuptureFortifyAndThornsResolveInTheirDeclaredOrder()
         {
             var ruptured = new BattleSession(Battle(), 50, 0, 0, 6, null,
-                new BattleSkillLoadout(false, 0, 1, 0));
+                new BattleSkillLoadout(0, 0, 1));
             Assert.That(ruptured.TryToggleUltimate(), Is.True);
             Assert.That(ruptured.TryPlayCard(FragmentCardCatalog.Find("frag.home"), out _), Is.True);
             Assert.That(ruptured.TryBeginPlot(), Is.True);

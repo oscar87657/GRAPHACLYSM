@@ -10,7 +10,7 @@ namespace Graphaclysm.Tests.Combat
     public sealed class FragmentCombatTests
     {
         private static BattleSession Battle() => new BattleSession(new BattleDefinition(100,1,
-            new[]{new EnemyDefinition("target","Target",7.4,0,999,2)},CombatArchetype.Ian,fragments:true));
+            new[]{new EnemyDefinition("target","Target",6.4,-2,999,2)},CombatArchetype.Ian,fragments:true));
         private static BattleGameSession Game(string id="frag.contract")
         {
             var cards=new CardDefinition[12];for(int i=0;i<cards.Length;i++)cards[i]=FragmentCardCatalog.Find(id);
@@ -19,8 +19,8 @@ namespace Graphaclysm.Tests.Combat
         private static void Conservation(DeckSession d) => Assert.That(d.HandCount+d.DrawCount+d.DiscardCount+d.ReservedCount,Is.EqualTo(d.TotalCardCount));
         [Test] public void SharedCurveDamagesEnemyAndBuffsPlayerWithoutSelfDamage()
         {
-            var b=new BattleSession(new BattleDefinition(100,1,new[]{new EnemyDefinition("a","Target",5,-2.4,100,0)},CombatArchetype.Ian,fragments:true));
-            b.TryPlayCard(FragmentCardCatalog.Find("frag.down"),out _);Assert.That(b.PreviewPlayerHit,Is.True);
+            var b=new BattleSession(new BattleDefinition(100,1,new[]{new EnemyDefinition("a","Target",4.83,-2.415,100,0)},CombatArchetype.Ian,fragments:true));
+            b.TryPlayCard(FragmentCardCatalog.Find("frag.down"),out _);b.TryPlayCard(FragmentCardCatalog.Find("frag.contract"),out _);b.TryPlayCard(FragmentCardCatalog.Find("frag.contract"),out _);Assert.That(b.PreviewPlayerHit,Is.True);
             Assert.That(b.TryBeginPlot(),Is.True);var r=b.ResolvePlot();Assert.That(r.HitCount,Is.EqualTo(1));Assert.That(r.PlayerHit,Is.True);
             Assert.That(b.PlayerHealth,Is.EqualTo(100));Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.EqualTo(3));
         }
@@ -42,8 +42,8 @@ namespace Graphaclysm.Tests.Combat
             var b=Battle();b.TryPlayCard(FragmentCardCatalog.Find("frag.echo"),out _);
             for(int i=0;i<24;i++)
             { double t=i*Math.PI*2/24;b.Equation.Sample(i/24.0,out double x,out double y);
-              Assert.That(x,Is.EqualTo(5+1.6*Math.Cos(t)+.8*Math.Cos(-3*t)).Within(1e-9));
-              Assert.That(y,Is.EqualTo(1.6*Math.Sin(t)+.8*Math.Sin(-3*t)).Within(1e-9)); }
+              Assert.That(x,Is.EqualTo(4+1.6*Math.Cos(t)+.8*Math.Cos(-3*t)).Within(1e-9));
+              Assert.That(y,Is.EqualTo(-2+1.6*Math.Sin(t)+.8*Math.Sin(-3*t)).Within(1e-9)); }
             Assert.That(b.PreviewDamage(b.Enemies[0]),Is.GreaterThan(0));
         }
         [Test] public void WrappingOrderChangesGeometryAndUndoRestoresInnerCurve()

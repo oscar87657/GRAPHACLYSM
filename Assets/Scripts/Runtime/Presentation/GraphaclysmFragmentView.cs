@@ -84,6 +84,10 @@ namespace Graphaclysm.Runtime.Presentation
                 case FragmentKind.StarPetal: return "5≈□";
                 case FragmentKind.Surge: return "1.7□";
                 case FragmentKind.Ellipse: return "↔□";
+                case FragmentKind.CometBurst: return "7✦□";
+                case FragmentKind.KaleidoscopeFold: return "◇4□";
+                case FragmentKind.ShardFracture: return "6⌁□";
+                case FragmentKind.NebulaRibbon: return "5:2□";
                 default: return "□↻";
             }
         }

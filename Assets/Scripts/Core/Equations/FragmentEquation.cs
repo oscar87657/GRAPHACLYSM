@@ -3,7 +3,7 @@ using System.Text;
 
 namespace Graphaclysm.Core.Equations
 {
-    public enum FragmentKind { Counterpoint, Orbit, Petal, Expand, Contract, Mirror, TranslateRight, TranslateDown, Square, Overtone, HomeAnchor, WestAnchor, NorthAnchor, TwinEcho, StarPetal, Surge, Ellipse, Lissajous, Epitrochoid, Limacon, Shear, PhaseOffset, ComplexCube }
+    public enum FragmentKind { Counterpoint, Orbit, Petal, Expand, Contract, Mirror, TranslateRight, TranslateDown, Square, Overtone, HomeAnchor, WestAnchor, NorthAnchor, TwinEcho, StarPetal, Surge, Ellipse, Lissajous, Epitrochoid, Limacon, Shear, PhaseOffset, ComplexCube, CometBurst, KaleidoscopeFold, ShardFracture, NebulaRibbon }
 
     /// <summary>Each card wraps the entire preceding periodic curve. Fixed prefix tables avoid exponential evaluation.</summary>
     public sealed class FragmentEquation
@@ -33,6 +33,10 @@ namespace Graphaclysm.Core.Equations
                 case FragmentKind.Shear: return "x + 0.7y";
                 case FragmentKind.PhaseOffset: return "Re□₊π/₂ + iIm□";
                 case FragmentKind.ComplexCube: return "[□]³ / 4";
+                case FragmentKind.CometBurst: return "[1+.62cos7t]□";
+                case FragmentKind.KaleidoscopeFold: return "fold[e⁴ⁱᵗ□]";
+                case FragmentKind.ShardFracture: return "[.72+.38cos5t+.46isin6t]□";
+                case FragmentKind.NebulaRibbon: return "Re□₅ + iIm□₂";
                 case FragmentKind.HomeAnchor: return "O ← 나";
                 case FragmentKind.WestAnchor: return "O ← −2";
                 case FragmentKind.NorthAnchor: return "O ↑ 1.5";
@@ -62,6 +66,10 @@ namespace Graphaclysm.Core.Equations
                 case FragmentKind.Shear: return "Re(F) + 0.7 Im(F) + i Im(F)";
                 case FragmentKind.PhaseOffset: return "Re(F(t + π/2)) + i Im(F(t))";
                 case FragmentKind.ComplexCube: return "F(t)³ / 4";
+                case FragmentKind.CometBurst: return "(1 + 0.62 cos(7t)) × F(t)";
+                case FragmentKind.KaleidoscopeFold: return "회전한 F(t)를 거울축으로 접기";
+                case FragmentKind.ShardFracture: return "(0.72 + 0.38cos(5t) + 0.46i sin(6t)) × F(t)";
+                case FragmentKind.NebulaRibbon: return "Re(F(5t)) + i Im(F(2t))";
                 case FragmentKind.HomeAnchor: return "O ← 카드 사용 시 플레이어 좌표; F 유지";
                 case FragmentKind.WestAnchor: return "O.x ← max(0.5, O.x − 2); F 유지";
                 case FragmentKind.NorthAnchor: return "O.y ← min(3.5, O.y + 1.5); F 유지";
@@ -93,13 +101,22 @@ namespace Graphaclysm.Core.Equations
                 case FragmentKind.Square: case FragmentKind.TwinEcho: return Frequency*2;
                 case FragmentKind.StarPetal: return Frequency+5;
                 case FragmentKind.Limacon: return Frequency+1;
+                case FragmentKind.CometBurst: return Frequency+7;
+                case FragmentKind.KaleidoscopeFold: return (Frequency+4)*2;
+                case FragmentKind.ShardFracture: return Frequency+6;
+                case FragmentKind.NebulaRibbon: return Frequency*5;
                 default: return Frequency;
             }
         }
-        public bool CanAppend(FragmentKind kind) => kind >= FragmentKind.Counterpoint && kind <= FragmentKind.ComplexCube && Count < Capacity && NextFrequency(kind) <= MaximumFrequency;
+        public bool CanAppend(FragmentKind kind) => kind >= FragmentKind.Counterpoint && kind <= FragmentKind.NebulaRibbon && Count < Capacity && NextFrequency(kind) <= MaximumFrequency;
         public bool TryAppend(FragmentKind kind, double playerX = 5, double playerY = 0)
         {
             if (!CanAppend(kind) || double.IsNaN(playerX) || double.IsNaN(playerY) || double.IsInfinity(playerX) || double.IsInfinity(playerY)) return false;
+            if (Count == 0)
+            {
+                originX[0] = Math.Max(.5, Math.Min(9.5, playerX));
+                originY[0] = Math.Max(-3.5, Math.Min(3.5, playerY));
+            }
             int previous = Count * Segments, next = previous + Segments;
             frequencies[Count + 1] = NextFrequency(kind); steps[Count] = kind;
             originX[Count+1] = originX[Count]; originY[Count+1] = originY[Count];
@@ -121,6 +138,16 @@ namespace Graphaclysm.Core.Equations
                     case FragmentKind.Shear: nx=a+.7*b;break;
                     case FragmentKind.PhaseOffset: nx=x[previous+(i+Segments/4)%Segments];break;
                     case FragmentKind.ComplexCube: nx=(a*a*a-3*a*b*b)/4;ny=(3*a*a*b-b*b*b)/4;break;
+                    case FragmentKind.CometBurst:
+                        double comet=1+.62*Math.Cos(7*t);nx*=comet;ny*=comet;break;
+                    case FragmentKind.KaleidoscopeFold:
+                        double kc=Math.Cos(4*t),ks=Math.Sin(4*t);
+                        nx=kc*a-ks*b;ny=Math.Abs(ks*a+kc*b)-.72;break;
+                    case FragmentKind.ShardFracture:
+                        double shard=.72+.38*Math.Cos(5*t),bend=.46*Math.Sin(6*t);
+                        nx=shard*a-bend*b;ny=shard*b+bend*a;break;
+                    case FragmentKind.NebulaRibbon:
+                        nx=x[previous+(i*5)%Segments];ny=y[previous+(i*2)%Segments];break;
                     case FragmentKind.TwinEcho:
                         int twin = (Segments - i * 2 % Segments) % Segments;
                         nx += .25*x[previous+twin]; ny += .25*y[previous+twin]; break;

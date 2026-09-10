@@ -257,8 +257,13 @@ namespace Graphaclysm.Application
         public bool TryToggleUltimate()
             => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryToggleUltimate(), RunCommandKind.ToggleUltimate);
 
-        public bool TryUseCombatSkill()
-            => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryUseCombatSkill(), RunCommandKind.UseCombatSkill);
+        public bool TryUseCombatSkill(int targetIndex = -1)
+        {
+            if (Phase != RunPhase.Battle || !CurrentBattle.Battle.TryUseCombatSkill(targetIndex)) return false;
+            Record(true, RunCommandKind.UseCombatSkill, targetIndex);
+            if (CurrentBattle.Battle.Phase == BattlePhase.Victory) CompleteVictory();
+            return true;
+        }
 
         public bool TryPurchaseGrowthNode(int nodeIndex)
             => Record(Phase == RunPhase.MapSelection && Growth.TryPurchase(nodeIndex), RunCommandKind.PurchaseGrowth, nodeIndex);

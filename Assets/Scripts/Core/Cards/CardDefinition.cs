@@ -78,7 +78,7 @@ namespace Graphaclysm.Core.Cards
         public int DrawBonus { get; }
         public static CardDefinition CreateWeaveFragment(string id, string name, FragmentKind kind, CardRarity rarity, string description, int drawBonus, params CardAbility[] abilities)
         {
-            if (kind < FragmentKind.Counterpoint || kind > FragmentKind.ComplexCube || drawBonus < 0 || drawBonus > 2) throw new ArgumentOutOfRangeException(nameof(kind));
+            if (kind < FragmentKind.Counterpoint || kind > FragmentKind.NebulaRibbon || drawBonus < 0 || drawBonus > 2) throw new ArgumentOutOfRangeException(nameof(kind));
             if (abilities == null || abilities.Length + (drawBonus > 0 ? 1 : 0) < 1 || abilities.Length + (drawBonus > 0 ? 1 : 0) > 2) throw new ArgumentException("One or two attached abilities required.");
             for (int i = 0; i < abilities.Length; i++) if (abilities[i].Magnitude <= 0) throw new ArgumentException("Invalid ability.");
             return new CardDefinition(id, name, FragmentEquation.Symbol(kind), 0, CardType.Operation, rarity, default, default,

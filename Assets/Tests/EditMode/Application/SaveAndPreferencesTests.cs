@@ -38,6 +38,7 @@ namespace Graphaclysm.Tests.Application
             Assert.That(b.PlayerMaxHealth, Is.EqualTo(a.PlayerMaxHealth));
             Assert.That(b.Growth.Level, Is.EqualTo(a.Growth.Level)); Assert.That(b.Growth.Experience, Is.EqualTo(a.Growth.Experience));
             Assert.That(b.Growth.Points, Is.EqualTo(a.Growth.Points)); Assert.That(b.Growth.ActiveVariant, Is.EqualTo(a.Growth.ActiveVariant));
+            Assert.That(b.Growth.ModuleVariant, Is.EqualTo(a.Growth.ModuleVariant));
             Assert.That(b.Growth.UltimateVariant, Is.EqualTo(a.Growth.UltimateVariant));
             Assert.That(b.Map.ActiveNodeIndex, Is.EqualTo(a.Map.ActiveNodeIndex));
             Assert.That(b.Map.LastCompletedNodeIndex, Is.EqualTo(a.Map.LastCompletedNodeIndex));
@@ -62,7 +63,7 @@ namespace Graphaclysm.Tests.Application
             Assert.That(y.PendingDrawBonus, Is.EqualTo(x.PendingDrawBonus));
             Assert.That(y.Tactics.X, Is.EqualTo(x.Tactics.X)); Assert.That(y.Tactics.Y, Is.EqualTo(x.Tactics.Y));
             Assert.That(y.Tactics.HasMoved, Is.EqualTo(x.Tactics.HasMoved));
-            Assert.That(y.CombatSkillUsed, Is.EqualTo(x.CombatSkillUsed));
+            Assert.That(y.CombatSkillCooldown, Is.EqualTo(x.CombatSkillCooldown));
             Assert.That(y.Tactics.UltimateArmed, Is.EqualTo(x.Tactics.UltimateArmed)); Assert.That(y.Tactics.Resonance, Is.EqualTo(x.Tactics.Resonance));
             for (int i = 0; i < CombatStatusState.Capacity; i++)
             { Assert.That(y.Tactics.Statuses.Get((CombatStatusKind)i), Is.EqualTo(x.Tactics.Statuses.Get((CombatStatusKind)i))); Assert.That(y.Tactics.Statuses.Duration((CombatStatusKind)i), Is.EqualTo(x.Tactics.Statuses.Duration((CombatStatusKind)i))); }
@@ -271,6 +272,11 @@ namespace Graphaclysm.Tests.Application
         private static void PlayPlanningTurn(RunGameSession run)
         {
             var battle = run.CurrentBattle.Battle; var deck = run.CurrentBattle.Deck;
+            if (battle.CanUseCombatSkill)
+            {
+                run.TryUseCombatSkill();
+                if (run.Phase != RunPhase.Battle) return;
+            }
             if (battle.Tactics.Resonance == 6) run.TryToggleUltimate();
             int[] best = new int[3], path = new int[3]; int bestCount = 0, bestMove = -1;
             bool[] used = new bool[8]; double bestScore = double.NegativeInfinity;

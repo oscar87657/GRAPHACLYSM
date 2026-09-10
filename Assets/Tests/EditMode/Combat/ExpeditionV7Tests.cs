@@ -23,7 +23,7 @@ namespace Graphaclysm.Tests.Combat
             foreach(var e in effects)foreach(var item in FragmentRelicCatalog.All)if(item.Effect==e){r.TryAdd(item);break;}
             return r;
         }
-        private static BattleDefinition Definition(int health=100,int enemyHp=999,double enemyX=7.4,double enemyY=0)
+        private static BattleDefinition Definition(int health=100,int enemyHp=999,double enemyX=6.4,double enemyY=-2)
             =>new BattleDefinition(health,1,new[]{new EnemyDefinition("target","Target",enemyX,enemyY,enemyHp,0)},CombatArchetype.Ian,fragments:true);
         [Test] public void AnchorRelocatesWholeCurveAndFutureOperationsPreserveItsOrigin()
         {
@@ -31,7 +31,7 @@ namespace Graphaclysm.Tests.Combat
             b.Equation.Sample(.125,out double x,out double y);
             Assert.That(b.TryMovePlayer(-1.5,0),Is.True);
             b.TryPlayCard(Card("home"),out _);b.Equation.Sample(.125,out double nx,out double ny);
-            Assert.That(nx,Is.EqualTo(x-2.5).Within(1e-9));Assert.That(ny,Is.EqualTo(y-2).Within(1e-9));
+            Assert.That(nx,Is.EqualTo(x-1.5).Within(1e-9));Assert.That(ny,Is.EqualTo(y).Within(1e-9));
             b.TryPlayCard(Card("orbit"),out _);Assert.That(b.Equation.Fragments.OriginX,Is.EqualTo(2.5));
             b.TryUndoLastCard(out _);b.TryUndoLastCard(out _);b.Equation.Sample(.125,out nx,out ny);
             Assert.That(nx,Is.EqualTo(x));Assert.That(ny,Is.EqualTo(y));
@@ -41,7 +41,9 @@ namespace Graphaclysm.Tests.Combat
             var b=new BattleSession(Definition(enemyX:5.6,enemyY:-2));b.TryPlayCard(Card("home"),out _);
             Assert.That(b.PreviewDamage(b.Enemies[0]),Is.GreaterThan(0));
             b.TryBeginPlot();Assert.That(b.ResolvePlot().HitCount,Is.EqualTo(1));b.ResolveEnemyTurn();
-            Assert.That(b.Equation.Fragments.OriginX,Is.EqualTo(5));Assert.That(b.Equation.Fragments.OriginY,Is.Zero);
+            Assert.That(b.Equation.Fragments.OriginX,Is.EqualTo(4));Assert.That(b.Equation.Fragments.OriginY,Is.EqualTo(-2));
+            Assert.That(b.TryPlayCard(Card("echo"),out _),Is.True);
+            Assert.That(b.Equation.Fragments.OriginX,Is.EqualTo(b.Tactics.X));Assert.That(b.Equation.Fragments.OriginY,Is.EqualTo(b.Tactics.Y));
         }
         [Test] public void DirectionalAnchorsAndUndoKeepOriginInsideField()
         {
@@ -110,7 +112,7 @@ namespace Graphaclysm.Tests.Combat
         {
             var b=new BattleSession(Definition(),100,0,0,0,Relics(RelicEffectKind.SelfShield,RelicEffectKind.MovedPlotShield));
             b.TryMovePlayer(0,1.5);b.TryUndoMove();Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.Zero);
-            b.TryPlayCard(Card("down"),out _);b.TryBeginPlot();b.ResolvePlot();Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.EqualTo(5));
+            b.TryPlayCard(Card("down"),out _);b.TryPlayCard(Card("contract"),out _);b.TryPlayCard(Card("contract"),out _);b.TryBeginPlot();b.ResolvePlot();Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.EqualTo(5));
             b.ResolveEnemyTurn();b.TryMovePlayer(-1.5,0);b.TryPlayCard(Card("echo"),out _);b.TryBeginPlot();b.ResolvePlot();
             Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.GreaterThanOrEqualTo(3));
         }
@@ -123,7 +125,7 @@ namespace Graphaclysm.Tests.Combat
             {
                 Assert.That(run.CurrentFloor,Is.EqualTo(i+1));Assert.That(run.TrySelectMapNode(i),Is.True);
                 run.TryPlayHandCard(0,out _,out _);run.TryBeginPlot();run.ResolvePlot();
-                Assert.That(run.Resonance,Is.EqualTo(Math.Min(6,(i+1)*2)));
+                Assert.That(run.Resonance,Is.EqualTo(i+1));
                 if(i<2){Assert.That(run.Phase,Is.EqualTo(RunPhase.RelicReward));int choice=run.RelicRewardOptions[0].Effect==RelicEffectKind.StartResonance?1:0;Assert.That(run.TrySelectRelicReward(choice),Is.True);Assert.That(run.Phase,Is.EqualTo(RunPhase.MapSelection));}
                 else Assert.That(run.Phase,Is.EqualTo(RunPhase.Completed));
             }

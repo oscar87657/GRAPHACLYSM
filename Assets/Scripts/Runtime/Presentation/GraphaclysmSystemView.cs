@@ -38,10 +38,10 @@ namespace Graphaclysm.Runtime.Presentation
         private static readonly string[] HelpBodies =
         {
             "아래 손패를 클릭하거나 숫자 1~8을 누르세요. 어느 카드든 첫 파편으로 쓸 수 있습니다.\n\n새 카드는 앞선 궤적 전체를 바꿉니다. 순서가 달라지면 모양도 달라집니다. 필드의 예측선을 보고 조립하세요.\n\n카드에 마우스를 올리면 자세한 효과를 읽을 수 있습니다. 카드 사전에서는 첫 카드의 실제 곡선도 볼 수 있습니다.",
-            "그래프가 적에게 닿으면 피해와 카드의 적중 효과를 줍니다. 같은 선이 자신에게 닿으면 보호막과 자기 강화 효과를 받습니다.\n\n한 번 방출할 때 각 대상은 한 번만 판정합니다. 여러 번 교차해도 같은 피해를 반복하지 않습니다.\n\n공명 6이 모이면 궁극기를 준비할 수 있습니다. 공명은 실제 방출에서 소비합니다.",
-            "방향키 또는 왼쪽 이동 버튼으로 턴마다 한 번 이동할 수 있습니다. 적이 조준한 붉은 범위를 확인하고 피하세요.\n\nBackspace는 이동 취소, 마우스 오른쪽 버튼은 마지막 파편 취소입니다.\n\n귀환점 카드는 사용한 순간의 내 위치로 그래프 중심을 옮깁니다. 이후 내가 움직여도 이미 정한 중심은 따라오지 않습니다.",
+            "그래프가 적에게 닿으면 피해와 카드의 적중 효과를 줍니다. 같은 선이 자신에게 닿으면 보호막과 자기 강화 효과를 받습니다.\n\n한 번 방출할 때 각 대상은 한 번만 판정합니다. 적 2명 이상 적중 시 공명 +1, 자신과 적을 동시에 적중하면 공명 +2를 얻습니다. 빈 방출이나 단일 적중만으로는 차지 않습니다.\n\n공명 6이 모이면 궁극기를 준비할 수 있으며 실제 방출에서 소비합니다.",
+            "방향키 또는 왼쪽 이동 버튼으로 턴마다 한 번 이동할 수 있습니다. 적이 조준한 붉은 범위를 확인하고 피하세요.\n\nBackspace는 이동 취소, 마우스 오른쪽 버튼은 마지막 파편 취소입니다. 기술 이동은 취소할 수 없습니다.\n\n새 조립의 첫 파편은 현재 내 위치에서 시작합니다. 귀환점은 조립 중 중심을 현재 위치로 다시 옮기며, 이미 정한 중심은 이후 이동을 따라오지 않습니다.",
             "Enter / 방출: 조립한 그래프를 발동하고 조립대를 비웁니다. 적 행동 후 기본 2장을 보충합니다.\n\nSpace / 응축: 조립을 유지하며 체력 2, 두 번째는 4를 씁니다. 기본 1장에 추가 최대 1장을 보충하고 적도 행동합니다. 방출/해체 사이 두 번까지이며 확정된 파편은 취소할 수 없습니다.\n\n해체: 조립을 버리고 적 행동 후 손패를 보충합니다. 손패와 조립은 각각 최대 8장입니다.",
-            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다. 방을 완료해 경험치와 성장점을 얻고 G에서 이번 원정의 전투 기술·궁극기를 바꿀 수 있습니다. 전투 기술은 K로 전투마다 한 번 사용합니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정은 원정 성장을 초기화합니다. 패배·완주로 얻는 잔광과 메인 화면의 영구 기록은 계속 남습니다."
+            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다. 방을 완료해 경험치와 성장점을 얻고 G에서 서로 배타적인 전투 기술·모듈·궁극기 갈래를 고릅니다. K는 가리킨 적 방향으로 이동 공격하며 기본 대기시간은 3턴입니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정은 원정 성장을 초기화합니다. 패배·완주로 얻는 잔광과 메인 화면의 영구 기록은 계속 남습니다."
         };
 
         private static string[] BuildVolumeLabels()
@@ -325,29 +325,29 @@ namespace Graphaclysm.Runtime.Presentation
             bool canEdit = run.Phase == RunPhase.MapSelection;
             Label(new Rect(480, 286, 940, 40), "레벨 " + growth.Level + "   ·   탐사 경험 "
                 + growth.Experience + " / " + growth.ExperienceToNext + "   ·   성장점 " + growth.Points, ui.Body);
-            int[] order = { 0, 2, 3, 1, 4, 5 };
-            for (int slot = 0; slot < order.Length; slot++)
+            string[] rows = { "전투 기술 형태", "궤적 모듈", "궁극기 변주" };
+            for (int row = 0; row < 3; row++)
             {
-                int index = order[slot]; var node = growth.GetNode(index);
-                Rect r = new Rect(480 + (slot % 3) * 318, 352 + (slot / 3) * 220, 290, 174);
-                bool unlocked = growth.IsUnlocked(index);
-                bool selected = node.Group == 1 && growth.ActiveVariant == index - 1
-                    || node.Group == 2 && growth.UltimateVariant == index - 3;
-                Fill(r, new Color(1, 1, 1, unlocked ? .72f : .38f));
-                Border(r, selected ? Violet : unlocked ? Gold : Muted, 14);
-                Label(new Rect(r.x + 14, r.y + 12, r.width - 28, 34), node.Name, ui.Body, true);
-                Label(new Rect(r.x + 17, r.y + 54, r.width - 34, 70), node.Description, ui.Small, true);
-                string action = selected ? "현재 적용 중" : unlocked ? (node.Group == 0 ? "습득 완료" : "이 변주 적용")
-                    : "습득 · " + node.Cost + "점";
-                bool enabled = canEdit && (unlocked ? node.Group > 0 && !selected : growth.CanPurchase(index));
-                if (ui.Button(new Rect(r.x + 18, r.yMax - 42, r.width - 36, 31), action, selected, enabled))
+                Label(new Rect(480, 348 + row * 147, 124, 40), rows[row], ui.Small);
+                for (int side = 0; side < 2; side++)
                 {
-                    if (unlocked) run.TrySelectGrowthNode(index); else run.TryPurchaseGrowthNode(index);
-                    Refresh();
+                    int index = row * 2 + side; var node = growth.GetNode(index);
+                    Rect r = new Rect(610 + side * 414, 337 + row * 147, 382, 130);
+                    bool unlocked = growth.IsUnlocked(index);
+                    bool siblingChosen = growth.IsUnlocked(row * 2 + 1 - side);
+                    Fill(r, new Color(1, 1, 1, unlocked ? .75f : siblingChosen ? .24f : .40f));
+                    Border(r, unlocked ? Violet : siblingChosen ? new Color(Muted.r,Muted.g,Muted.b,.42f) : Gold, 14);
+                    Label(new Rect(r.x + 14, r.y + 10, r.width - 28, 30), node.Name, ui.Body, true);
+                    Label(new Rect(r.x + 17, r.y + 42, r.width - 34, 45), node.Description, ui.Small, true);
+                    string action = unlocked ? "선택한 갈래" : siblingChosen ? "반대 갈래 선택됨"
+                        : growth.Level < node.RequiredLevel ? "레벨 " + node.RequiredLevel + " 필요" : "이 갈래 선택 · " + node.Cost + "점";
+                    if (ui.Button(new Rect(r.x + 18, r.yMax - 36, r.width - 36, 28), action, unlocked,
+                        canEdit && growth.CanPurchase(index)))
+                    { run.TryPurchaseGrowthNode(index); Refresh(); }
                 }
             }
-            Label(new Rect(480, 805, 650, 50), canEdit
-                ? "탐사 경험은 방을 완료하면 얻습니다. 이 성장은 새 원정에서 초기화됩니다."
+            Label(new Rect(480, 795, 650, 55), canEdit
+                ? "각 단계에서 한 갈래만 고를 수 있습니다. 선택은 이번 원정 동안 유지되고 새 원정에서 초기화됩니다."
                 : "현재 전투에서는 확인만 가능합니다. 다음 지도 화면에서 습득·변경하세요.", ui.Small);
             if (ui.Button(new Rect(1150, 792, 268, 58), "닫기   G / Esc", true)) growthOpen = false;
         }

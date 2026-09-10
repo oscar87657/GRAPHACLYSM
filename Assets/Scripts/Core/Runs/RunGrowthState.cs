@@ -5,12 +5,12 @@ namespace Graphaclysm.Core.Runs
 {
     public sealed class RunGrowthNode
     {
-        public RunGrowthNode(string name, string description, int cost, int prerequisite, int group)
-        { Name = name; Description = description; Cost = cost; Prerequisite = prerequisite; Group = group; }
+        public RunGrowthNode(string name, string description, int cost, int requiredLevel, int group)
+        { Name = name; Description = description; Cost = cost; RequiredLevel = requiredLevel; Group = group; }
         public string Name { get; }
         public string Description { get; }
         public int Cost { get; }
-        public int Prerequisite { get; }
+        public int RequiredLevel { get; }
         public int Group { get; }
     }
 
@@ -32,12 +32,10 @@ namespace Graphaclysm.Core.Runs
         public int Level { get; private set; }
         public int Experience { get; private set; }
         public int Points { get; private set; }
-        public int ActiveVariant { get; private set; }
-        public int UltimateVariant { get; private set; }
+        public int ActiveVariant => IsUnlocked(0) ? 1 : IsUnlocked(1) ? 2 : 0;
+        public int ModuleVariant => IsUnlocked(2) ? 1 : IsUnlocked(3) ? 2 : 0;
+        public int UltimateVariant => IsUnlocked(4) ? 1 : IsUnlocked(5) ? 2 : 0;
         public int ExperienceToNext => 3 + (Level - 1) / 3;
-        public bool ActiveSkillUnlocked => IsUnlocked(0);
-        public int StartingResonanceBonus => IsUnlocked(1) ? 1 : 0;
-
         public RunGrowthNode GetNode(int index)
         {
             if (index < 0 || index >= NodeCount) throw new ArgumentOutOfRangeException(nameof(index));
@@ -50,7 +48,10 @@ namespace Graphaclysm.Core.Runs
         {
             if (index < 0 || index >= NodeCount || IsUnlocked(index)) return false;
             RunGrowthNode node = nodes[index];
-            return Points >= node.Cost && (node.Prerequisite < 0 || IsUnlocked(node.Prerequisite));
+            if (Points < node.Cost || Level < node.RequiredLevel) return false;
+            for (int i = 0; i < NodeCount; i++)
+                if (i != index && nodes[i].Group == node.Group && IsUnlocked(i)) return false;
+            return true;
         }
 
         public bool TryPurchase(int index)
@@ -59,16 +60,11 @@ namespace Graphaclysm.Core.Runs
             RunGrowthNode node = nodes[index];
             Points -= node.Cost;
             unlockedMask |= 1 << index;
-            if (node.Group == 1) ActiveVariant = index - 1;
-            if (node.Group == 2) UltimateVariant = index - 3;
             return true;
         }
 
         public bool TrySelect(int index)
         {
-            if (!IsUnlocked(index)) return false;
-            if (nodes[index].Group == 1) { ActiveVariant = index - 1; return true; }
-            if (nodes[index].Group == 2) { UltimateVariant = index - 3; return true; }
             return false;
         }
 
@@ -85,26 +81,26 @@ namespace Graphaclysm.Core.Runs
         }
 
         public BattleSkillLoadout CreateLoadout()
-            => new BattleSkillLoadout(ActiveSkillUnlocked, ActiveVariant, UltimateVariant, StartingResonanceBonus);
+            => new BattleSkillLoadout(ActiveVariant, ModuleVariant, UltimateVariant);
 
         private static RunGrowthNode[] IanNodes() => new[]
         {
-            new RunGrowthNode("흑유리 각인", "전투마다 한 번, 보호막 5를 얻는 전투 기술을 엽니다.", 1, -1, 0),
-            new RunGrowthNode("깊은 기록", "전투 시작 공명 +1.", 1, -1, 0),
-            new RunGrowthNode("가시 장막", "전투 기술을 보호막 8 · 가시 3으로 바꿉니다.", 2, 0, 1),
-            new RunGrowthNode("파열 각인", "전투 기술을 추진 5 · 정화로 바꿉니다.", 2, 0, 1),
-            new RunGrowthNode("산산조각", "궁극기 피해 보너스 +10 · 적에게 파열 3.", 2, 1, 2),
-            new RunGrowthNode("불멸의 기록", "궁극기 피해 +6 · 고정 2 · 자신 적중 시 회복 4.", 2, 1, 2)
+            new RunGrowthNode("삼중 유리길", "전투 기술이 넓은 세 갈래 궤적으로 변합니다.", 1, 2, 0),
+            new RunGrowthNode("집행의 직선", "피해가 커지고 처치하면 기술 대기시간이 즉시 초기화됩니다.", 1, 2, 0),
+            new RunGrowthNode("반사 장막", "기술 적중 수에 따라 보호막을 얻습니다.", 1, 3, 1),
+            new RunGrowthNode("파열 흔적", "기술에 맞은 적에게 파열 3을 남깁니다.", 1, 3, 1),
+            new RunGrowthNode("성좌 붕괴", "궁극기 피해 +10 · 적중한 적에게 파열 3.", 1, 4, 2),
+            new RunGrowthNode("불멸의 기록", "궁극기 피해 +6 · 고정 2 · 자신 적중 시 회복 4.", 1, 4, 2)
         };
 
         private static RunGrowthNode[] LunaNodes() => new[]
         {
-            new RunGrowthNode("월면 보법", "전투마다 한 번, 이동을 되돌리고 경쾌를 얻습니다.", 1, -1, 0),
-            new RunGrowthNode("깊은 호흡", "전투 시작 공명 +1.", 1, -1, 0),
-            new RunGrowthNode("별의 피난처", "전투 기술을 정화 · 요새화 7로 바꿉니다.", 2, 0, 1),
-            new RunGrowthNode("유성의 숨", "전투 기술을 회복 5 · 추진 3으로 바꿉니다.", 2, 0, 1),
-            new RunGrowthNode("만월의 포옹", "궁극기의 자신 적중 반경 · 보호막 · 회복이 커집니다.", 2, 1, 2),
-            new RunGrowthNode("그믐의 칼날", "궁극기가 피해 +4를 얻고 방어 대신 공격에 치중합니다.", 2, 1, 2)
+            new RunGrowthNode("삼중 월광", "전투 기술이 넓은 세 갈래 월광 궤적으로 변합니다.", 1, 2, 0),
+            new RunGrowthNode("낙성 추격", "피해가 커지고 처치하면 기술 대기시간이 즉시 초기화됩니다.", 1, 2, 0),
+            new RunGrowthNode("은하 피난처", "기술 사용 시 정화하고 보호막·요새화를 얻습니다.", 1, 3, 1),
+            new RunGrowthNode("유성 호흡", "기술 적중 시 회복하고 추진을 얻습니다.", 1, 3, 1),
+            new RunGrowthNode("만월의 포옹", "궁극기의 자신 적중 반경 · 보호막 · 회복이 커집니다.", 1, 4, 2),
+            new RunGrowthNode("그믐의 칼날", "궁극기가 피해 +4를 얻고 방어 대신 공격에 치중합니다.", 1, 4, 2)
         };
     }
 }

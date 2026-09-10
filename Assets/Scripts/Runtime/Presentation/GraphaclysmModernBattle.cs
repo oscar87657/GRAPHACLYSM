@@ -39,14 +39,14 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(108, 710, 180, 28), battle.UsesFragments ? "턴 드로우" : "에너지", ui.Small);
             Label(new Rect(290, 704, 125, 36), battle.UsesFragments ? drawStatus : energyText, battle.UsesFragments ? ui.Body : ui.Number);
             Label(new Rect(100, 752, 330, 48), selfStateText, ui.Small);
-            if (ui.Button(new Rect(100, 780, 320, 31), "이동 취소", false, !castActive && battle.Tactics.HasMoved)) UndoMove();
+            if (ui.Button(new Rect(100, 780, 320, 31), "이동 취소", false, !castActive && battle.Tactics.CanUndoMove)) UndoMove();
             for (int i = 0; i < TacticalCombatState.UltimateCost; i++)
                 Fill(new Rect(102 + i * 53, 824, 42, 4), i < battle.Tactics.Resonance ? Violet : new Color(0.75f, 0.73f, 0.77f));
             if (ui.Button(new Rect(100, 843, 320, 60), ultimateText, true,
                 !castActive && battle.Tactics.Resonance >= TacticalCombatState.UltimateCost))
             { run.TryToggleUltimate(); Refresh(); }
             Rect ultimateInfo = new Rect(100, 911, 330, 73);
-            Label(ultimateInfo, UltimateSkillDescription(), ui.Small);
+            Label(ultimateInfo, ultimateDescription, ui.Small);
         }
 
         private void DrawBoard()
@@ -105,6 +105,7 @@ namespace Graphaclysm.Runtime.Presentation
                 }
             }
             spellRenderer.Draw(battle.Equation, Field, CastElapsed, castActive && !preferences.ReduceMotion);
+            DrawSkillTrail();
             for (int i = 0; i < battle.Enemies.Count; i++)
             {
                 EnemyState enemy = battle.Enemies[i]; if (!enemy.IsAlive && !(castActive && castHits[i])) continue;
@@ -195,7 +196,8 @@ namespace Graphaclysm.Runtime.Presentation
             int count = game.Deck.HandCount; if (count == 0) return;
             int previousHover = hoveredHand;
             hoveredHand = -1;
-            if (previousHover >= 0 && previousHover < count && handInspectionRect.Contains(Event.current.mousePosition))
+            if (previousHover >= 0 && previousHover < count && (handInspectionRect.Contains(Event.current.mousePosition)
+                || keywordKeepsCard && (keywordTooltipRect.Contains(Event.current.mousePosition) || keywordHoverBridge.Contains(Event.current.mousePosition))))
                 hoveredHand = previousHover;
             for (int i = count - 1; hoveredHand < 0 && i >= 0; i--)
             {
@@ -329,6 +331,27 @@ namespace Graphaclysm.Runtime.Presentation
                 Vector2 q = p + d * (22 + progress * (57 + j % 3 * 8));
                 Line(q, q + d * (8 * (1 - progress)), color, j % 2 == 0 ? 2 : 1);
             }
+        }
+
+        private void DrawSkillTrail()
+        {
+            if (ViewTime >= skillFxUntil) return;
+            Vector2 a = FieldPoint(skillFxOriginX, skillFxOriginY), b = FieldPoint(skillFxEndX, skillFxEndY);
+            Vector2 direction = b - a;
+            if (direction.sqrMagnitude < .01f) return;
+            Vector2 normal = new Vector2(-direction.y, direction.x).normalized;
+            float remaining = Mathf.Clamp01((skillFxUntil - ViewTime) / (preferences.ReduceMotion ? .35f : .9f));
+            Color glow = skillFxReset ? new Color(1f,.76f,.34f,remaining) : new Color(.76f,.55f,1f,remaining);
+            Line(a,b,new Color(glow.r,glow.g,glow.b,remaining*.24f),skillFxWide?18:11);
+            if (skillFxWide)
+            {
+                Line(a+normal*28,b+normal*28,glow,3);
+                Line(a-normal*28,b-normal*28,glow,3);
+            }
+            Line(a,b,new Color(1,.94f,1,remaining),3);
+            Diamond(b,skillFxReset?28:18,glow,2);
+            if (skillFxReset) Ring(b,40+(1-remaining)*38,new Color(glow.r,glow.g,glow.b,remaining),2);
+            Label(new Rect((a.x+b.x)*.5f-90,(a.y+b.y)*.5f-52,180,36),skillFxLabel,ui.SmallLight,true);
         }
     }
 }

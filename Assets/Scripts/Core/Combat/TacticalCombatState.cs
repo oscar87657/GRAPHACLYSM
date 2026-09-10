@@ -20,6 +20,7 @@ namespace Graphaclysm.Core.Combat
         public int Resonance { get; private set; }
         public bool UltimateArmed { get; private set; }
         public bool HasMoved { get; private set; }
+        public bool CanUndoMove { get; private set; }
         private double moveOriginX, moveOriginY;
         private int savedHaste, savedHasteDuration, savedMomentum, savedMomentumDuration;
         public double HitRadius => UltimateArmed && Archetype == CombatArchetype.Luna
@@ -44,6 +45,7 @@ namespace Graphaclysm.Core.Combat
             Y = -2.0;
             Resonance = Math.Max(0, Math.Min(UltimateCost, resonance));
             HasMoved = false;
+            CanUndoMove = false;
             UltimateArmed = false;
             Statuses.Clear();
         }
@@ -65,11 +67,12 @@ namespace Graphaclysm.Core.Combat
             X += dx;
             Y += dy;
             HasMoved = true;
+            CanUndoMove = true;
             Statuses.Remove(CombatStatusKind.Haste);
         }
         internal void UndoMove()
         {
-            X = moveOriginX; Y = moveOriginY; HasMoved = false;
+            X = moveOriginX; Y = moveOriginY; HasMoved = false; CanUndoMove = false;
             Statuses.Remove(CombatStatusKind.Momentum);
             if (savedHaste > 0) Statuses.Add(CombatStatusKind.Haste, savedHaste, savedHasteDuration);
             if (savedMomentum > 0) Statuses.Add(CombatStatusKind.Momentum, savedMomentum, savedMomentumDuration);
@@ -125,13 +128,19 @@ namespace Graphaclysm.Core.Combat
         internal void CompletePlot(bool hitSelf, int enemiesHit)
         {
             if (UltimateArmed) Resonance -= UltimateCost;
-            Resonance = Math.Min(UltimateCost, Resonance + 1 + (hitSelf && enemiesHit > 0 ? 1 : 0));
+            int earned = enemiesHit >= 2 ? 1 : 0;
+            if (hitSelf && enemiesHit > 0) earned += 2;
+            Resonance = Math.Min(UltimateCost, Resonance + earned);
             UltimateArmed = false;
         }
 
-        internal void GrantExtraMove()
+        internal void SkillDashTo(double x, double y)
         {
-            HasMoved = false;
+            X = Math.Max(PlayerRadius, Math.Min(10 - PlayerRadius, x));
+            Y = Math.Max(-4 + PlayerRadius, Math.Min(4 - PlayerRadius, y));
+            HasMoved = true;
+            CanUndoMove = false;
+            Statuses.Remove(CombatStatusKind.Haste);
             savedHaste = 0;
             savedHasteDuration = 0;
             savedMomentum = 0;
@@ -147,6 +156,6 @@ namespace Graphaclysm.Core.Combat
             return 0;
         }
 
-        internal void BeginNextTurn() { HasMoved = false; }
+        internal void BeginNextTurn() { HasMoved = false; CanUndoMove = false; }
     }
 }

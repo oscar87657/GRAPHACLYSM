@@ -24,7 +24,7 @@ namespace Graphaclysm.Application
     public sealed class RunSaveData
     {
         public const int FormatVersion = 2;
-        public const int RulesVersion = 12;
+        public const int RulesVersion = 13;
         public const int MaximumCommands = 65536;
         public uint Seed;
         public string CharacterId;
@@ -113,7 +113,7 @@ namespace Graphaclysm.Application
                 case RunCommandKind.SkipRefinement: return TrySkipRefinement();
                 case RunCommandKind.PurchaseGrowth: return TryPurchaseGrowthNode(a);
                 case RunCommandKind.SelectGrowth: return TrySelectGrowthNode(a);
-                case RunCommandKind.UseCombatSkill: return TryUseCombatSkill();
+                case RunCommandKind.UseCombatSkill: return TryUseCombatSkill(a);
                 default: return false;
             }
         }

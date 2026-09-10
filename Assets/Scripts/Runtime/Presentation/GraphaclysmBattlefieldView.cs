@@ -25,20 +25,42 @@ namespace Graphaclysm.Runtime.Presentation
         };
 
         private string hoveredKeywordTitle = "", hoveredKeywordBody = "";
+        private Rect keywordTooltipRect, keywordHoverBridge;
+        private bool keywordKeepsCard;
         private int hoveredTerrain = -1;
 
         private void BeginBattleHoverFrame()
         {
-            hoveredKeywordTitle = "";
-            hoveredKeywordBody = "";
+            Vector2 pointer = Event.current.mousePosition;
+            bool keep = hoveredKeywordTitle.Length > 0
+                && (keywordTooltipRect.Contains(pointer) || keywordHoverBridge.Contains(pointer));
+            if (!keep)
+            {
+                hoveredKeywordTitle = "";
+                hoveredKeywordBody = "";
+                keywordTooltipRect = default(Rect);
+                keywordHoverBridge = default(Rect);
+                keywordKeepsCard = false;
+            }
             hoveredTerrain = -1;
         }
 
-        private void RegisterKeyword(Rect area, string title, string body)
+        private void RegisterKeyword(Rect area, string title, string body, bool keepsCard = false)
         {
             if (!area.Contains(Event.current.mousePosition)) return;
             hoveredKeywordTitle = title;
             hoveredKeywordBody = body;
+            float x = area.xMax + 14;
+            if (x + 350 > 1896) x = area.x - 364;
+            x = Mathf.Clamp(x, 24, 1920 - 374);
+            float y = Mathf.Clamp(area.center.y - 63, 78, 1080 - 154);
+            keywordTooltipRect = new Rect(x, y, 350, 126);
+            keywordHoverBridge = Rect.MinMaxRect(
+                Mathf.Min(area.xMin, keywordTooltipRect.xMin) - 8,
+                Mathf.Min(area.yMin, keywordTooltipRect.yMin) - 8,
+                Mathf.Max(area.xMax, keywordTooltipRect.xMax) + 8,
+                Mathf.Max(area.yMax, keywordTooltipRect.yMax) + 8);
+            keywordKeepsCard = keepsCard;
         }
 
         private void DrawKeywordTooltip()
@@ -51,10 +73,8 @@ namespace Graphaclysm.Runtime.Presentation
             }
 #endif
             if (hoveredKeywordTitle.Length == 0) return;
-            Vector2 pointer = Event.current.mousePosition;
-            float x = Mathf.Clamp(pointer.x + 24, 24, 1920 - 374);
-            float y = Mathf.Clamp(pointer.y - 126, 78, 1080 - 154);
-            Rect panel = new Rect(x, y, 350, 126);
+            Rect panel = keywordTooltipRect.width > 0 ? keywordTooltipRect : new Rect(1546, 78, 350, 126);
+            float x = panel.x, y = panel.y;
             Fill(panel, new Color(.075f, .068f, .12f, .97f));
             Border(panel, Gold, 12);
             Label(new Rect(x + 18, y + 10, 314, 32), hoveredKeywordTitle, ui.Light);
@@ -76,7 +96,7 @@ namespace Graphaclysm.Runtime.Presentation
                 Border(chip, hover ? Gold : new Color(Violet.r, Violet.g, Violet.b, .62f), 7);
                 Label(new Rect(chip.x + 4, chip.y, chip.width - 8, chip.height), visual.KeywordNames[i],
                     light ? ui.SmallLight : ui.Small, true);
-                RegisterKeyword(chip, visual.KeywordNames[i], visual.KeywordDetails[i]);
+                RegisterKeyword(chip, visual.KeywordNames[i], visual.KeywordDetails[i], true);
             }
         }
 

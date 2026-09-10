@@ -21,7 +21,8 @@ namespace Graphaclysm.Runtime.Presentation
         {
             switch(kind)
             {
-                case FragmentKind.Expand: case FragmentKind.Surge: case FragmentKind.Ellipse: case FragmentKind.Shear: case FragmentKind.Limacon: return 2;
+                case FragmentKind.Expand: case FragmentKind.Surge: case FragmentKind.Ellipse: case FragmentKind.Shear: case FragmentKind.Limacon:
+                case FragmentKind.CometBurst: case FragmentKind.KaleidoscopeFold: case FragmentKind.ShardFracture: case FragmentKind.NebulaRibbon: return 2;
                 case FragmentKind.TranslateRight: case FragmentKind.TranslateDown:
                 case FragmentKind.HomeAnchor: case FragmentKind.WestAnchor: case FragmentKind.NorthAnchor: return 3;
                 case FragmentKind.Contract: case FragmentKind.Mirror: case FragmentKind.PhaseOffset: return 4;
@@ -54,6 +55,10 @@ namespace Graphaclysm.Runtime.Presentation
                     case FragmentKind.Shear: x=(c+.7f*s)*.72f;y=s*.72f;break;
                     case FragmentKind.PhaseOffset: x=-s*.8f;y=s*.8f;break;
                     case FragmentKind.ComplexCube: r=.62f+.34f*Mathf.Cos(6*t);x=c*r;y=s*r;break;
+                    case FragmentKind.CometBurst: r=.54f+.44f*Mathf.Cos(7*t);x=c*r;y=s*r;break;
+                    case FragmentKind.KaleidoscopeFold: x=Mathf.Cos(4*t)*c-Mathf.Sin(4*t)*s;y=Mathf.Abs(Mathf.Sin(4*t)*c+Mathf.Cos(4*t)*s)-.55f;break;
+                    case FragmentKind.ShardFracture: r=.58f+.35f*Mathf.Cos(5*t);float bend=.42f*Mathf.Sin(6*t);x=r*c-bend*s;y=r*s+bend*c;break;
+                    case FragmentKind.NebulaRibbon: x=Mathf.Cos(5*t)*.86f;y=Mathf.Sin(2*t)*.82f;break;
                     case FragmentKind.Counterpoint: x=Mathf.Sin(t);y=Mathf.Sin(2*t)*.65f;break;
                     case FragmentKind.TwinEcho: x=Mathf.Sin(2*t)*.85f;y=Mathf.Sin(3*t)*.65f;break;
                     case FragmentKind.Orbit: x=c;y=s*.48f;break;
