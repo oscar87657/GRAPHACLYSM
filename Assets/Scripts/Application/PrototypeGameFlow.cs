@@ -103,6 +103,20 @@ namespace Graphaclysm.Application
             return true;
         }
 
+        public bool TryContinueRun(RunGameSession restored, CharacterDefinition character)
+        {
+            if (Phase != GameFlowPhase.MainMenu || restored == null || character == null
+                || restored.Phase == RunPhase.Completed || restored.Phase == RunPhase.Defeated) return false;
+            for (int i = 0; i < characters.Length; i++)
+            {
+                if (characters[i].Id != character.Id) continue;
+                CurrentRun = restored; CurrentCharacter = characters[i]; SelectedCharacterIndex = i;
+                nextRunSeed = AdvanceSeed(restored.Seed); Phase = GameFlowPhase.Run;
+                return true;
+            }
+            return false;
+        }
+
         public void ReturnToMainMenu()
         {
             CurrentRun = null;

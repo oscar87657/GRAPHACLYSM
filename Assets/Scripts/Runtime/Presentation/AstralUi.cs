@@ -14,8 +14,11 @@ namespace Graphaclysm.Runtime.Presentation
         public static readonly Color Threat = new Color(0.8f, 0.43f, 0.53f);
         public readonly GUIStyle Logo, Display, PageTitle, Heading, Body, Small, Number, Light, SmallLight, Formula;
 
-        public AstralUi()
+        private readonly System.Action onClick;
+
+        public AstralUi(System.Action onClick = null)
         {
+            this.onClick = onClick;
             Font body = Resources.Load<Font>("Fonts/Pretendard-Regular");
             Font orbit = Resources.Load<Font>("Fonts/Orbit-Regular");
             Font serif = Resources.Load<Font>("Fonts/CormorantGaramond-Light");
@@ -50,7 +53,7 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(r.x + inset, r.y, r.width - inset * 2, r.height), text, primary ? Light : Body, true);
             bool old = GUI.enabled; GUI.enabled = old && enabled;
             bool clicked = GUI.Button(r, GUIContent.none, GUIStyle.none);
-            GUI.enabled = old; return clicked;
+            GUI.enabled = old; if (clicked) onClick?.Invoke(); return clicked;
         }
 
         public static void Fill(Rect r, Color color)

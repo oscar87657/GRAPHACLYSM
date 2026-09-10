@@ -49,7 +49,7 @@ namespace Graphaclysm.Runtime.Presentation
 #if UNITY_EDITOR
                 if (DiagnosticCastTime >= 0) return DiagnosticCastTime;
 #endif
-                return Time.unscaledTime - castStarted;
+                return ViewTime - castStarted;
             }
         }
 
@@ -67,41 +67,47 @@ namespace Graphaclysm.Runtime.Presentation
             ianPortrait = Resources.Load<Texture2D>("Art/Generated/ian-character-portrait-v2");
             lunaPortrait = Resources.Load<Texture2D>("Art/Generated/luna-nocturne-gothic-v6");
             spellRenderer = new AstralSpellRenderer();
-            BuildVisuals(); BuildDisc(); Refresh();
+            BuildVisuals(); BuildDisc(); InitializeServices(); Refresh();
             UnityEngine.Application.targetFrameRate = 60;
         }
 
         private void OnDestroy()
         {
-            spellRenderer?.Dispose();
+            SaveCurrent(true); SavePreferences();
+            sound?.Dispose(); spellRenderer?.Dispose();
             if (disc != null) Destroy(disc);
         }
 
         private void Update()
         {
+            if (!ModalOpen) viewTime += Time.unscaledDeltaTime;
             if (!ReferenceEquals(run, flow.CurrentRun) || (run != null && !ReferenceEquals(game, run.CurrentBattle))) Refresh();
+            if (ModalOpen) return;
             if (cardHover != null)
                 for (int i = 0; i < cardHover.Length; i++)
-                    cardHover[i] = Mathf.MoveTowards(cardHover[i], i == hoveredHand ? 1 : 0, Time.unscaledDeltaTime * 7);
+                    cardHover[i] = preferences.ReduceMotion ? (i == hoveredHand ? 1 : 0)
+                        : Mathf.MoveTowards(cardHover[i], i == hoveredHand ? 1 : 0, Time.unscaledDeltaTime * 7);
             if (!castActive) return;
             float elapsed = CastElapsed;
             if (!impactApplied && elapsed >= ImpactTime)
             {
                 PlotReport report = run.ResolvePlot();
+                sound?.Play(GameCue.Impact);
                 impactApplied = true;
                 message = report.PlayerHit ? "같은 선 위에서, 힘을 되찾았다." : "새로운 궤적이 새겨졌다.";
                 Refresh();
             }
             if (elapsed < CastDuration) return;
             castActive = false;
-            if (run.Phase == RunPhase.Battle && battle.Phase == BattlePhase.EnemyTurn) run.ResolveEnemyTurn();
+            if (run.Phase == RunPhase.Battle && battle.Phase == BattlePhase.EnemyTurn)
+            { if (run.ResolveEnemyTurn() > 0) sound?.Play(GameCue.Damage); }
             Refresh();
         }
 
         private void OnGUI()
         {
             if (flow == null) return;
-            if (ui == null) ui = new AstralUi();
+            if (ui == null) ui = new AstralUi(PlayClick);
             float scale = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
             Fill(new Rect(0, 0, Screen.width, Screen.height), Ink);
             Matrix4x4 saved = GUI.matrix;
@@ -110,7 +116,7 @@ namespace Graphaclysm.Runtime.Presentation
             try
             {
                 DrawBackdrop(); HandleKeys();
-                GUI.enabled = !helpOpen;
+                GUI.enabled = !ModalOpen;
                 if (codexOpen) DrawCodex();
                 else if (flow.Phase == GameFlowPhase.MainMenu) DrawTitle();
                 else if (flow.Phase == GameFlowPhase.CharacterSelection) DrawCharacters();
@@ -120,15 +126,17 @@ namespace Graphaclysm.Runtime.Presentation
                 else if (run.Phase == RunPhase.DeckRefinement) DrawDeckRefinement();
                 else DrawRewardsOrResult();
                 GUI.enabled = true;
-                if (helpOpen) DrawHelp();
+                if (saveFailed && !ModalOpen) Label(new Rect(425, 4, 1080, 38), saveNotice, ui.Small, true);
+                DrawSystemOverlay();
             }
             finally { GUI.matrix = saved; GUI.color = Color.white; GUI.enabled = true; }
         }
 
         private void Refresh()
         {
-            if(message != lastFeedback) {lastFeedback=message;feedbackUntil=Time.unscaledTime+3;}
+            if(message != lastFeedback) {lastFeedback=message;feedbackUntil=ViewTime+3;}
             run = flow.CurrentRun;
+            RefreshSystemState();
             BattleGameSession next = run?.CurrentBattle;
             if (!ReferenceEquals(next, game))
             {
@@ -214,7 +222,7 @@ namespace Graphaclysm.Runtime.Presentation
             if (castActive || run == null || (battle.Equation.IsCalculator && !calculatorValid)) return;
             if (run.TryPlayHandCard(index, out CardDefinition card, out CardPlayFailure failure))
             {
-                fragmentPlacedAt = Time.unscaledTime; message = ""; lastPlotName = card.DisplayName; hoveredHand = -1;
+                sound?.Play(GameCue.Card); fragmentPlacedAt = ViewTime; message = ""; lastPlotName = card.DisplayName; hoveredHand = -1;
             }
             else message = Failure(failure);
             Refresh();
@@ -239,15 +247,33 @@ namespace Graphaclysm.Runtime.Presentation
             lastPlotName = battle.PlayedCardCount > 0 ? battle.GetPlayedCard(battle.PlayedCardCount - 1).DisplayName : "작도";
             for (int i = 0; i < castHits.Length; i++) { castHits[i] = damagePreview[i] > 0; hitNumbers[i] = enemyDamage[i]; }
             castUltimate = battle.Tactics.UltimateArmed;
-            castSelfHit = selfPreview; castActive = true; impactApplied = false; castStarted = Time.unscaledTime;
+            castSelfHit = selfPreview; castActive = true; impactApplied = false; castStarted = ViewTime;
             hoveredHand = -1; message = "";
+            sound?.Play(GameCue.Cast); Refresh();
         }
 
         private void HandleKeys()
         {
             Event e = Event.current;
-            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape) { if(codexOpen && !helpOpen) codexOpen=false; else helpOpen = !helpOpen; e.Use(); return; }
-            if (codexOpen || helpOpen || run == null || run.Phase != RunPhase.Battle || castActive) return;
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            {
+                if (confirmation != Confirmation.None) confirmation = Confirmation.None;
+                else if (settingsOpen) CloseSettings();
+                else if (helpOpen) CloseHelp();
+                else if (inventoryOpen) inventoryOpen = false;
+                else if (codexOpen) codexOpen = false;
+                else if (run != null) paused = !paused;
+                else if (flow.Phase == GameFlowPhase.CharacterSelection) { flow.ReturnToMainMenu(); Refresh(); }
+                else OpenSettings();
+                e.Use(); return;
+            }
+            if (e.type == EventType.KeyDown && confirmation == Confirmation.None && !settingsOpen)
+            {
+                if (e.keyCode == KeyCode.F1) { if (helpOpen) CloseHelp(); else OpenHelp(); e.Use(); return; }
+                if (e.keyCode == KeyCode.D && run != null && !helpOpen)
+                { if (inventoryOpen) inventoryOpen = false; else OpenInventory(); e.Use(); return; }
+            }
+            if (codexOpen || ModalOpen || run == null || run.Phase != RunPhase.Battle || castActive) return;
             string focused = GUI.GetNameOfFocusedControl();
             if (focused == "calculator-x" || focused == "calculator-y") return;
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Backspace) { UndoMove(); e.Use(); return; }

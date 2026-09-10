@@ -41,7 +41,7 @@ namespace Graphaclysm.Runtime.Presentation
             for(int i=0;i<battle.PlayedCardCount;i++)
             {
                 var card=battle.GetPlayedCard(i);float y=420+i*39;
-                float enter=i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(Time.unscaledTime-fragmentPlacedAt)*5)*10:0;
+                float enter=!preferences.ReduceMotion && i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(ViewTime-fragmentPlacedAt)*5)*10:0;
                 Color color=i<battle.SealedCardCount?Muted:Violet;
                 Line(new Vector2(66+i*3,y+enter),new Vector2(66+i*3,y+27+enter),color,1.4f);
                 Label(new Rect(82+i*3,y-2+enter,168,31),card.DisplayName,ui.Body);

@@ -16,7 +16,7 @@ namespace Graphaclysm.Runtime.Presentation
             Header("",turnText);
             if(battle.UsesFragments && ui.Button(new Rect(1240,43,133,34),showBattleDetails?"상세 닫기":"상세")) {showBattleDetails=!showBattleDetails;if(!showBattleDetails)showEquation=false;}
             DrawPlayerPanel(); DrawBoard(); DrawHand(); DrawEnemyPanel();
-            if((message.Length>0 && Time.unscaledTime<feedbackUntil) || (hoveredHand>=0 && cardFailures[hoveredHand].Length>0))
+            if((message.Length>0 && ViewTime<feedbackUntil) || (hoveredHand>=0 && cardFailures[hoveredHand].Length>0))
                 Label(new Rect(423,47,630,28),hoveredHand>=0 && cardFailures[hoveredHand].Length>0?cardFailures[hoveredHand]:message,ui.Small,true);
         }
 
@@ -103,7 +103,7 @@ namespace Graphaclysm.Runtime.Presentation
                     Line(FieldPoint(enemy.X, enemy.Y), target, new Color(Gold.r, Gold.g, Gold.b, 0.35f));
                 }
             }
-            spellRenderer.Draw(battle.Equation, Field, CastElapsed, castActive);
+            spellRenderer.Draw(battle.Equation, Field, CastElapsed, castActive && !preferences.ReduceMotion);
             for (int i = 0; i < battle.Enemies.Count; i++)
             {
                 EnemyState enemy = battle.Enemies[i]; if (!enemy.IsAlive && !(castActive && castHits[i])) continue;
@@ -127,7 +127,7 @@ namespace Graphaclysm.Runtime.Presentation
             // A head crop preserves identification without putting a full character illustration over the graph.
             if (portrait != null) GUI.DrawTextureWithTexCoords(new Rect(player.x - 24, player.y - 29, 48, 58), portrait, flow.CurrentCharacter.Archetype == CombatArchetype.Luna ? new Rect(.44f,.77f,.25f,.21f) : new Rect(0.30f, 0.65f, 0.4f, 0.30f));
             if(selfPreview || !battle.UsesFragments) Label(new Rect(player.x - 60, player.y + radius + 7, 120, 28), selfPreview ? "강화" : flow.CurrentCharacter.DisplayName, ui.SmallLight, true);
-            if (castActive) DrawCastAccents();
+            if (castActive && !preferences.ReduceMotion) DrawCastAccents();
             if (showEquation)
             {
                 float height = battle.UsesFragments ? 345 : battle.Equation.IsCalculator ? 167 : 64;

@@ -39,14 +39,14 @@ namespace Graphaclysm.Application
             }
             if (!Map.TryCompleteActiveNode()) throw new InvalidOperationException("Room completion lost its active node.");
             Phase = next == RunPhase.MapSelection && Map.Phase == RunMapProgressPhase.Completed ? RunPhase.Completed : next;
-            return true;
+            return Record(true, RunCommandKind.ChooseRoom, index);
         }
         public bool TryLeaveRoom()
         {
             if (Phase != RunPhase.Room || !Map.TryCompleteActiveNode()) return false;
             RoomResult = "방을 조용히 지나쳤습니다.";
             Phase = Map.Phase == RunMapProgressPhase.Completed ? RunPhase.Completed : RunPhase.MapSelection;
-            return true;
+            return Record(true, RunCommandKind.LeaveRoom);
         }
         public bool CanRemoveDeckCard(int index)
         {
@@ -58,9 +58,9 @@ namespace Graphaclysm.Application
         {
             if (!CanRemoveDeckCard(index) || !Deck.TryRemoveAt(index)) return false;
             persistentHealth -= removalHealthCost; removalHealthCost = 0;
-            RoomResult = "기록 한 장을 덜어냈습니다."; FinishReward(); return true;
+            RoomResult = "기록 한 장을 덜어냈습니다."; FinishReward(); return Record(true, RunCommandKind.RemoveCard, index);
         }
         public bool TrySkipRefinement()
-        { if (Phase != RunPhase.DeckRefinement) return false; removalHealthCost = 0; RoomResult = "기록을 그대로 가져갑니다."; FinishReward(); return true; }
+        { if (Phase != RunPhase.DeckRefinement) return false; removalHealthCost = 0; RoomResult = "기록을 그대로 가져갑니다."; FinishReward(); return Record(true, RunCommandKind.SkipRefinement); }
     }
 }

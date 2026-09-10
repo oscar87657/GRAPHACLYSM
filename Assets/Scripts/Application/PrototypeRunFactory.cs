@@ -16,8 +16,10 @@ namespace Graphaclysm.Application
         public static RunGameSession Create(uint seed, CharacterDefinition character)
         {
             if (character == null) throw new System.ArgumentNullException(nameof(character));
-            return new RunGameSession(DungeonGenerator.Generate(seed, character), character.CreateStartingDeckCopy(),
+            var run = new RunGameSession(DungeonGenerator.Generate(seed, character), character.CreateStartingDeckCopy(),
                 FragmentCardCatalog.All, character.HandSize, seed, FragmentRelicCatalog.All);
+            run.EnableJournal(character.Id);
+            return run;
         }
 
         public static RunGameSession CreateLegacy(uint seed, CharacterDefinition character)

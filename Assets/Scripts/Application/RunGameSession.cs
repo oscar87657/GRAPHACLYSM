@@ -199,9 +199,9 @@ namespace Graphaclysm.Application
             RunMapNodeDefinition node = Map.Definition.GetNode(nodeIndex);
             RoomResult = "";
             if (node.Battle == null)
-            { CurrentBattle = null; encounterNumber = node.Layer + 1; Phase = RunPhase.Room; return true; }
+            { CurrentBattle = null; encounterNumber = node.Layer + 1; Phase = RunPhase.Room; return Record(true, RunCommandKind.SelectNode, nodeIndex); }
             StartEncounter(node, nodeIndex);
-            return true;
+            return Record(true, RunCommandKind.SelectNode, nodeIndex);
         }
 
         public bool TryPlayHandCard(
@@ -209,26 +209,26 @@ namespace Graphaclysm.Application
             out CardDefinition playedCard,
             out CardPlayFailure failure)
         {
-            if (Phase != RunPhase.Battle)
+            if (Phase != RunPhase.Battle || handIndex < 0 || handIndex >= CurrentBattle.Deck.HandCount)
             {
                 playedCard = null;
                 failure = CardPlayFailure.WrongPhase;
                 return false;
             }
 
-            return CurrentBattle.TryPlayHandCard(handIndex, out playedCard, out failure);
+            return Record(CurrentBattle.TryPlayHandCard(handIndex, out playedCard, out failure), RunCommandKind.PlayCard, handIndex);
         }
 
-        public bool TryCondense() => Phase == RunPhase.Battle && CurrentBattle.TryCondense();
-        public bool TryUnravel() => Phase == RunPhase.Battle && CurrentBattle.TryUnravel();
+        public bool TryCondense() => Record(Phase == RunPhase.Battle && CurrentBattle.TryCondense(), RunCommandKind.Condense);
+        public bool TryUnravel() => Record(Phase == RunPhase.Battle && CurrentBattle.TryUnravel(), RunCommandKind.Unravel);
         public bool TryBeginPlot()
         {
-            return Phase == RunPhase.Battle && CurrentBattle.TryBeginPlot();
+            return Record(Phase == RunPhase.Battle && CurrentBattle.TryBeginPlot(), RunCommandKind.BeginPlot);
         }
 
         public bool TryMovePlayer(double dx, double dy)
-            => Phase == RunPhase.Battle && CurrentBattle.Battle.TryMovePlayer(dx, dy);
-        public bool TryUndoMove() => Phase == RunPhase.Battle && CurrentBattle.Battle.TryUndoMove();
+            => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryMovePlayer(dx, dy), RunCommandKind.Move, dx < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3);
+        public bool TryUndoMove() => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryUndoMove(), RunCommandKind.UndoMove);
         public bool TrySetCalculator(string x, string y, out string error)
         {
             error = "전투 중에만 계산할 수 있습니다.";
@@ -238,7 +238,7 @@ namespace Graphaclysm.Application
         public bool TrySelectFormulaAxis(int axis) => Phase == RunPhase.Battle && CurrentBattle.Battle.TrySelectFormulaAxis(axis);
 
         public bool TryToggleUltimate()
-            => Phase == RunPhase.Battle && CurrentBattle.Battle.TryToggleUltimate();
+            => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryToggleUltimate(), RunCommandKind.ToggleUltimate);
 
         public bool TryUndoLastPlayedCard(out CardDefinition restoredCard)
         {
@@ -248,7 +248,7 @@ namespace Graphaclysm.Application
                 return false;
             }
 
-            return CurrentBattle.TryUndoLastPlayedCard(out restoredCard);
+            return Record(CurrentBattle.TryUndoLastPlayedCard(out restoredCard), RunCommandKind.UndoCard);
         }
 
         public PlotReport ResolvePlot()
@@ -259,6 +259,7 @@ namespace Graphaclysm.Application
             }
 
             PlotReport report = CurrentBattle.ResolvePlot();
+            Record(true, RunCommandKind.ResolvePlot);
             if (CurrentBattle.Battle.Phase != BattlePhase.Victory)
             {
                 return report;
@@ -310,6 +311,7 @@ namespace Graphaclysm.Application
             }
 
             int damage = CurrentBattle.ResolveEnemyTurn();
+            Record(true, RunCommandKind.ResolveEnemy);
             if (CurrentBattle.Battle.Phase == BattlePhase.Victory) CompleteVictory();
             if (CurrentBattle.Battle.Phase == BattlePhase.Defeat)
             {
@@ -334,7 +336,7 @@ namespace Graphaclysm.Application
             }
 
             FinishReward();
-            return true;
+            return Record(true, RunCommandKind.SelectCardReward, optionIndex);
         }
 
         public bool TrySkipReward()
@@ -345,7 +347,7 @@ namespace Graphaclysm.Application
             }
 
             FinishReward();
-            return true;
+            return Record(true, RunCommandKind.SkipReward, 0);
         }
 
         public bool TrySelectRelicReward(int optionIndex)
@@ -364,7 +366,7 @@ namespace Graphaclysm.Application
             }
 
             FinishReward();
-            return true;
+            return Record(true, RunCommandKind.SelectRelicReward, optionIndex);
         }
 
         private void FinishReward()

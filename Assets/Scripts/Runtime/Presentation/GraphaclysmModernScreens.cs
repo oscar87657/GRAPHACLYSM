@@ -22,8 +22,9 @@ namespace Graphaclysm.Runtime.Presentation
         private void Header(string title, string right)
         {
             Label(new Rect(90, 65, 900, 48), title, ui.Body);
-            Label(new Rect(1550, 65, 230, 48), right, ui.Small);
-            if (ui.Button(new Rect(1800, 68, 45, 39), "?")) helpOpen = !helpOpen;
+            Label(new Rect(1500, 65, 200, 48), right, ui.Small);
+            if (ui.Button(new Rect(1710, 68, 74, 39), run == null ? "설정" : "메뉴")) { if (run == null) OpenSettings(); else paused = true; }
+            if (ui.Button(new Rect(1800, 68, 45, 39), "?")) OpenHelp();
         }
 
         private static void DrawPortrait(Rect r, Texture2D portrait)
@@ -46,9 +47,14 @@ namespace Graphaclysm.Runtime.Presentation
             Line(new Vector2(137, 468), new Vector2(805, 468), Gold);
             Label(new Rect(137, 490, 790, 70), "The Unwritten Axis", ui.Display);
             Label(new Rect(140, 588, 620, 45), "흩어진 빛을 잇고, 아직 없는 길을 그린다.", ui.Body);
-            if (ui.Button(new Rect(140, 738, 350, 70), "기록 시작", true)) { flow.OpenCharacterSelection(); Refresh(); }
+            if (ui.Button(new Rect(140, 650, 350, 64), "이어하기", true, HasContinue)) ContinueSavedRun();
+            Label(new Rect(515, 650, 610, 64), savedSummary, ui.Small);
+            if (ui.Button(new Rect(140, 738, 350, 70), "새 기록 시작", !HasContinue)) RequestNewRun();
             if (ui.Button(new Rect(140, 827, 350, 52), "카드 사전")) {codexOpen=true;codexRelics=false;ChangeCodex(0,0);}
-            if (ui.Button(new Rect(510, 827, 260, 52), "작도 안내")) helpOpen = true;
+            if (ui.Button(new Rect(510, 827, 260, 52), "작도 안내")) OpenHelp();
+            if (ui.Button(new Rect(140, 901, 350, 52), "설정")) OpenSettings();
+            if (ui.Button(new Rect(510, 901, 260, 52), "게임 종료")) confirmation = Confirmation.Quit;
+            Label(new Rect(510, 971, 1120, 65), saveNotice, ui.Small);
             Fill(new Rect(127, 972, 351, 44), new Color(Paper.r, Paper.g, Paper.b, 0.86f));
             Label(new Rect(140, 978, 330, 32), "수식으로 엮는 카드 전투", ui.Small);
         }
@@ -168,14 +174,12 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawHelp()
         {
-            Fill(new Rect(0, 0, 1920, 1080), new Color(Ink.r, Ink.g, Ink.b, 0.76f));
-            Rect r = new Rect(460, 231, 1000, 618); Fill(r, Paper); Border(r, Gold, 24);
-            Label(new Rect(518, 269, 840, 82), "파편을 모아 하나의 궤적으로", ui.Heading);
-            Label(new Rect(520, 390, 840, 68), "01   카드의 빈칸은 안쪽의 식 전체입니다. 새 파편이 앞선 궤적을 감쌉니다.", ui.Body);
-            Label(new Rect(520, 481, 840, 86), "02   응축은 체력 2 → 4 소모, 기본 1장 보충. 추가 드로우는 최대 1장. 적도 행동합니다.", ui.Body);
-            Label(new Rect(520, 586, 840, 79), "03   방출은 모든 파편을 함께 발동합니다. 같은 선이 적에게 피해를, 자신에게 강화를 줍니다.", ui.Body);
-            Label(new Rect(520, 705, 840, 55), "방향키 / 왼쪽 이동 패널 · Backspace 취소 · Space 응축 · Enter 방출", ui.Small);
-            if (ui.Button(new Rect(1150, 745, 240, 55), "계속   Esc", true)) helpOpen = false;
+            ModalPanel(HelpTitles[helpPage]);
+            Label(new Rect(485, 302, 936, 405), HelpBodies[helpPage], ui.Body);
+            if (ui.Button(new Rect(480, 791, 240, 60), "이전", enabled: helpPage > 0)) helpPage--;
+            if (ui.Button(new Rect(748, 791, 290, 60), "안내 닫기   Esc")) CloseHelp();
+            if (ui.Button(new Rect(1066, 791, 352, 60), helpPage == HelpTitles.Length - 1 ? "시작하기" : "다음", true))
+            { if (helpPage == HelpTitles.Length - 1) CloseHelp(); else helpPage++; }
         }
     }
 }

@@ -1,5 +1,19 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v9 저장·설정·일시정지
+
+`RunGameSession`은 성공한 Application 명령의 `List<RunCommand>`를 소유한다. 256칸에서 필요할 때 증가하고 최대 65,536개(구조체 데이터 약 512 KiB)다. 초과 상태는 bool로 기록해 저장을 거부하고 마지막 파일을 유지한다. 예측·렌더링·충돌 루프에서는 기록하지 않는다. legacy/custom constructor는 기록을 켜지 않고 `PrototypeRunFactory.Create`만 캐릭터 ID와 함께 활성화한다.
+
+`CaptureSave`는 저장 명령 때만 명령 배열을 복사한다. 버전/시드/캐릭터/명령의 바이너리 payload와 SHA-256을 `RunSaveStore`가 읽고 쓴다. 파일 읽기 상한 1 MiB, 최대 명령 데이터 약 320 KiB다. 배열·MemoryStream·해시 버퍼는 저장/불러오기 동안만 소유한다. 파일 교체는 같은 볼륨의 `.tmp`를 flush한 뒤 `File.Replace`하며 이전 파일을 `.bak`에 남긴다. 패배·완주는 백업도 종료 기록으로 바꾼다. 역직렬화는 임의 타입을 생성하지 않고 명령 ID·길이·버전·해시를 검증한다.
+
+복원은 새 `RunGameSession`에 성공 명령을 재생한다. RNG, 덱 영역, 수식 prefix, 이동 취소 이력, 상태 수명, 응축/드로우 소비를 기존 규칙으로 다시 만든다. 전부 성공한 후보만 `PrototypeGameFlow.TryContinueRun`에 연결한다. 콘텐츠 변경에는 `RulesVersion` 변경 또는 마이그레이션이 필수다. 연출의 진행 프레임은 저장하지 않으며 전투 phase로 판정 전/후를 구분해 다시 연출한다.
+
+`GraphaclysmSystemView`는 저장 어댑터/설정/현재 저장 참조와 문자열 캐시를 View 수명 동안 소유한다. `Refresh`의 성공 명령 이후 revision이 바뀔 때 저장한다. 일시정지는 로컬 `viewTime` 증가와 명령 입력을 막고 전역 Time.timeScale은 변경하지 않는다. 메뉴·도움말·설정·인벤토리가 동일하게 멈춘다. 설정 파일에는 고정 크기 값만 보관하고 범위를 제한한다. 음량 문자열 101개·안내 5페이지는 정적 공유, 인벤토리 페이지/상세 문자열은 선택 시에만 갱신한다.
+
+`GameAudio`는 AudioSource 1개와 짧은 mono 44.1kHz AudioClip 6개를 Awake에서 만들고 OnDestroy에서 해제한다. 초기 합성 float 배열의 최대 길이는 17,640이며 생성 후 해제 대상이다. 재생은 기존 소스의 PlayOneShot을 사용하고 프레임별 오브젝트를 만들지 않는다. 전체 음량은 AudioListener, 효과음은 해당 소스에 적용하며 View 종료 때 이전 listener 음량을 복원한다. 이는 새 Profiler 측정 결과가 아니다.
+
+검증 절차와 저장 위치는 [기본 기능 v9](Docs/BASICS_V9.md)를 따른다. 아래 구조 확장 순서의 저장 DTO 항목은 v9에서 이 방식으로 구현했다.
+
 ## 목표
 
 게임 규칙을 Unity 오브젝트와 분리해 테스트 가능하게 유지한다. 화면, 애니메이션, 입력 방식이 바뀌어도 수식 계산과 전투 결과가 달라지지 않아야 한다.
