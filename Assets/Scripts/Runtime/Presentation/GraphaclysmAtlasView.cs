@@ -1,4 +1,5 @@
 using Graphaclysm.Core.Cards;
+using Graphaclysm.Core.Combat;
 using Graphaclysm.Core.Equations;
 using Graphaclysm.Core.Relics;
 using UnityEngine;
@@ -97,11 +98,11 @@ namespace Graphaclysm.Runtime.Presentation
         private void DrawMovementDock()
         {
             Fill(new Rect(28,797,314,114),new Color(.055f,.05f,.095f,.84f));
-            Label(new Rect(48,805,274,30),"이동 · 턴당 한 번",ui.SmallLight);
-            if(ui.Button(new Rect(48,849,61,42),"←",false,!castActive&&!battle.Tactics.HasMoved))Move(-1.5,0);
-            if(ui.Button(new Rect(119,849,61,42),"↑",false,!castActive&&!battle.Tactics.HasMoved))Move(0,1.5);
-            if(ui.Button(new Rect(190,849,61,42),"↓",false,!castActive&&!battle.Tactics.HasMoved))Move(0,-1.5);
-            if(ui.Button(new Rect(261,849,61,42),"→",false,!castActive&&!battle.Tactics.HasMoved))Move(1.5,0);
+            Label(new Rect(48,805,274,30),"필드 클릭 이동 · 반경 1.8",ui.SmallLight);
+            if(ui.Button(new Rect(48,849,61,42),"←",false,!castActive&&!battle.Tactics.HasMoved))Move(-TacticalCombatState.MoveDistance,0);
+            if(ui.Button(new Rect(119,849,61,42),"↑",false,!castActive&&!battle.Tactics.HasMoved))Move(0,TacticalCombatState.MoveDistance);
+            if(ui.Button(new Rect(190,849,61,42),"↓",false,!castActive&&!battle.Tactics.HasMoved))Move(0,-TacticalCombatState.MoveDistance);
+            if(ui.Button(new Rect(261,849,61,42),"→",false,!castActive&&!battle.Tactics.HasMoved))Move(TacticalCombatState.MoveDistance,0);
         }
         private void ChangeCodex(int filter,int page)
         {

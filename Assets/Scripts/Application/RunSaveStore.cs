@@ -117,7 +117,7 @@ namespace Graphaclysm.Application
                     for (int i = 0; i < count; i++)
                     {
                         byte kind = reader.ReadByte(); int argument = reader.ReadInt32();
-                        if (kind > (byte)RunCommandKind.UseCombatSkill) return false;
+                        if (kind > (byte)RunCommandKind.MoveTo) return false;
                         commands[i] = new RunCommand((RunCommandKind)kind, argument);
                     }
                     data = new RunSaveData { Seed = seed, CharacterId = character, SavedUtcTicks = ticks,

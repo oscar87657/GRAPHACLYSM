@@ -106,6 +106,16 @@ namespace Graphaclysm.Tests.Application
             Assert.That(b.Id, Is.EqualTo(a.Id)); EqualState(run, restored);
         }
 
+        [Test] public void ArbitraryRadialMoveReplaysAtTheSameQuantizedPosition()
+        {
+            var run = Start();
+            Assert.That(run.TryMovePlayerTo(4.73, -.91), Is.True);
+            var restored = RoundTrip(run);
+            Assert.That(restored.CurrentBattle.Battle.Tactics.X, Is.EqualTo(run.CurrentBattle.Battle.Tactics.X));
+            Assert.That(restored.CurrentBattle.Battle.Tactics.Y, Is.EqualTo(run.CurrentBattle.Battle.Tactics.Y));
+            Assert.That(restored.TryUndoMove(), Is.True);
+        }
+
         [Test] public void CondenseSavePreservesSealsCostsBonusConsumptionAndFutureDraws()
         {
             var run = Start(1); run.TryMovePlayer(-1.5, 0); run.TryPlayHandCard(0, out _, out _);

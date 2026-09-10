@@ -124,10 +124,15 @@ namespace Graphaclysm.Editor
             yield return Shot("04-character-pair");
             view.DiagnosticHoveredCharacter = 0; yield return Shot("04a-character-hover-ian");
             view.DiagnosticHoveredCharacter = 1; yield return Shot("04b-character-hover-luna");
-            view.DiagnosticHoveredCharacter = -1; flow.TrySelectCharacter(1); flow.TryStartRun(); Invoke("Refresh");
+            view.DiagnosticHoveredCharacter = -2; flow.TrySelectCharacter(1); Invoke("Refresh");
+            yield return new WaitForSecondsRealtime(.25f);
+            Check(Get<float[]>("characterEyeOpen")[1] > .9f, "Selected character did not keep her eyes open");
+            yield return Shot("04c-character-selected-luna");
+            flow.TryStartRun(); Invoke("Refresh");
             yield return Shot("04-map-saved");
             Set("growthOpen", true); yield return Shot("04c-run-growth"); Set("growthOpen", false);
             Check(flow.CurrentRun.TryPurchaseGrowthNode(0), "Run skill unlock failed"); Invoke("Refresh");
+            Set("growthFocusedNode", 0);
             Set("growthOpen", true); yield return Shot("04d-run-growth-branch"); Set("growthOpen", false);
             Check(File.Exists(Path.Combine(dataDirectory, "run.save")), "New run not saved");
             flow.CurrentRun.TrySelectMapNode(0); Invoke("Refresh");

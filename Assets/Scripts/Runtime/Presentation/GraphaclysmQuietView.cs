@@ -52,8 +52,8 @@ namespace Graphaclysm.Runtime.Presentation
                 var card=battle.GetPlayedCard(i);float y=383+i*40;
                 float enter=!preferences.ReduceMotion && i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(ViewTime-fragmentPlacedAt)*5)*10:0;
                 Color color=i<battle.SealedCardCount?Muted:Violet;
-                Line(new Vector2(48+i*3,y+enter),new Vector2(48+i*3,y+27+enter),color,1.4f);
-                Label(new Rect(63+i*3,y-2+enter,168,31),card.DisplayName,ui.SmallLight);
+                Line(new Vector2(48,y+enter),new Vector2(48,y+27+enter),color,1.4f);
+                Label(new Rect(63,y-2+enter,168,31),card.DisplayName,ui.SmallLight);
                 if(showBattleDetails) Label(new Rect(230,y+enter,91,30),CompactMark(card.Fragment),ui.SmallLight,true);
                 else Diamond(new Vector2(315,y+14+enter),3,Rarity(card.Rarity));
             }
@@ -65,43 +65,56 @@ namespace Graphaclysm.Runtime.Presentation
         {
             int variant = run.Growth.ActiveVariant;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "삼중 유리길   K" : variant == 2 ? "집행의 직선   K" : "유리 쇄도   K";
-            return variant == 1 ? "삼중 월광   K" : variant == 2 ? "낙성 추격   K" : "월광 도약   K";
+                return variant == 1 ? "삼중 유리길   K" : variant == 2 ? "집행의 직선   K"
+                    : variant == 3 ? "거울 교환   K" : "유리 쇄도   K";
+            return variant == 1 ? "만월 착지   K" : variant == 2 ? "초승달 회귀   K"
+                : variant == 3 ? "별무리 전이   K" : "월광 도약   K";
         }
 
         private string GrowthSkillDescription()
         {
             int variant = run.Growth.ActiveVariant;
-            int module = run.Growth.ModuleVariant;
-            bool fiveLanes = run.Growth.IsUnlocked(2);
-            bool executionResonance = run.Growth.IsUnlocked(4);
             string form;
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
             {
-                form = variant == 1 ? (fiveLanes ? "넓은 다섯 갈래로 이동하며 피해 5" : "넓은 세 갈래로 이동하며 피해 6") : variant == 2
-                    ? "직선으로 이동하며 피해 10 · 처치 시 즉시 재사용" + (executionResonance ? "·공명 +1" : "") : "직선으로 이동하며 피해 7";
-                return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 적중마다 보호막" : module == 2 ? " · 파열 3" : "");
+                form = variant == 1 ? (run.Growth.IsUnlocked(3) ? "다섯 갈래 관통 · 피해 5" : "세 갈래 관통 · 피해 6")
+                    + (run.Growth.IsUnlocked(4) ? " · 적중마다 보호막" : "")
+                    : variant == 2 ? "처형선 · 피해 10 · 처치 시 즉시 재사용"
+                        + (run.Growth.IsUnlocked(5) ? "·공명 +1" : "") + (run.Growth.IsUnlocked(6) ? " · 파열 3" : "")
+                    : variant == 3 ? "대상 뒤 전이 · 주변 피해 7 · 반경 " + (run.Growth.IsUnlocked(7) ? "1.85" : "1.15")
+                        + (run.Growth.IsUnlocked(8) ? " · 보호막 6/요새화 3" : "")
+                    : "대상을 반드시 가르는 직선 이동 · 피해 7";
+                return "대기 3턴 · " + form;
             }
-            form = variant == 1 ? (fiveLanes ? "넓은 다섯 갈래로 이동하며 피해 4" : "넓은 세 갈래로 이동하며 피해 5") : variant == 2
-                ? "직선으로 이동하며 피해 8 · 처치 시 즉시 재사용" + (executionResonance ? "·공명 +1" : "") : "직선으로 이동하며 피해 6";
-            return "대기 3턴 · 가리킨 적 방향으로 " + form + (module == 1 ? " · 정화/보호막/요새화" : module == 2 ? " · 회복/추진" : "");
+            form = variant == 1 ? "착지 파동 · 피해 5 · 반경 " + (run.Growth.IsUnlocked(3) ? "2.20" : "1.70")
+                    + (run.Growth.IsUnlocked(4) ? " · 정화/보호막/요새화" : "")
+                : variant == 2 ? "왕복 참격 · 피해 9 · 원위치"
+                    + (run.Growth.IsUnlocked(5) ? " · 노출 3" : "") + (run.Growth.IsUnlocked(6) ? " · 회복/추진" : "")
+                : variant == 3 ? "연쇄 전이 · 피해 5 · 연결 " + (run.Growth.IsUnlocked(7) ? "3.60" : "2.40")
+                    + (run.Growth.IsUnlocked(8) ? " · 처치 시 즉시 재사용/공명" : "")
+                : "대상 곁으로 도약 · 착지 주변 피해 6";
+            return "대기 3턴 · " + form;
         }
 
         private string UltimateSkillDescription()
         {
             int variant = run.Growth.UltimateVariant;
-            bool resonanceRefund = run.Growth.IsUnlocked(8);
-            bool firstAugment = run.Growth.IsUnlocked(9);
-            bool secondAugment = run.Growth.IsUnlocked(10);
-            bool selfAugment = run.Growth.IsUnlocked(11);
+            bool resonanceRefund = run.Growth.IsUnlocked(12);
             string charge = "\n충전: 적 2명 이상 +1 · 자신과 적 동시 +2" + (resonanceRefund ? " · 궁극 다중 적중 환급 +1" : "");
             if (flow.CurrentCharacter.Archetype == CombatArchetype.Ian)
-                return variant == 1 ? "공명 6 · 피해 +" + (firstAugment ? 14 : 10) + ", 파열 3" + charge
-                    : variant == 2 ? "공명 6 · 피해 +6, 고정 " + (secondAugment ? 3 : 2) + ", 자신 적중 시 회복 " + (selfAugment ? 8 : 4) + charge
-                    : "공명 6 · 피해 +6, 적중한 적 이동 봉쇄" + charge;
-            return variant == 1 ? "공명 6 · 자가 반경 " + (firstAugment ? "1.50" : "1.25") + ", 정화, 보호막 " + (firstAugment ? 16 : 12) + ", 회복 " + (firstAugment ? 9 : 7) + charge
-                : variant == 2 ? "공명 6 · 피해 +" + (secondAugment ? 8 : 4) + ", 정화, 보호막 " + (selfAugment ? 10 : 6) + ", 회복 " + (selfAugment ? 7 : 3) + charge
-                : "공명 6 · 자가 반경 확대, 정화, 보호막 8, 회복 5" + charge;
+                return variant == 1 ? "공명 6 · 피해 +" + (run.Growth.IsUnlocked(13) ? 14 : 10) + " · 파열 3" + charge
+                    : variant == 2 ? "공명 6 · 피해 +6 · 고정 " + (run.Growth.IsUnlocked(14) ? 3 : 2)
+                        + " · 자신 적중 시 회복 " + (run.Growth.IsUnlocked(15) ? 8 : 4) + charge
+                    : variant == 3 ? "공명 6 · 피해 +8 · 강화 제거 · 약화 " + (run.Growth.IsUnlocked(17) ? 3 : 2)
+                        + (run.Growth.IsUnlocked(16) ? " · 자가 적중 정화/보호막 6" : "") + charge
+                    : "공명 6 · 피해 +6 · 적중한 적 이동 봉쇄" + charge;
+            return variant == 1 ? "공명 6 · 자가 반경 " + (run.Growth.IsUnlocked(13) ? "1.50" : "1.25")
+                    + " · 정화 · 보호막 " + (run.Growth.IsUnlocked(13) ? 16 : 12) + " · 회복 " + (run.Growth.IsUnlocked(13) ? 9 : 7) + charge
+                : variant == 2 ? "공명 6 · 피해 +" + (run.Growth.IsUnlocked(14) ? 8 : 4) + " · 정화 · 보호막 "
+                    + (run.Growth.IsUnlocked(15) ? 10 : 6) + " · 회복 " + (run.Growth.IsUnlocked(15) ? 7 : 3) + charge
+                : variant == 3 ? "공명 6 · 피해 +2 · 고정 2" + (run.Growth.IsUnlocked(16) ? " · 기술 대기 초기화" : "")
+                    + (run.Growth.IsUnlocked(17) ? " · 약화 3" : "") + charge
+                : "공명 6 · 자가 반경 확대 · 정화 · 보호막 8 · 회복 5" + charge;
         }
         private void DrawQuietEnemyPanel()
         {

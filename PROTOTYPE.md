@@ -1,6 +1,12 @@
 # GRAPHACLYSM Prototype · v0.18
 
-2026-09-10 · 카드/상태 정보와 12노드 성좌 성장 v14. 플레이어 기준 작도는 v13, 유물/영구 성장은 v12, 옆모습 눈 전환은 v11을 유지.
+2026-09-10 · 자유 좌표 이동과 캐릭터별 18노드 기술 성좌 v15. 카드/상태 정보는 v14, 유물/영구 성장은 v12, 옆모습 눈 전환은 v11을 유지.
+
+## v15 자유 이동과 기술 성좌
+
+필드에서 캐릭터 중심 반경 1.8 안의 지점을 클릭해 이동한다. 사거리 밖 클릭은 원 경계로 제한되고, 적이나 기록 기둥을 직접 누르면 가장 가까운 빈 지점으로 보정된다. 이동 전 사거리 원과 실제 도착 마름모를 표시한다. 선택 캐릭터는 포인터가 떠나도 눈을 뜬 상태를 유지하며 조립 목록은 같은 왼쪽 기준선에 정렬된다.
+
+G는 이안/루나 각각 다른 18노드 성좌를 연다. 전투 기술 3개와 궁극기 3개에서 형태를 교체하고, 선택 형태의 부가 노드 둘 중 하나를 이어 간다. 기술의 주 대상은 안전 착지 여백과 무관하게 적중한다. [상세 규칙과 검증](Docs/COMBAT_CONTROL_GROWTH_V15.md)을 따른다.
 
 ## v14 전투 정보와 성좌 성장
 
@@ -30,7 +36,7 @@ K는 가리킨 적 방향으로 이동하면서 경로의 적을 공격하고 3�
 
 생성 전투에는 이동을 막는 기록 기둥과 작도선 교차 시 적중 피해 +2를 주는 굴절 프리즘이 배치된다. 자세한 규칙과 저장 호환은 [전장·카드 UI v10](Docs/BATTLEFIELD_V10.md)을 따른다. 지도는 아직 기존 가로형 3층 원정이며, 탑형 지도와 스토리는 후속 구상 범위다.
 
-최신 검증은 EditMode **150/150**, Full HD/720p **32장**, 게임 Runtime errors **0**이다. `Logs/editmode-ui-tree-v14.xml`, `Logs/ui-tree-v14-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v14에서 다시 검증하지 않았다.
+최신 검증은 EditMode **154/154**, Full HD/720p **33장**, 게임 Runtime errors **0**이다. `Logs/editmode-growth-movement-v15.xml`, `Logs/growth-movement-v15-smoke.log`, `Logs/CombatV2VerificationProject/Logs/BasicsV9Captures`를 참조한다. Windows 빌드·수동 플레이·Profiler·전체 런 밸런스는 v15에서 다시 검증하지 않았다.
 
 ## v9 기본 기능
 
@@ -57,7 +63,8 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 | 방출 / Enter | 현재 궤적·효과 발동. 이후 적 행동과 기본 2장+보너스 보충 |
 | 응축 / Space | 식·손패 유지, 체력 첫 2/두 번째 4 소비, 적 행동, 기본 1장+카드 보너스 최대 1장 |
 | 해체 → 해체하고 넘기기 | 조립 버리기, 공격/카드 드로우 보너스 없이 적 행동과 기본 보충 |
-| 방향키 / 왼쪽 하단 이동 버튼 | 턴당 한 번 무료 이동 |
+| 필드 좌클릭 | 반경 1.8 안의 지점으로 턴당 한 번 이동. 겹침 지점은 가까운 빈 자리로 보정 |
+| 방향키 / 왼쪽 하단 이동 버튼 | 반경 끝으로 빠르게 이동 |
 | 이동 취소 / Backspace | 작도 전에 위치와 이동 기회 복구 |
 | 궁극기 | 공명 6으로 준비/취소, 실제 방출에 소비 |
 | K / 전투 기술 | 가리킨 적 방향으로 이동 공격, 기본 대기 3턴 |
@@ -99,9 +106,9 @@ Unity 6000.3.23f1에서 Assets/Scenes/SampleScene.unity를 열고 Play한다. �
 ```powershell
 $unityExe = 'C:\Program Files\Unity\Hub\Editor\6000.3.23f1\Editor\Unity.exe'
 $verifyPath = (Resolve-Path 'Logs\CombatV2VerificationProject').Path
-$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-ui-tree-v14.xml" -logFile "' + $PWD + '\Logs\editmode-ui-tree-v14.log"'
+$testArgs = '-batchmode -projectPath "' + $verifyPath + '" -runTests -testPlatform EditMode -testResults "' + $PWD + '\Logs\editmode-growth-movement-v15.xml" -logFile "' + $PWD + '\Logs\editmode-growth-movement-v15.log"'
 Start-Process -FilePath $unityExe -ArgumentList $testArgs -WindowStyle Hidden -Wait
-$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\ui-tree-v14-smoke.log"'
+$smokeArgs = '-batchmode -projectPath "' + $verifyPath + '" -executeMethod Graphaclysm.Editor.BasicsV9Smoke.RunBatch -logFile "' + $PWD + '\Logs\growth-movement-v15-smoke.log"'
 Start-Process -FilePath $unityExe -ArgumentList $smokeArgs -WindowStyle Hidden -Wait
 ```
 

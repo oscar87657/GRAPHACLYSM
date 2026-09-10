@@ -1,5 +1,11 @@
 ﻿# GRAPHACLYSM Architecture
 
+## v15 자유 이동과 기술 성좌 소유권
+
+`RunGrowthState`는 캐릭터별 18노드 정의, 부모와 8개 배타 그룹, 해금 마스크를 소유한다. `BattleSkillLoadout`은 선택한 3종 전투 기술/3종 궁극기 형태와 부가 노드 마스크를 새 전투에 전달한다. `BattleSession`은 캐릭터별 직선·다중선·착지 파동·왕복·연쇄 적중과 안전한 기술 착지, 주 대상 보장 판정을 소유한다.
+
+`TacticalCombatState`는 반경 1.8 자유 좌표 이동 가능 여부와 취소 원점을 소유한다. `BattleSession.TryResolveMoveDestination`은 경계 제한과 적·기둥 주변의 고정 후보 탐색을 수행하고, `RunGameSession`은 0.01 단위 좌표를 `MoveTo` 명령 하나에 압축해 기록·재생한다. Presentation은 포인터를 필드 좌표로 바꾸고 Core가 반환한 실제 도착점만 미리 그린다. 저장은 형식 2/규칙 15다. [전투 조작·기술 성좌 v15](Docs/COMBAT_CONTROL_GROWTH_V15.md)를 따른다.
+
 ## v14 정보 UI와 성장 그래프 소유권
 
 `RunGrowthState`는 12비트 해금 마스크와 각 노드의 부모·배타 그룹을 소유한다. `CanPurchase`는 성장점·레벨·선행 노드·같은 갈림길을 함께 검사하고 `BattleSkillLoadout`이 마스크를 새 전투에 전달한다. `BattleSession`과 `TacticalCombatState`는 오중 궤적, 처치 공명, 궁극기 공명 환급과 캐릭터별 하위 효과를 계산한다.
@@ -18,7 +24,7 @@ Presentation은 고정 `Rect` 두 개로 키워드 툴팁과 포인터 이동 �
 
 `CombatStatusState`는 12종 상태의 수치·수명을 고정 배열로 소유하고 `BattleSession`이 가시 반격, 추진·파열 소모, 요새화 방어와 6종 신규 유물 발동 순서를 조정한다. 이 절의 자유 전환형 기술 설명은 v13의 배타 분기로 대체되었다.
 
-`LegacyProgression`은 원정 밖의 잔광·여섯 영구 기록 랭크·중복 보상 방지용 최근 시드를 소유한다. `LegacyProgressionStore`는 `legacy.save`를 SHA-256과 같은 폴더 임시 파일 교체로 저장한다. 새 원정은 그 시점의 `LegacyBenefits`만 복사하므로 이후 메인 화면 구매가 진행 중 원정을 바꾸지 않는다. v12 당시 원정 규칙은 12였으며 최신 규칙은 위 v14 절의 14다.
+`LegacyProgression`은 원정 밖의 잔광·여섯 영구 기록 랭크·중복 보상 방지용 최근 시드를 소유한다. `LegacyProgressionStore`는 `legacy.save`를 SHA-256과 같은 폴더 임시 파일 교체로 저장한다. 새 원정은 그 시점의 `LegacyBenefits`만 복사하므로 이후 메인 화면 구매가 진행 중 원정을 바꾸지 않는다. v12 당시 원정 규칙은 12였으며 최신 규칙은 위 v15 절의 15다.
 
 신규 유물 Texture 6장은 `Awake`에서 한 번 Resources로 읽어 View 수명 동안 재사용한다. OnGUI는 카탈로그 ID로 캐시를 조회하며 디스크 로드나 새 Texture를 만들지 않는다. 상세 계약은 [전투와 성장 v12](Docs/COMBAT_GROWTH_V12.md)다.
 

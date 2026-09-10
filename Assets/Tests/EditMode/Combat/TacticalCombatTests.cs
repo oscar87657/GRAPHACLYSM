@@ -102,16 +102,18 @@ namespace Graphaclysm.Tests.Combat
         }
 
         [Test]
-        public void Movement_RejectsOverlapNonCardinalAndOutOfBounds_WithoutSpendingEnergy()
+        public void Movement_AcceptsRadialTargetsAndSlidesAwayFromOccupiedPoints()
         {
             var battle = new BattleSession(Definition(x: 5.5, y: -2));
-            Assert.That(battle.TryMovePlayer(1.5, 0), Is.False);
-            Assert.That(battle.TryMovePlayer(1.5, 1.5), Is.False);
-            Assert.That(battle.TryMovePlayer(double.NaN, 0), Is.False);
-            Assert.That(battle.Energy, Is.EqualTo(12));
-            Assert.That(battle.TryMovePlayer(0, -1.5), Is.True);
+            Assert.That(battle.TryResolveMoveDestination(5.5, -2, out double x, out double y), Is.True);
+            double enemyDistance = Math.Sqrt((x - 5.5) * (x - 5.5) + (y + 2) * (y + 2));
+            Assert.That(enemyDistance, Is.GreaterThanOrEqualTo(TacticalCombatState.PlayerRadius + BattleSession.EnemyHitRadius));
+            Assert.That(battle.TryMovePlayerTo(5.5, -2), Is.True);
+            Assert.That(battle.Energy, Is.EqualTo(11));
+            Assert.That(battle.TryMovePlayerTo(5, -1), Is.False);
             Play(battle, "input.x"); Plot(battle); battle.ResolveEnemyTurn();
-            Assert.That(battle.TryMovePlayer(0, -1.5), Is.False);
+            Assert.That(battle.TryMovePlayerTo(double.NaN, -1), Is.False);
+            Assert.That(battle.TryMovePlayerTo(4, -20), Is.True, "An out-of-range click is clamped to the movement circle and field edge.");
         }
 
         [Test]

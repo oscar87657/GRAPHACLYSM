@@ -22,18 +22,20 @@ namespace Graphaclysm.Runtime.Presentation
         private int savedRevision = -1;
         private bool persistenceEnabled, paused, settingsOpen, inventoryOpen, inventoryRelics, growthOpen, legacyOpen;
         private int inventoryPage, inventorySelection, helpPage, growthFocusedNode = -1;
-        private static readonly Vector2 GrowthRoot = new Vector2(960, 145);
-        private static readonly Vector2 GrowthSkillHub = new Vector2(565, 275);
-        private static readonly Vector2 GrowthUltimateHub = new Vector2(1355, 275);
+        private static readonly Vector2 GrowthRoot = new Vector2(960, 130);
+        private static readonly Vector2 GrowthSkillHub = new Vector2(560, 240);
+        private static readonly Vector2 GrowthUltimateHub = new Vector2(1360, 240);
         private static readonly Vector2[] GrowthNodePositions =
         {
-            new Vector2(395, 420), new Vector2(735, 420),
-            new Vector2(305, 615), new Vector2(485, 615), new Vector2(645, 615), new Vector2(825, 615),
-            new Vector2(1185, 420), new Vector2(1525, 420),
-            new Vector2(1095, 615), new Vector2(1275, 615), new Vector2(1435, 615), new Vector2(1615, 615)
+            new Vector2(280, 390), new Vector2(560, 390), new Vector2(840, 390),
+            new Vector2(220, 590), new Vector2(340, 590), new Vector2(500, 590),
+            new Vector2(620, 590), new Vector2(780, 590), new Vector2(900, 590),
+            new Vector2(1080, 390), new Vector2(1360, 390), new Vector2(1640, 390),
+            new Vector2(1020, 590), new Vector2(1140, 590), new Vector2(1300, 590),
+            new Vector2(1420, 590), new Vector2(1580, 590), new Vector2(1700, 590)
         };
         private static readonly string[] GrowthNodeSymbols =
-        { "Ⅲ", "Ⅰ", "Ⅴ", "◇", "↻", "✦", "☄", "∞", "+1", "+", "+", "♥" };
+        { "Ⅲ", "Ⅰ", "◇", "Ⅴ", "▱", "↻", "⌁", "✦", "▣", "☄", "∞", "◐", "+1", "+", "⌛", "♥", "↺", "×" };
         private enum Confirmation { None, NewRun, Quit }
         private Confirmation confirmation;
         private string saveNotice = "", savedSummary = "이어갈 기록이 없습니다.", inventoryPageLabel = "", inventoryDetail = "";
@@ -52,9 +54,9 @@ namespace Graphaclysm.Runtime.Presentation
         {
             "아래 손패를 클릭하거나 숫자 1~8을 누르세요. 어느 카드든 첫 파편으로 쓸 수 있습니다.\n\n새 카드는 앞선 궤적 전체를 바꿉니다. 순서가 달라지면 모양도 달라집니다. 필드의 예측선을 보고 조립하세요.\n\n카드에 마우스를 올리면 자세한 효과를 읽을 수 있습니다. 카드 사전에서는 첫 카드의 실제 곡선도 볼 수 있습니다.",
             "그래프가 적에게 닿으면 피해와 카드의 적중 효과를 줍니다. 같은 선이 자신에게 닿으면 보호막과 자기 강화 효과를 받습니다.\n\n한 번 방출할 때 각 대상은 한 번만 판정합니다. 적 2명 이상 적중 시 공명 +1, 자신과 적을 동시에 적중하면 공명 +2를 얻습니다. 빈 방출이나 단일 적중만으로는 차지 않습니다.\n\n공명 6이 모이면 궁극기를 준비할 수 있으며 실제 방출에서 소비합니다.",
-            "방향키 또는 왼쪽 이동 버튼으로 턴마다 한 번 이동할 수 있습니다. 적이 조준한 붉은 범위를 확인하고 피하세요.\n\nBackspace는 이동 취소, 마우스 오른쪽 버튼은 마지막 파편 취소입니다. 기술 이동은 취소할 수 없습니다.\n\n새 조립의 첫 파편은 현재 내 위치에서 시작합니다. 귀환점은 조립 중 중심을 현재 위치로 다시 옮기며, 이미 정한 중심은 이후 이동을 따라오지 않습니다.",
+            "필드에서 캐릭터 주변의 원하는 지점을 클릭해 턴마다 한 번 이동합니다. 원은 사거리, 마름모는 실제 도착점을 뜻합니다. 적이나 기둥을 누르면 가장 가까운 빈 지점으로 미끄러집니다. 방향키는 빠른 이동입니다.\n\nBackspace는 이동 취소, 마우스 오른쪽 버튼은 마지막 파편 취소입니다. 기술 이동은 취소할 수 없습니다.\n\n새 조립의 첫 파편은 현재 내 위치에서 시작합니다. 귀환점은 조립 중 중심을 현재 위치로 다시 옮기며, 이미 정한 중심은 이후 이동을 따라오지 않습니다.",
             "Enter / 방출: 조립한 그래프를 발동하고 조립대를 비웁니다. 적 행동 후 기본 2장을 보충합니다.\n\nSpace / 응축: 조립을 유지하며 체력 2, 두 번째는 4를 씁니다. 기본 1장에 추가 최대 1장을 보충하고 적도 행동합니다. 방출/해체 사이 두 번까지이며 확정된 파편은 취소할 수 없습니다.\n\n해체: 조립을 버리고 적 행동 후 손패를 보충합니다. 손패와 조립은 각각 최대 8장입니다.",
-            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다. 방을 완료해 경험치와 성장점을 얻고 G에서 서로 배타적인 전투 기술·모듈·궁극기 갈래를 고릅니다. K는 가리킨 적 방향으로 이동 공격하며 기본 대기시간은 3턴입니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정은 원정 성장을 초기화합니다. 패배·완주로 얻는 잔광과 메인 화면의 영구 기록은 계속 남습니다."
+            "원정은 3층, 층마다 보스 포함 8개 방입니다. 카드·유물·체력은 다음 층으로 이어집니다. 방을 완료해 경험치와 성장점을 얻고 G에서 전투 기술·궁극기를 교체한 뒤 연결된 부가 갈래를 고릅니다. 이안과 루나는 서로 다른 기술 계통을 사용합니다. K 기술의 기본 대기시간은 3턴입니다.\n\n행동 후 자동 저장합니다. Esc 메뉴에서 저장 후 처음으로 돌아가거나 게임을 종료할 수 있습니다. 다음 실행에서 이어하기를 선택하세요.\n\nEsc: 일시정지 / D: 보유 덱·유물 / F1 또는 ?: 이 안내\n\n새 원정은 원정 성장을 초기화합니다. 패배·완주로 얻는 잔광과 메인 화면의 영구 기록은 계속 남습니다."
         };
 
         private static string[] BuildVolumeLabels()
@@ -335,8 +337,8 @@ namespace Graphaclysm.Runtime.Presentation
         {
             var growth = run.Growth;
             bool canEdit = run.Phase == RunPhase.MapSelection;
-            Fill(new Rect(0, 0, 1920, 1080), new Color(.035f, .032f, .065f, .965f));
-            Label(new Rect(55, 34, 560, 58), "이번 원정의 성좌", ui.PageTitle);
+            Fill(new Rect(0, 0, 1920, 1080), new Color(.035f, .032f, .065f, 1f));
+            Label(new Rect(55, 34, 560, 58), "이번 원정의 성좌", ui.PageTitleLight);
             Label(new Rect(58, 94, 700, 38), "레벨 " + growth.Level + "   ·   탐사 경험 "
                 + growth.Experience + " / " + growth.ExperienceToNext + "   ·   성장점 " + growth.Points, ui.Light);
             Label(new Rect(1510, 45, 220, 35), "GROWTH CONSTELLATION", ui.SmallLight, true);
@@ -348,7 +350,7 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 var node = growth.GetNode(i);
                 Vector2 start = node.ParentIndex >= 0 ? GrowthNodePositions[node.ParentIndex]
-                    : i < 2 ? GrowthSkillHub : GrowthUltimateHub;
+                    : i < 3 ? GrowthSkillHub : GrowthUltimateHub;
                 Color connection = growth.IsUnlocked(i) ? Violet : growth.CanPurchase(i) ? Gold : new Color(Muted.r, Muted.g, Muted.b, .38f);
                 Line(start, GrowthNodePositions[i], connection, growth.IsUnlocked(i) ? 4 : 2);
             }
@@ -356,8 +358,8 @@ namespace Graphaclysm.Runtime.Presentation
             Disc(GrowthRoot, 48, new Color(.16f, .12f, .24f)); Ring(GrowthRoot, 49, Gold, 3);
             Diamond(GrowthRoot, 25, new Color(.9f, .82f, 1f), 2);
             Label(new Rect(GrowthRoot.x - 110, GrowthRoot.y + 55, 220, 30), "기억의 핵", ui.SmallLight, true);
-            DrawGrowthHub(GrowthSkillHub, "이동 기술", Violet, "K");
-            DrawGrowthHub(GrowthUltimateHub, "궁극기", Gold, "6");
+            DrawGrowthHub(GrowthSkillHub, "전투 기술 교체", Violet, "K");
+            DrawGrowthHub(GrowthUltimateHub, "궁극기 교체", Gold, "6");
 
             int hovered = -1;
             for (int i = 0; i < RunGrowthState.NodeCount; i++)
@@ -402,7 +404,7 @@ namespace Graphaclysm.Runtime.Presentation
             Ring(center, hover ? 44 : 40, color, unlocked ? 4 : 2);
             if (unlocked) Ring(center, 32, new Color(.9f, .82f, 1f, .75f), 1.5f);
             Label(new Rect(center.x - 42, center.y - 28, 84, 56), GrowthNodeSymbols[index], ui.Light, true);
-            Label(new Rect(center.x - 82, center.y + 48, 164, 48), node.Name, ui.SmallLight, true);
+            Label(new Rect(center.x - 57, center.y + 48, 114, 48), node.Name, ui.SmallLight, true);
             if (GUI.Button(new Rect(center.x - 52, center.y - 52, 104, 148), GUIContent.none, GUIStyle.none))
             {
                 growthFocusedNode = index;

@@ -19,7 +19,7 @@ namespace Graphaclysm.Runtime.Presentation
             }
             for(int i=0;i<battle.PlayedCardCount;i++)
             {
-                var card=battle.GetPlayedCard(i); float inset=i*3;
+                var card=battle.GetPlayedCard(i); const float inset=0;
                 float enter=!preferences.ReduceMotion && i==battle.PlayedCardCount-1 ? Mathf.Clamp01(1-(ViewTime-fragmentPlacedAt)*5) : 0;
                 Rect r=new Rect(100+inset,281+i*40+enter*12,320-inset*2,37);
                 Fill(r,i<battle.SealedCardCount ? new Color(.88f,.87f,.9f) : Color.white);

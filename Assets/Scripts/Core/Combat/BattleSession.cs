@@ -97,6 +97,7 @@ namespace Graphaclysm.Core.Combat
         public int LastSkillDamage { get; private set; }
         public bool LastSkillWide { get; private set; }
         public int LastSkillLaneCount { get; private set; }
+        public int LastSkillStyle { get; private set; }
         public bool LastSkillCooldownReset { get; private set; }
         public bool CanUseCombatSkill => Phase == BattlePhase.PlayerPlanning && Tactics != null
             && CombatSkillCooldown == 0 && HasLivingEnemy();
@@ -233,7 +234,8 @@ namespace Graphaclysm.Core.Combat
             PlayerHealth = startingHealth;
             Energy = playerMaxEnergy;
             Turn = 1; resolvedPlots = 0; CondenseCount = 0; preserveFragments = false; CombatSkillCooldown = 0;
-            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillWide = false; LastSkillLaneCount = 1; LastSkillCooldownReset = false;
+            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillWide = false; LastSkillLaneCount = 1;
+            LastSkillStyle = 0; LastSkillCooldownReset = false;
             movementEnergySpent = 0;
             Tactics?.Reset(startingResonance);
             if(startShield>0) Tactics?.Statuses.Add(CombatStatusKind.Shield,startShield,1);
@@ -379,20 +381,61 @@ namespace Graphaclysm.Core.Combat
         }
 
         public bool TryMovePlayer(double dx, double dy)
+            => Tactics != null && TryMovePlayerTo(Tactics.X + dx, Tactics.Y + dy);
+
+        public bool TryResolveMoveDestination(double requestedX, double requestedY, out double resolvedX, out double resolvedY)
         {
+            resolvedX = Tactics == null ? 0 : Tactics.X;
+            resolvedY = Tactics == null ? 0 : Tactics.Y;
             if (Phase != BattlePhase.PlayerPlanning || Tactics == null
-                || !Tactics.CanMove(dx, dy) || (!UsesFragments && Energy < Tactics.MoveCost)) return false;
-            if (TerrainBlocks(Tactics.X + dx, Tactics.Y + dy, TacticalCombatState.PlayerRadius)) return false;
-            for (int i = 0; i < enemies.Length; i++)
+                || (!UsesFragments && Energy < Tactics.MoveCost)
+                || double.IsNaN(requestedX) || double.IsInfinity(requestedX)
+                || double.IsNaN(requestedY) || double.IsInfinity(requestedY)) return false;
+
+            double dx = requestedX - Tactics.X, dy = requestedY - Tactics.Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            if (distance < .1) return false;
+            if (distance > TacticalCombatState.MoveDistance)
             {
-                double x = Tactics.X + dx - enemies[i].X;
-                double y = Tactics.Y + dy - enemies[i].Y;
-                double radius = TacticalCombatState.PlayerRadius + EnemyHitRadius;
-                if (enemies[i].IsAlive && x * x + y * y < radius * radius) return false;
+                double scale = TacticalCombatState.MoveDistance / distance;
+                dx *= scale; dy *= scale; distance = TacticalCombatState.MoveDistance;
             }
+            double candidateX = Math.Max(TacticalCombatState.PlayerRadius,
+                Math.Min(10 - TacticalCombatState.PlayerRadius, Tactics.X + dx));
+            double candidateY = Math.Max(-4 + TacticalCombatState.PlayerRadius,
+                Math.Min(4 - TacticalCombatState.PlayerRadius, Tactics.Y + dy));
+            if (Tactics.CanMoveTo(candidateX, candidateY) && !PositionBlocked(candidateX, candidateY))
+            { resolvedX = candidateX; resolvedY = candidateY; return true; }
+
+            // Landing on a marker should not discard the input. Search a small fan around the
+            // requested point and return the closest legal landing location.
+            double heading = Math.Atan2(dy, dx), best = double.MaxValue;
+            for (int ring = 0; ring < 5; ring++)
+            {
+                double radius = distance * (1.0 - ring * .14);
+                for (int step = 0; step <= 12; step++)
+                {
+                    int signedStep = step == 0 ? 0 : (step + 1) / 2 * (step % 2 == 1 ? 1 : -1);
+                    double angle = heading + signedStep * Math.PI / 18.0;
+                    double x = Math.Max(TacticalCombatState.PlayerRadius,
+                        Math.Min(10 - TacticalCombatState.PlayerRadius, Tactics.X + Math.Cos(angle) * radius));
+                    double y = Math.Max(-4 + TacticalCombatState.PlayerRadius,
+                        Math.Min(4 - TacticalCombatState.PlayerRadius, Tactics.Y + Math.Sin(angle) * radius));
+                    if (!Tactics.CanMoveTo(x, y) || PositionBlocked(x, y)) continue;
+                    double errorX = x - requestedX, errorY = y - requestedY;
+                    double error = errorX * errorX + errorY * errorY;
+                    if (error < best) { best = error; resolvedX = x; resolvedY = y; }
+                }
+            }
+            return best < double.MaxValue;
+        }
+
+        public bool TryMovePlayerTo(double requestedX, double requestedY)
+        {
+            if (!TryResolveMoveDestination(requestedX, requestedY, out double x, out double y)) return false;
             movementEnergySpent = UsesFragments ? 0 : Tactics.MoveCost;
             Energy -= movementEnergySpent;
-            Tactics.Move(dx, dy);
+            Tactics.MoveTo(x, y);
             if (moveMomentum > 0) Tactics.Statuses.Add(CombatStatusKind.Momentum, moveMomentum, 2);
             return true;
         }
@@ -426,50 +469,70 @@ namespace Graphaclysm.Core.Combat
             double distance = Math.Sqrt(dx * dx + dy * dy);
             if (distance < .001) return false;
             dx /= distance; dy /= distance;
-            double travel = Math.Min(2.5, Math.Max(.35, distance - TacticalCombatState.PlayerRadius - EnemyHitRadius - .01));
-            double endX = Tactics.X + dx * travel, endY = Tactics.Y + dy * travel;
-            for (int attempt = 0; attempt < 10 && PositionBlocked(endX, endY); attempt++)
-            {
-                travel *= .78;
-                endX = Tactics.X + dx * travel; endY = Tactics.Y + dy * travel;
-            }
-            if (PositionBlocked(endX, endY)) return false;
 
             int variant = skillLoadout.ActiveVariant;
-            LastSkillWide = variant == 1;
-            LastSkillLaneCount = variant == 1 ? (skillLoadout.HasTrait(2) ? 5 : 3) : 1;
-            double width = variant == 1 ? (LastSkillLaneCount == 5 ? 1.65 : 1.15) : .5;
-            int damage = Tactics.Archetype == CombatArchetype.Ian
-                ? (variant == 1 ? (LastSkillLaneCount == 5 ? 5 : 6) : variant == 2 ? 10 : 7)
-                : (variant == 1 ? (LastSkillLaneCount == 5 ? 4 : 5) : variant == 2 ? 8 : 6);
+            bool ian = Tactics.Archetype == CombatArchetype.Ian;
+            double travel = Math.Min(2.8, Math.Max(.35,
+                distance - TacticalCombatState.PlayerRadius - EnemyHitRadius - .04));
+            double desiredX = Tactics.X + dx * travel, desiredY = Tactics.Y + dy * travel;
+            if (ian && variant == 3)
+            { desiredX = target.X + dx * 1.08; desiredY = target.Y + dy * 1.08; }
+            else if (!ian && variant != 2)
+            { desiredX = target.X - dx * 1.08; desiredY = target.Y - dy * 1.08; }
+            FindSkillLanding(desiredX, desiredY, out double endX, out double endY);
+
+            LastSkillStyle = ian ? (variant == 1 ? 1 : variant == 3 ? 2 : 0)
+                : (variant == 2 ? 3 : variant == 3 ? 4 : 2);
+            LastSkillLaneCount = ian && variant == 1 ? (skillLoadout.HasTrait(3) ? 5 : 3) : 1;
+            LastSkillWide = LastSkillStyle == 1 || LastSkillStyle == 2;
+            double width = LastSkillStyle == 1 ? (LastSkillLaneCount == 5 ? 1.65 : 1.15) : .5;
+            double burstRadius = ian ? (variant == 3 ? (skillLoadout.HasTrait(7) ? 1.85 : 1.15) : 0)
+                : (variant == 1 ? (skillLoadout.HasTrait(3) ? 2.2 : 1.7) : variant == 0 ? 1.15 : 0);
+            double chainRadius = !ian && variant == 3 ? (skillLoadout.HasTrait(7) ? 3.6 : 2.4) : 0;
+            int damage = ian
+                ? (variant == 1 ? (LastSkillLaneCount == 5 ? 5 : 6) : variant == 2 ? 10 : variant == 3 ? 7 : 7)
+                : (variant == 1 ? 5 : variant == 2 ? 9 : variant == 3 ? 5 : 6);
             int hitCount = 0, dealt = 0; bool killed = false;
             for (int i = 0; i < enemies.Length; i++)
             {
                 EnemyState enemy = enemies[i];
-                if (!enemy.IsAlive || DistanceToSegment(enemy.X, enemy.Y, LastSkillOriginX, LastSkillOriginY, endX, endY) > width + EnemyHitRadius) continue;
+                if (!enemy.IsAlive) continue;
+                bool hit = i == targetIndex;
+                if (!hit && burstRadius > 0)
+                { double ex = enemy.X - target.X, ey = enemy.Y - target.Y; hit = ex * ex + ey * ey <= (burstRadius + EnemyHitRadius) * (burstRadius + EnemyHitRadius); }
+                else if (!hit && chainRadius > 0)
+                { double ex = enemy.X - target.X, ey = enemy.Y - target.Y; hit = ex * ex + ey * ey <= chainRadius * chainRadius; }
+                else if (!hit && burstRadius <= 0 && chainRadius <= 0)
+                    hit = DistanceToSegment(enemy.X, enemy.Y, LastSkillOriginX, LastSkillOriginY, endX, endY) <= width + EnemyHitRadius;
+                if (!hit) continue;
                 int before = enemy.Health;
                 enemy.TakeDamage(damage);
                 dealt += before - enemy.Health; hitCount++;
                 if (enemy.Health == 0) killed = true;
-                if (skillLoadout.ModuleVariant == 2 && Tactics.Archetype == CombatArchetype.Ian)
+                if (ian && variant == 2 && skillLoadout.HasTrait(6))
                     enemy.Statuses.Add(CombatStatusKind.Rupture, 3, 2);
+                if (!ian && variant == 2 && skillLoadout.HasTrait(5))
+                    enemy.Statuses.Add(CombatStatusKind.Exposure, 3, 2);
             }
             LastSkillEndX = endX; LastSkillEndY = endY; LastSkillHitCount = hitCount; LastSkillDamage = dealt;
-            Tactics.SkillDashTo(endX, endY);
-            if (Tactics.Archetype == CombatArchetype.Ian)
+            if (ian || variant != 2) Tactics.SkillDashTo(endX, endY);
+            if (ian)
             {
-                if (skillLoadout.ModuleVariant == 1)
+                if (variant == 1 && skillLoadout.HasTrait(4))
                     Tactics.Statuses.Add(CombatStatusKind.Shield, 3 + hitCount * 2, 2);
+                if (variant == 3 && skillLoadout.HasTrait(8))
+                { Tactics.Statuses.Add(CombatStatusKind.Shield, 6, 2); Tactics.Statuses.Add(CombatStatusKind.Fortify, 3, 2); }
             }
             else
             {
-                if (skillLoadout.ModuleVariant == 1)
+                if (variant == 1 && skillLoadout.HasTrait(4))
                 { Tactics.Statuses.Cleanse(true); Tactics.Statuses.Add(CombatStatusKind.Shield, 4, 2); Tactics.Statuses.Add(CombatStatusKind.Fortify, 3, 2); }
-                else if (skillLoadout.ModuleVariant == 2 && hitCount > 0)
+                else if (variant == 2 && skillLoadout.HasTrait(6) && hitCount > 0)
                 { PlayerHealth = Math.Min(PlayerMaxHealth, PlayerHealth + 3); Tactics.Statuses.Add(CombatStatusKind.Momentum, 3, 2); }
             }
-            LastSkillCooldownReset = variant == 2 && killed;
-            if (LastSkillCooldownReset && skillLoadout.HasTrait(4)) Tactics.GainResonance(1);
+            LastSkillCooldownReset = (ian && variant == 2 && killed)
+                || (!ian && variant == 3 && skillLoadout.HasTrait(8) && killed);
+            if (LastSkillCooldownReset && ((ian && skillLoadout.HasTrait(5)) || !ian)) Tactics.GainResonance(1);
             CombatSkillCooldown = LastSkillCooldownReset ? 0 : CombatSkillCooldownTurns;
             movementEnergySpent = 0;
             if (AreAllEnemiesDefeated()) Phase = BattlePhase.Victory;
@@ -500,6 +563,9 @@ namespace Graphaclysm.Core.Combat
             bool playerHit = PreviewPlayerHit;
             int healing = 0;
             int shieldBefore = Tactics == null ? 0 : Tactics.Statuses.Get(CombatStatusKind.Shield);
+            bool resetSkillFromUltimate = Tactics != null && Tactics.UltimateArmed
+                && Tactics.Archetype == CombatArchetype.Luna && Tactics.UltimateVariant == 3
+                && skillLoadout.HasTrait(16);
 
             for (int i = 0; i < enemies.Length; i++)
             {
@@ -526,9 +592,22 @@ namespace Graphaclysm.Core.Combat
                 }
                 if (Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian)
                 {
-                    int anchor = Tactics.UltimateVariant == 2 ? 2 + (skillLoadout.HasTrait(10) ? 1 : 0) : 1;
-                    enemy.Statuses.Add(CombatStatusKind.Anchor, anchor, 1);
                     if (Tactics.UltimateVariant == 1) enemy.Statuses.Add(CombatStatusKind.Rupture, 3, 2);
+                    else if (Tactics.UltimateVariant == 2)
+                        enemy.Statuses.Add(CombatStatusKind.Anchor, 2 + (skillLoadout.HasTrait(14) ? 1 : 0), 1);
+                    else if (Tactics.UltimateVariant == 3)
+                    {
+                        enemy.Statuses.Cleanse(false);
+                        enemy.Statuses.Add(CombatStatusKind.Weaken, skillLoadout.HasTrait(17) ? 3 : 2, 2);
+                        if (skillLoadout.HasTrait(17)) enemy.Statuses.Add(CombatStatusKind.Rupture, 2, 2);
+                    }
+                    else enemy.Statuses.Add(CombatStatusKind.Anchor, 1, 1);
+                }
+                else if (Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Luna
+                    && Tactics.UltimateVariant == 3)
+                {
+                    enemy.Statuses.Add(CombatStatusKind.Anchor, 2, 1);
+                    if (skillLoadout.HasTrait(17)) enemy.Statuses.Add(CombatStatusKind.Weaken, 3, 2);
                 }
                 if (UsesFragments && playedCardCount >= 6 && longWeaveRupture > 0)
                     enemy.Statuses.Add(CombatStatusKind.Rupture, longWeaveRupture, 2);
@@ -556,12 +635,15 @@ namespace Graphaclysm.Core.Combat
                 if (playerHit && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian
                     && Tactics.UltimateVariant == 2)
                 {
-                    int ultimateHealing = Math.Min(4, PlayerMaxHealth - PlayerHealth);
+                    int amount = skillLoadout.HasTrait(15) ? 8 : 4;
+                    int ultimateHealing = Math.Min(amount, PlayerMaxHealth - PlayerHealth);
                     PlayerHealth += ultimateHealing;
                     healing += ultimateHealing;
+                    if (skillLoadout.HasTrait(15)) Tactics.Statuses.Add(CombatStatusKind.Shield, 4, 1);
                 }
                 if(Tactics.HasMoved && movedPlotShield>0) Tactics.Statuses.Add(CombatStatusKind.Shield,movedPlotShield,1);
                 Tactics.CompletePlot(playerHit, hitCount);
+                if (resetSkillFromUltimate) CombatSkillCooldown = 0;
             }
 
             resolvedPlots++;
@@ -705,6 +787,32 @@ namespace Graphaclysm.Core.Combat
                 double reach = TacticalCombatState.PlayerRadius + EnemyHitRadius;
                 if (enemies[i].IsAlive && dx * dx + dy * dy < reach * reach) return true;
             }
+            return false;
+        }
+
+        private bool FindSkillLanding(double desiredX, double desiredY, out double resultX, out double resultY)
+        {
+            resultX = Math.Max(TacticalCombatState.PlayerRadius, Math.Min(10 - TacticalCombatState.PlayerRadius, desiredX));
+            resultY = Math.Max(-4 + TacticalCombatState.PlayerRadius, Math.Min(4 - TacticalCombatState.PlayerRadius, desiredY));
+            if (!PositionBlocked(resultX, resultY)) return true;
+            double best = double.MaxValue, originX = resultX, originY = resultY;
+            for (int ring = 1; ring <= 6; ring++)
+            {
+                double radius = ring * .18;
+                for (int step = 0; step < 16; step++)
+                {
+                    double angle = step * Math.PI / 8.0;
+                    double x = Math.Max(TacticalCombatState.PlayerRadius,
+                        Math.Min(10 - TacticalCombatState.PlayerRadius, originX + Math.Cos(angle) * radius));
+                    double y = Math.Max(-4 + TacticalCombatState.PlayerRadius,
+                        Math.Min(4 - TacticalCombatState.PlayerRadius, originY + Math.Sin(angle) * radius));
+                    if (PositionBlocked(x, y)) continue;
+                    double dx = x - desiredX, dy = y - desiredY, error = dx * dx + dy * dy;
+                    if (error < best) { best = error; resultX = x; resultY = y; }
+                }
+                if (best < double.MaxValue) return true;
+            }
+            resultX = Tactics.X; resultY = Tactics.Y;
             return false;
         }
 

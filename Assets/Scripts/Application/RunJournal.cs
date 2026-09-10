@@ -11,7 +11,7 @@ namespace Graphaclysm.Application
         SelectNode, PlayCard, UndoCard, Move, UndoMove, ToggleUltimate, Condense,
         Unravel, BeginPlot, ResolvePlot, ResolveEnemy, SelectCardReward, SelectRelicReward,
         SkipReward, ChooseRoom, LeaveRoom, RemoveCard, SkipRefinement,
-        PurchaseGrowth, SelectGrowth, UseCombatSkill
+        PurchaseGrowth, SelectGrowth, UseCombatSkill, MoveTo
     }
 
     public readonly struct RunCommand
@@ -24,7 +24,7 @@ namespace Graphaclysm.Application
     public sealed class RunSaveData
     {
         public const int FormatVersion = 2;
-        public const int RulesVersion = 14;
+        public const int RulesVersion = 15;
         public const int MaximumCommands = 65536;
         public uint Seed;
         public string CharacterId;
@@ -114,8 +114,25 @@ namespace Graphaclysm.Application
                 case RunCommandKind.PurchaseGrowth: return TryPurchaseGrowthNode(a);
                 case RunCommandKind.SelectGrowth: return TrySelectGrowthNode(a);
                 case RunCommandKind.UseCombatSkill: return TryUseCombatSkill(a);
+                case RunCommandKind.MoveTo:
+                    if (a < 0) return false;
+                    UnpackMove(a, out double moveX, out double moveY);
+                    return TryMovePlayerTo(moveX, moveY);
                 default: return false;
             }
+        }
+
+        private static int PackMove(double x, double y)
+        {
+            int quantizedX = Math.Max(0, Math.Min(1000, (int)Math.Round(x * 100)));
+            int quantizedY = Math.Max(0, Math.Min(800, (int)Math.Round((y + 4) * 100)));
+            return (quantizedX << 10) | quantizedY;
+        }
+
+        private static void UnpackMove(int packed, out double x, out double y)
+        {
+            x = ((packed >> 10) & 1023) / 100.0;
+            y = (packed & 1023) / 100.0 - 4.0;
         }
     }
 }

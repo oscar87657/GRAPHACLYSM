@@ -244,7 +244,13 @@ namespace Graphaclysm.Application
         }
 
         public bool TryMovePlayer(double dx, double dy)
-            => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryMovePlayer(dx, dy), RunCommandKind.Move, dx < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3);
+            => Phase == RunPhase.Battle && TryMovePlayerTo(CurrentBattle.Battle.Tactics.X + dx, CurrentBattle.Battle.Tactics.Y + dy);
+        public bool TryMovePlayerTo(double x, double y)
+        {
+            int packed = PackMove(x, y);
+            UnpackMove(packed, out double quantizedX, out double quantizedY);
+            return Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryMovePlayerTo(quantizedX, quantizedY), RunCommandKind.MoveTo, packed);
+        }
         public bool TryUndoMove() => Record(Phase == RunPhase.Battle && CurrentBattle.Battle.TryUndoMove(), RunCommandKind.UndoMove);
         public bool TrySetCalculator(string x, string y, out string error)
         {

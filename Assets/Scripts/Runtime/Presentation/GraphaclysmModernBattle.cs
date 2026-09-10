@@ -13,7 +13,7 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawBattle()
         {
-            DrawBoard(); DrawBattleTopBar(); DrawPlayerPanel(); DrawEnemyPanel(); DrawHand();
+            DrawBoard(); DrawBattleTopBar(); DrawPlayerPanel(); DrawEnemyPanel(); DrawHand(); HandleBoardMovement();
             if((message.Length>0 && ViewTime<feedbackUntil) || (hoveredHand>=0 && cardFailures[hoveredHand].Length>0))
             {
                 Fill(new Rect(600, 78, 720, 38), new Color(.06f, .055f, .1f, .88f));
@@ -122,6 +122,7 @@ namespace Graphaclysm.Runtime.Presentation
                 if (!castActive && damagePreview[i] > 0 && (!battle.UsesFragments || hoveredEnemy==i || showBattleDetails)) Label(new Rect(p.x + 37, p.y - 20, 80, 40), enemyDamage[i], ui.Light);
             }
             Vector2 player = FieldPoint(battle.Tactics.X, battle.Tactics.Y);
+            DrawMovementPreview(player);
             float radius = (float)battle.Tactics.HitRadius * FieldUnit;
             Disc(player, radius, new Color(0.27f, 0.23f, 0.37f));
             Ring(player, radius, selfPreview ? new Color(0.76f, 0.91f, 0.85f) : Gold, 2);
@@ -236,6 +237,45 @@ namespace Graphaclysm.Runtime.Presentation
             else { handInspectionRect = default(Rect); handHoverBridge = default(Rect); }
         }
 
+        private void DrawMovementPreview(Vector2 player)
+        {
+            if (castActive || battle.Phase != BattlePhase.PlayerPlanning || battle.Tactics.HasMoved) return;
+            bool anchored = battle.Tactics.Statuses.Get(CombatStatusKind.Anchor) > 0;
+            Color range = anchored ? new Color(Threat.r, Threat.g, Threat.b, .28f) : new Color(.66f, .85f, .96f, .34f);
+            Ring(player, (float)TacticalCombatState.MoveDistance * FieldUnit, range, 1.4f, .86f, .18f);
+            Vector2 pointer = Event.current.mousePosition;
+            if (!Field.Contains(pointer) || anchored) return;
+            ScreenToField(pointer, out double x, out double y);
+            if (!battle.TryResolveMoveDestination(x, y, out double resolvedX, out double resolvedY)) return;
+            Vector2 destination = FieldPoint(resolvedX, resolvedY);
+            Line(player, destination, new Color(.72f, .91f, 1f, .58f), 1.5f);
+            Diamond(destination, 15, new Color(.78f, .94f, 1f, .92f), 2.2f);
+        }
+
+        private void HandleBoardMovement()
+        {
+            Event e = Event.current;
+            if (e.type != EventType.MouseDown || e.button != 0 || ModalOpen || castActive
+                || battle.Phase != BattlePhase.PlayerPlanning || battle.Tactics.HasMoved
+                || !Field.Contains(e.mousePosition) || hoveredHand >= 0
+                || handInspectionRect.Contains(e.mousePosition) || keywordTooltipRect.Contains(e.mousePosition)
+                || keywordSourceRect.Contains(e.mousePosition) || keywordOwnerRect.Contains(e.mousePosition)) return;
+            if (showEquation)
+            {
+                float height = battle.UsesFragments ? 345 : battle.Equation.IsCalculator ? 167 : 64;
+                if (new Rect(Field.x, Field.yMax - height, Field.width, height).Contains(e.mousePosition)) return;
+            }
+            ScreenToField(e.mousePosition, out double x, out double y);
+            MoveTo(x, y);
+            e.Use();
+        }
+
+        private static void ScreenToField(Vector2 point, out double x, out double y)
+        {
+            x = (point.x - Field.x) / FieldUnit;
+            y = 4.0 - (point.y - Field.y) / FieldUnit;
+        }
+
         private static float HandCardAngle(int index, int count)
         {
             if (count <= 1) return 0;
@@ -318,7 +358,7 @@ namespace Graphaclysm.Runtime.Presentation
                 float alpha = Mathf.Clamp01(t * 7) * Mathf.Clamp01((CastDuration - t) * 4);
                 Fill(new Rect(Field.x,Field.y+43,Field.width,74), new Color(0.18f, 0.13f, 0.28f, alpha * 0.88f));
                 Line(new Vector2(Field.x+42,Field.y+43),new Vector2(Field.xMax-42,Field.y+43), new Color(Gold.r, Gold.g, Gold.b, alpha));
-                Label(new Rect(Field.x+42,Field.y+56,Field.width-84,45), flow.CurrentCharacter.Archetype == CombatArchetype.Ian ? "흑유리 개방" : "백야의 포옹", ui.Light, true);
+                Label(new Rect(Field.x+42,Field.y+56,Field.width-84,45), ultimateName, ui.Light, true);
             }
             if (t < 0.34f)
             {
@@ -360,8 +400,8 @@ namespace Graphaclysm.Runtime.Presentation
             Vector2 normal = new Vector2(-direction.y, direction.x).normalized;
             float remaining = Mathf.Clamp01((skillFxUntil - ViewTime) / (preferences.ReduceMotion ? .35f : .9f));
             Color glow = skillFxReset ? new Color(1f,.76f,.34f,remaining) : new Color(.76f,.55f,1f,remaining);
-            Line(a,b,new Color(glow.r,glow.g,glow.b,remaining*.24f),skillFxWide?18:11);
-            if (skillFxWide)
+            Line(a,b,new Color(glow.r,glow.g,glow.b,remaining*.24f),skillFxStyle == 1 ? 18 : 11);
+            if (skillFxStyle == 1)
             {
                 Line(a+normal*28,b+normal*28,glow,3);
                 Line(a-normal*28,b-normal*28,glow,3);
@@ -370,6 +410,22 @@ namespace Graphaclysm.Runtime.Presentation
                     Line(a+normal*55,b+normal*55,glow,2.5f);
                     Line(a-normal*55,b-normal*55,glow,2.5f);
                 }
+            }
+            else if (skillFxStyle == 2)
+            {
+                Ring(b, 44 + (1 - remaining) * 58, glow, 3);
+                Ring(b, 24 + (1 - remaining) * 34, new Color(1,.94f,1,remaining), 1.5f);
+            }
+            else if (skillFxStyle == 3)
+            {
+                Line(a + normal * 9, b + normal * 9, glow, 2.5f);
+                Line(b - normal * 9, a - normal * 9, new Color(1,.94f,1,remaining), 2.5f);
+                Diamond(a, 16 + (1 - remaining) * 18, glow, 2);
+            }
+            else if (skillFxStyle == 4)
+            {
+                Ring(b, 30 + (1 - remaining) * 44, glow, 2.5f, .72f, .4f);
+                Diamond((a + b) * .5f, 11, glow, 2);
             }
             Line(a,b,new Color(1,.94f,1,remaining),3);
             Diamond(b,skillFxReset?28:18,glow,2);

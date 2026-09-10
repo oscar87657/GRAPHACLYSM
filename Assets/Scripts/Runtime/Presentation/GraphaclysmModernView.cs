@@ -27,7 +27,7 @@ namespace Graphaclysm.Runtime.Presentation
         private Material portraitMaterial;
         private SkillVisual[] visuals;
         private string hpText = "", energyText = "", turnText = "", formulaText = "", outcomeText = "", selfStateText = "";
-        private string message = "", deckText = "", ultimateText = "", combatSkillText = "", combatSkillDescription = "", ultimateDescription = "";
+        private string message = "", deckText = "", ultimateText = "", ultimateName = "", combatSkillText = "", combatSkillDescription = "", ultimateDescription = "";
         private string seedText = "", roomResourceText = "", deckPageText = "";
         private string[] enemyHealth, enemyDamage, enemyIntent, enemyStatuses, enemyStatusSummary, enemyBadges, cardFailures, hitNumbers;
         private int[] damagePreview;
@@ -41,8 +41,8 @@ namespace Graphaclysm.Runtime.Presentation
         private float castStarted;
         private float skillFxUntil;
         private double skillFxOriginX, skillFxOriginY, skillFxEndX, skillFxEndY;
-        private bool skillFxWide, skillFxReset;
-        private int skillFxHits, skillFxLaneCount = 1;
+        private bool skillFxReset;
+        private int skillFxHits, skillFxLaneCount = 1, skillFxStyle;
         private string skillFxLabel = "";
         private string lastPlotName = "";
         private static readonly string[] AbilityNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "파열", "회복", "정화" };
@@ -118,7 +118,7 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 for (int i = 0; i < characterEyeOpen.Length; i++)
                 {
-                    float target = hoveredCharacter == i ? 1f : 0f;
+                    float target = hoveredCharacter == i || flow.SelectedCharacterIndex == i ? 1f : 0f;
                     characterEyeOpen[i] = preferences.ReduceMotion ? target
                         : Mathf.MoveTowards(characterEyeOpen[i], target, Time.unscaledDeltaTime * 5.5f);
                 }
@@ -241,9 +241,12 @@ namespace Graphaclysm.Runtime.Presentation
                 outcomeText = battle.Equation.TraceLength > BattleSession.MaximumTraceLength ? "잉크 초과 · 선을 줄이세요" : "필드 안에 선을 그리세요";
             selfStateText = battle.Tactics == null ? "" : DescribeStatuses(battle.Tactics.Statuses);
             int ultimateVariant = run.Growth.UltimateVariant;
-            ultimateText = character.Archetype == CombatArchetype.Ian
-                ? (ultimateVariant == 1 ? "산산조각" : ultimateVariant == 2 ? "불멸의 기록" : "흑유리 개방")
-                : (ultimateVariant == 1 ? "만월의 포옹" : ultimateVariant == 2 ? "그믐의 칼날" : "백야의 포옹");
+            ultimateName = character.Archetype == CombatArchetype.Ian
+                ? (ultimateVariant == 1 ? "성좌 붕괴" : ultimateVariant == 2 ? "불멸의 기록"
+                    : ultimateVariant == 3 ? "흑경 반전" : "흑유리 개방")
+                : (ultimateVariant == 1 ? "만월의 포옹" : ultimateVariant == 2 ? "그믐의 칼날"
+                    : ultimateVariant == 3 ? "월식 정지" : "백야의 포옹");
+            ultimateText = ultimateName;
             if (battle.Tactics != null && battle.Tactics.UltimateArmed) ultimateText += " · 준비됨";
             combatSkillText = battle.CombatSkillCooldown > 0 ? "재사용 " + battle.CombatSkillCooldown + "턴" : GrowthSkillName();
             combatSkillDescription = GrowthSkillDescription();
@@ -288,6 +291,13 @@ namespace Graphaclysm.Runtime.Presentation
             Refresh();
         }
 
+        private void MoveTo(double x, double y)
+        {
+            if (castActive) return;
+            message = run.TryMovePlayerTo(x, y) ? "" : "이동할 수 있는 빈 지점을 선택하세요.";
+            Refresh();
+        }
+
         private void UseCombatSkill()
         {
             if (castActive || run == null || battle == null) return;
@@ -296,8 +306,9 @@ namespace Graphaclysm.Runtime.Presentation
             { message = source.CombatSkillCooldown > 0 ? "전투 기술 대기시간이 남았습니다." : "기술 궤적을 만들 수 없습니다."; Refresh(); return; }
             skillFxOriginX = source.LastSkillOriginX; skillFxOriginY = source.LastSkillOriginY;
             skillFxEndX = source.LastSkillEndX; skillFxEndY = source.LastSkillEndY;
-            skillFxWide = source.LastSkillWide; skillFxReset = source.LastSkillCooldownReset; skillFxHits = source.LastSkillHitCount;
+            skillFxReset = source.LastSkillCooldownReset; skillFxHits = source.LastSkillHitCount;
             skillFxLaneCount = source.LastSkillLaneCount;
+            skillFxStyle = source.LastSkillStyle;
             skillFxLabel = skillFxReset ? "처치 · 즉시 재사용" : "적중 " + skillFxHits;
             skillFxUntil = ViewTime + (preferences.ReduceMotion ? .35f : .9f);
             message = skillFxReset ? "처치 공명 · 전투 기술을 바로 다시 사용할 수 있습니다." : "궤적 기술 · 적 " + skillFxHits + "명 적중";
@@ -354,10 +365,10 @@ namespace Graphaclysm.Runtime.Presentation
             }
             switch (e.keyCode)
             {
-                case KeyCode.LeftArrow: Move(-1.5, 0); break;
-                case KeyCode.RightArrow: Move(1.5, 0); break;
-                case KeyCode.UpArrow: Move(0, 1.5); break;
-                case KeyCode.DownArrow: Move(0, -1.5); break;
+                case KeyCode.LeftArrow: Move(-TacticalCombatState.MoveDistance, 0); break;
+                case KeyCode.RightArrow: Move(TacticalCombatState.MoveDistance, 0); break;
+                case KeyCode.UpArrow: Move(0, TacticalCombatState.MoveDistance); break;
+                case KeyCode.DownArrow: Move(0, -TacticalCombatState.MoveDistance); break;
                 case KeyCode.Return: StartCast(); break;
                 case KeyCode.Space: if(battle.UsesFragments) Condense(); break;
                 case KeyCode.K: UseCombatSkill(); break;

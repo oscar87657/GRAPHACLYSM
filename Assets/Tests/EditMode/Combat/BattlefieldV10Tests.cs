@@ -14,14 +14,17 @@ namespace Graphaclysm.Tests.Combat
                 behavior ?? EnemyBehaviorDefinition.SteadyAttack());
 
         [Test]
-        public void ObstacleBlocksPlayerAndEnemyReposition()
+        public void ObstacleSlidesPlayerLandingAndBlocksEnemyReposition()
         {
             var obstacle = new BattleTerrainDefinition("pillar", BattleTerrainKind.Obstacle, 2.5, -2, 0.68);
             var enemy = Target(8, 2, EnemyBehaviorDefinition.AlternatingPosition(2.5, -2));
             var battle = new BattleSession(new BattleDefinition(42, 4, new[] { enemy },
                 CombatArchetype.Ian, fragments: true, terrain: new[] { obstacle }));
 
-            Assert.That(battle.TryMovePlayer(-1.5, 0), Is.False);
+            Assert.That(battle.TryMovePlayerTo(2.5, -2), Is.True);
+            double dx = battle.Tactics.X - obstacle.X, dy = battle.Tactics.Y - obstacle.Y;
+            Assert.That(dx * dx + dy * dy, Is.GreaterThanOrEqualTo(
+                (obstacle.Radius + TacticalCombatState.PlayerRadius) * (obstacle.Radius + TacticalCombatState.PlayerRadius)));
             battle.TryPlayCard(FragmentCardCatalog.Find("frag.echo"), out _);
             battle.TryBeginPlot();
             battle.ResolvePlot();
