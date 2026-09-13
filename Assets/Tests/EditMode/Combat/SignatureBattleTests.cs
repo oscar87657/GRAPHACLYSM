@@ -11,6 +11,27 @@ namespace Graphaclysm.Tests.Combat
 {
     public sealed class SignatureBattleTests
     {
+        [TestCase(5, 0, true)]
+        [TestCase(9, 3, false)]
+        [TestCase(0, 0, false)]
+        public void RecordingInvalidPlacementRetainsDisplayWithoutEnablingUse(double x, double y, bool expected)
+        {
+            var run = SignatureBattleFactory.Create(CombatApproach.Recording);
+            Play(run, "frag.ellipse");
+            var battle = run.CurrentBattle.Battle;
+            var preview = battle.PreviewRecordingPlacement(x, y, out bool allowed);
+            Assert.That(preview, Is.Not.Null);
+            Assert.That(allowed, Is.EqualTo(expected));
+            Assert.That(battle.RecordingArmed, Is.False);
+            Assert.That(battle.CanUseDiagramAbility, Is.True);
+            if (!expected)
+            {
+                Assert.That(battle.PreviewDiagramAbility(x, y, 0), Is.Null);
+                Assert.That(run.TryUseDiagramAbility(x, y, 0), Is.False);
+                Assert.That(battle.CanUseDiagramAbility, Is.True);
+            }
+        }
+
         [Test]
         public void PracticeDoesNotAdvanceCampaignSeedAndRestartRetainsApproach()
         {

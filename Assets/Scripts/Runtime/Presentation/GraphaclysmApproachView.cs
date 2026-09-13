@@ -12,6 +12,7 @@ namespace Graphaclysm.Runtime.Presentation
         private bool diagramAimValid;
         private Vector2 lastDiagramPointer;
         private EquationState aimDiagram;
+        private bool recordingPlacementAllowed;
         private string diagramPreviewText = "";
         private static readonly string[] ApproachNames = { "", "이안 · 균열 집행", "이안 · 기록 포격", "루나 · 궤도 조율", "루나 · 쌍성 관측" };
         private static readonly string[] ApproachHints = { "",
@@ -80,15 +81,22 @@ namespace Graphaclysm.Runtime.Presentation
             if (battle.HasRecording) DrawDiagramGhost(battle.RecordedDiagram, new Color(.74f,.57f,1,.72f));
             else if (castActive && impactApplied && battle.LastRecordingDiagram != null)
                 DrawDiagramGhost(battle.LastRecordingDiagram, new Color(.74f,.57f,1,1));
-            if (combatSkillTargeting && !lunaPullTargeting && battle.UsesDiagramAbility && Field.Contains(Event.current.mousePosition))
+            bool recordingAim = combatSkillTargeting && !lunaPullTargeting && battle.Approach == CombatApproach.Recording;
+            if (recordingAim) DrawRecordingPlacementRange();
+            if (combatSkillTargeting && !lunaPullTargeting && battle.UsesDiagramAbility && (recordingAim || Field.Contains(Event.current.mousePosition)))
             {
                 Vector2 pointer = Event.current.mousePosition;
                 if (!diagramAimValid || (pointer - lastDiagramPointer).sqrMagnitude > .5f)
                 {
                     lastDiagramPointer = pointer; diagramAimValid = true;
                     ScreenToField(pointer, out double x, out double y);
-                    aimDiagram = battle.PreviewDiagramAbility(x, y, diagramAngle);
-                    if (aimDiagram == null) diagramPreviewText = "기준점에서 " + battle.CurrentDiagramReach + " 이내, 전장 안쪽을 선택하세요. Q/E: 회전 · 우클릭: 취소";
+                    aimDiagram = recordingAim ? battle.PreviewRecordingPlacement(System.Math.Max(0, System.Math.Min(10, x)), System.Math.Max(-4, System.Math.Min(4, y)), out recordingPlacementAllowed)
+                        : battle.PreviewDiagramAbility(x, y, diagramAngle);
+                    if (recordingAim && !recordingPlacementAllowed)
+                        diagramPreviewText = !Field.Contains(pointer) || x < .5 || x > 9.5 || y < -3.5 || y > 3.5
+                            ? "기록 불가 · 전장 안쪽에 놓으세요.\n우클릭: 취소"
+                            : "기록 불가 · 식의 기준점에서 너무 멀어요.\n보라색 범위 안에 놓으세요. 우클릭: 취소";
+                    else if (aimDiagram == null) diagramPreviewText = "기준점에서 " + battle.CurrentDiagramReach + " 이내, 전장 안쪽을 선택하세요. Q/E: 회전 · 우클릭: 취소";
                     else
                     {
                         int hits = 0;
@@ -104,8 +112,16 @@ namespace Graphaclysm.Runtime.Presentation
                                 + (battle.PreviewCannonCut(aimDiagram) ? " · 포격 차단" : "") + " · " + (diagramAngle == 180 ? "거울 반전" : diagramAngle + "°") + " · Q/E 회전 / 클릭 확정";
                     }
                 }
-                if (aimDiagram != null) DrawDiagramGhost(aimDiagram, battle.Approach == CombatApproach.Recording
+                if (aimDiagram != null) DrawDiagramGhost(aimDiagram, recordingAim && !recordingPlacementAllowed ? Threat : battle.Approach == CombatApproach.Recording
                     ? new Color(.74f,.57f,1,.9f) : new Color(.45f,1,.85f,.9f));
+                if (recordingAim)
+                {
+                    Vector2 marker = new Vector2(Mathf.Clamp(pointer.x, Field.x + 12, Field.xMax - 12), Mathf.Clamp(pointer.y, Field.y + 12, Field.yMax - 12));
+                    Diamond(marker, 10, recordingPlacementAllowed ? Violet : Threat, 2);
+                    Rect notice = new Rect(Field.x + 15, Field.y + 12, 430, 36);
+                    Fill(notice, new Color(.06f,.05f,.1f,.94f));
+                    Label(notice, recordingPlacementAllowed ? "기록 가능 · 클릭으로 확정" : "기록 불가 · 보라색 범위와 전장 안쪽 확인", ui.SmallLight, true);
+                }
             }
             bool cut = battle.CannonDisconnected;
             bool predicted = !cut && battle.PreviewCannonCut(battle.Equation);
@@ -121,6 +137,28 @@ namespace Graphaclysm.Runtime.Presentation
             if (battle.Approach != CombatApproach.Observation && !combatSkillTargeting
                 && (battle.HasRecording || battle.LastRecordingHits > 0 || battle.LastCannonCut))
                 Label(new Rect(1580, hintTop + 210, 308, 105), battle.HasRecording ? "기록 대기 중\n다음 방출 때 보라색 도안이 공격합니다." : battle.LastRecordingHits > 0 ? "기록이 추가 공격했습니다." : "동력선을 끊어 포격을 막았습니다.", ui.SmallLight);
+        }
+
+        private void DrawRecordingPlacementRange()
+        {
+            if (Event.current.type != EventType.Repaint) return;
+            double ox = battle.Equation.Fragments.OriginX, oy = battle.Equation.Fragments.OriginY;
+            double radius = battle.CurrentDiagramReach;
+            Border(new Rect(Field.x + 50, Field.y + 50, Field.width - 100, Field.height - 100), new Color(.74f,.57f,1,.5f));
+            for (int i = 0; i < 96; i++)
+            {
+                double a = i * System.Math.PI * 2 / 96, b = (i + 1) * System.Math.PI * 2 / 96;
+                double x0 = ox + System.Math.Cos(a) * radius, y0 = oy + System.Math.Sin(a) * radius;
+                double x1 = ox + System.Math.Cos(b) * radius, y1 = oy + System.Math.Sin(b) * radius;
+                if (GraphSegmentClipper.ClipToField(ref x0, ref y0, ref x1, ref y1))
+                    Line(FieldPoint(x0, y0), FieldPoint(x1, y1), new Color(.74f,.57f,1,.85f), 2);
+            }
+            Vector2 origin = FieldPoint(ox, oy);
+            if (Field.Contains(origin))
+            {
+                Diamond(origin, 12, Gold, 2);
+                Label(new Rect(Mathf.Clamp(origin.x - 70, Field.x, Field.xMax - 140), Mathf.Clamp(origin.y + 14, Field.y, Field.yMax - 30), 140, 30), "식의 기준점", ui.SmallLight, true);
+            }
         }
 
         private void DrawDiagramGhost(EquationState diagram, Color color)

@@ -10,6 +10,23 @@ namespace Graphaclysm.Tests.Application
     public sealed class SaveAndPreferencesTests
     {
         private string directory;
+        [Test]
+        public void NewPreferencesUseNativeResolution()
+        {
+            Assert.That(new GamePreferences().Resolution, Is.EqualTo(GamePreferences.NativeResolution));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void ResolutionChoicesRoundTripWithoutChangingExistingSelections(int resolution)
+        {
+            var store = new GamePreferencesStore(directory);
+            Assert.That(store.TrySave(new GamePreferences { Resolution = resolution }), Is.True);
+            Assert.That(store.Load().Resolution, Is.EqualTo(resolution));
+        }
+
         [SetUp] public void SetUp() { directory = Path.Combine(Path.GetTempPath(), "GraphaclysmSaveTests", Guid.NewGuid().ToString("N")); }
         [TearDown] public void TearDown() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 
@@ -236,7 +253,7 @@ namespace Graphaclysm.Tests.Application
             var value = new GamePreferences { MasterVolume = 250, EffectsVolume = -10, Resolution = 99, Fullscreen = false, ReduceMotion = true, TutorialCompleted = true };
             Assert.That(store.TrySave(value), Is.True);
             var restored = store.Load(); Assert.That(restored.MasterVolume, Is.EqualTo(100)); Assert.That(restored.EffectsVolume, Is.Zero);
-            Assert.That(restored.Resolution, Is.EqualTo(2)); Assert.That(restored.Fullscreen, Is.False); Assert.That(restored.TutorialCompleted, Is.True);
+            Assert.That(restored.Resolution, Is.EqualTo(GamePreferences.NativeResolution)); Assert.That(restored.Fullscreen, Is.False); Assert.That(restored.TutorialCompleted, Is.True);
             store.TrySave(value); File.WriteAllText(Path.Combine(directory, "settings.save"), "broken");
             Assert.That(store.Load().ReduceMotion, Is.True);
         }

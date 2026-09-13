@@ -8,7 +8,8 @@ namespace Graphaclysm.Application
         public int MasterVolume = 80;
         public int EffectsVolume = 70;
         public bool Fullscreen = true;
-        public int Resolution = 2;
+        public const int NativeResolution = 3;
+        public int Resolution = NativeResolution;
         public bool ReduceMotion;
         public bool PauseOnFocusLoss = true;
         public bool TutorialCompleted;
@@ -17,7 +18,7 @@ namespace Graphaclysm.Application
         {
             MasterVolume = Math.Max(0, Math.Min(100, MasterVolume));
             EffectsVolume = Math.Max(0, Math.Min(100, EffectsVolume));
-            Resolution = Math.Max(0, Math.Min(2, Resolution));
+            Resolution = Math.Max(0, Math.Min(NativeResolution, Resolution));
         }
     }
 

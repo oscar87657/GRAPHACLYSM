@@ -40,7 +40,7 @@ namespace Graphaclysm.Runtime.Presentation
         private float ViewTime => viewTime;
         private bool ModalOpen => nodeComparison != null || paused || helpOpen || settingsOpen || inventoryOpen || growthOpen || legacyOpen || confirmation != Confirmation.None;
         private bool HasContinue => savedRun != null && savedRun.Phase != RunPhase.Completed && savedRun.Phase != RunPhase.Defeated;
-        private static readonly string[] ResolutionLabels = { "1280 × 720", "1600 × 900", "1920 × 1080" };
+        private static readonly string[] ResolutionLabels = { "1280 × 720", "1600 × 900", "1920 × 1080", "자동 · 모니터 해상도" };
         private static readonly string[] VolumeLabels = BuildVolumeLabels();
         private static readonly string[] HelpTitles = { "1 / 5   파편을 조립하기", "2 / 5   같은 선 위의 적과 자신", "3 / 5   이동과 취소", "4 / 5   방출 · 응축 · 해체", "5 / 5   원정과 자동 저장" };
         private static readonly string[] HelpBodies =
@@ -296,6 +296,20 @@ namespace Graphaclysm.Runtime.Presentation
             if (!screen || UnityEngine.Application.isEditor || UnityEngine.Application.isBatchMode) return;
             int width = preferences.Resolution == 0 ? 1280 : preferences.Resolution == 1 ? 1600 : 1920;
             int height = preferences.Resolution == 0 ? 720 : preferences.Resolution == 1 ? 900 : 1080;
+            if (preferences.Resolution == GamePreferences.NativeResolution)
+            {
+                Resolution desktop = Screen.currentResolution;
+                if (desktop.width > 0 && desktop.height > 0)
+                {
+                    width = desktop.width;
+                    height = desktop.height;
+                    if (!preferences.Fullscreen)
+                    {
+                        width = Mathf.Max(1, Mathf.FloorToInt(width * .85f));
+                        height = Mathf.Max(1, Mathf.FloorToInt(height * .85f));
+                    }
+                }
+            }
             Screen.SetResolution(width, height, preferences.Fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed);
         }
 
@@ -355,7 +369,7 @@ namespace Graphaclysm.Runtime.Presentation
             if (ui.Button(new Rect(480, 467, 435, 54), preferences.Fullscreen ? "화면 모드: 전체 화면" : "화면 모드: 창"))
             { preferences.Fullscreen = !preferences.Fullscreen; settingsDirty = true; }
             if (ui.Button(new Rect(953, 467, 465, 54), ResolutionLabels[preferences.Resolution]))
-            { preferences.Resolution = (preferences.Resolution + 1) % 3; settingsDirty = true; }
+            { preferences.Resolution = (preferences.Resolution + 1) % ResolutionLabels.Length; settingsDirty = true; }
             if (ui.Button(new Rect(480, 544, 938, 54), preferences.ReduceMotion ? "연출 줄이기: 켜짐" : "연출 줄이기: 꺼짐"))
             { preferences.ReduceMotion = !preferences.ReduceMotion; settingsDirty = true; }
             if (ui.Button(new Rect(480, 621, 938, 54), preferences.PauseOnFocusLoss ? "다른 창으로 전환하면 일시정지: 켜짐" : "다른 창으로 전환하면 일시정지: 꺼짐"))

@@ -246,6 +246,18 @@ namespace Graphaclysm.Core.Combat
             return approachPreview;
         }
 
+        // Display-only invalid aim; never bypasses TryUseDiagramAbility validation.
+        // Reuses the same battle-owned preview buffer as the legal preview.
+        public EquationState PreviewRecordingPlacement(double x, double y, out bool canPlace)
+        {
+            x = Math.Round(x, 2); y = Math.Round(y, 2);
+            canPlace = Approach == CombatApproach.Recording && ValidDiagramAim(x, y, 0);
+            if (Approach != CombatApproach.Recording || !CanUseDiagramAbility
+                || double.IsNaN(x) || double.IsNaN(y) || double.IsInfinity(x) || double.IsInfinity(y)) return null;
+            Equation.CopyDiagramTo(approachPreview, x, y, 0);
+            return approachPreview;
+        }
+
         public bool TryUseDiagramAbility(double x, double y, int angle = 0)
         {
             x = Math.Round(x, 2); y = Math.Round(y, 2);
