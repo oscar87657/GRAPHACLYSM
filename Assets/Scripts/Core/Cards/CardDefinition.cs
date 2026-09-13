@@ -30,6 +30,7 @@ namespace Graphaclysm.Core.Cards
     public sealed class CardDefinition
     {
         private readonly CardAbility[] abilities;
+        private readonly int balancedPower = -1;
         private CardDefinition(
             string id,
             string displayName,
@@ -43,7 +44,7 @@ namespace Graphaclysm.Core.Cards
             string enemyEffect = "",
             string playerEffect = "",
             InscriptionKind inscription = InscriptionKind.None,
-            CardAbility[] abilities = null, bool calculator = false, bool fragment = false, FragmentKind fragmentKind = default, int drawBonus = 0)
+            CardAbility[] abilities = null, bool calculator = false, bool fragment = false, FragmentKind fragmentKind = default, int drawBonus = 0, int balancedPower = -1)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -61,6 +62,7 @@ namespace Graphaclysm.Core.Cards
             Cost = cost;
             Type = type;
             Rarity = rarity;
+            this.balancedPower = balancedPower;
             BaseFunction = baseFunction;
             Modifier = modifier;
             Description = description ?? string.Empty;
@@ -78,7 +80,7 @@ namespace Graphaclysm.Core.Cards
         public int DrawBonus { get; }
         public static CardDefinition CreateWeaveFragment(string id, string name, FragmentKind kind, CardRarity rarity, string description, int drawBonus, params CardAbility[] abilities)
         {
-            if (kind < FragmentKind.Counterpoint || kind > FragmentKind.NebulaRibbon || drawBonus < 0 || drawBonus > 2) throw new ArgumentOutOfRangeException(nameof(kind));
+            if (kind < FragmentKind.Counterpoint || kind > FragmentKind.Weave15_3 || drawBonus < 0 || drawBonus > 2) throw new ArgumentOutOfRangeException(nameof(kind));
             if (abilities == null || abilities.Length + (drawBonus > 0 ? 1 : 0) < 1 || abilities.Length + (drawBonus > 0 ? 1 : 0) > 2) throw new ArgumentException("One or two attached abilities required.");
             for (int i = 0; i < abilities.Length; i++) if (abilities[i].Magnitude <= 0) throw new ArgumentException("Invalid ability.");
             return new CardDefinition(id, name, FragmentEquation.Symbol(kind), 0, CardType.Operation, rarity, default, default,
@@ -102,6 +104,16 @@ namespace Graphaclysm.Core.Cards
         public int Cost { get; }
         public CardType Type { get; }
         public CardRarity Rarity { get; }
+        // Diagram classification is independent of the historical reward/price band.
+        public CardRarity DiagramRarity => IsFragment ? WeaveArchive.DiagramGrade(Fragment) : Rarity;
+        public int WeavePower => balancedPower >= 0 ? balancedPower : FragmentCardCatalog.Power(Fragment);
+        public bool HasMarketBalance => balancedPower >= 0;
+        internal static CardDefinition Balance(CardDefinition source, CardRarity rarity, CardAbility[] abilities, int power)
+        {
+            return new CardDefinition(source.Id, source.DisplayName, source.FormulaLabel, source.Cost, source.Type,
+                rarity, source.BaseFunction, source.Modifier, source.Description, abilities: abilities,
+                fragment: true, fragmentKind: source.Fragment, drawBonus: source.DrawBonus, balancedPower: power);
+        }
         public BaseFunctionKind BaseFunction { get; }
         public EquationModifierKind Modifier { get; }
         public string Description { get; }

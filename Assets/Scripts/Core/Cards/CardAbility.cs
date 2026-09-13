@@ -6,7 +6,7 @@ namespace Graphaclysm.Core.Cards
     public enum CardAbilityKind
     {
         Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste,
-        Thorns, Momentum, Fortify, Rupture, Heal, Cleanse
+        Thorns, Momentum, Fortify, Rupture, Heal, Cleanse, Ward, Pierce, FrailShield, Wound, Guidance, Pull
     }
     public enum AbilityTarget { Enemy, Player }
 
@@ -15,7 +15,7 @@ namespace Graphaclysm.Core.Cards
     {
         public CardAbility(CardAbilityKind kind, AbilityTarget target, int magnitude, int duration)
         {
-            if (kind < CardAbilityKind.Shield || kind > CardAbilityKind.Cleanse) throw new ArgumentOutOfRangeException(nameof(kind));
+            if (kind < CardAbilityKind.Shield || kind > CardAbilityKind.Pull) throw new ArgumentOutOfRangeException(nameof(kind));
             if (target != AbilityTarget.Player && target != AbilityTarget.Enemy) throw new ArgumentOutOfRangeException(nameof(target));
             if (magnitude < 1 || magnitude > 24 || duration < 1 || duration > 3) throw new ArgumentOutOfRangeException(nameof(magnitude));
             if (kind == CardAbilityKind.Heal && target == AbilityTarget.Enemy) throw new ArgumentException("Healing skills target the player.");

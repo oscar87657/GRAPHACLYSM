@@ -22,7 +22,7 @@ namespace Graphaclysm.Application
         {
             if (character == null) throw new System.ArgumentNullException(nameof(character));
             var run = new RunGameSession(DungeonGenerator.Generate(seed, character, benefits.MaxHealth), character.CreateStartingDeckCopy(),
-                FragmentCardCatalog.All, character.HandSize, seed, FragmentRelicCatalog.All, character.Archetype);
+                FragmentCardCatalog.Legacy, character.HandSize, seed, FragmentRelicCatalog.Legacy, character.Archetype);
             run.ApplyLegacyBenefits(benefits);
             run.EnableJournal(character.Id);
             return run;

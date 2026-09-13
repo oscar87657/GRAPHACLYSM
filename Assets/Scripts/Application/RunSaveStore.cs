@@ -103,7 +103,9 @@ namespace Graphaclysm.Application
                 using (var stream = new MemoryStream(bytes, 0, length, false))
                 using (var reader = new BinaryReader(stream, Encoding.UTF8))
                 {
-                    if (reader.ReadInt32() != Magic || reader.ReadInt32() != RunSaveData.FormatVersion || reader.ReadInt32() != RunSaveData.RulesVersion) return false;
+                    if (reader.ReadInt32() != Magic || reader.ReadInt32() != RunSaveData.FormatVersion) return false;
+                    int rules = reader.ReadInt32();
+                    if (rules < 21 || rules > RunSaveData.RulesVersion) return false;
                     uint seed = reader.ReadUInt32(); string character = reader.ReadString(); long ticks = reader.ReadInt64();
                     int maxHealth = reader.ReadInt32(), victoryHealing = reader.ReadInt32();
                     int startingResonance = reader.ReadInt32(), startingExperience = reader.ReadInt32();
@@ -117,7 +119,10 @@ namespace Graphaclysm.Application
                     for (int i = 0; i < count; i++)
                     {
                         byte kind = reader.ReadByte(); int argument = reader.ReadInt32();
-                        if (kind > (byte)RunCommandKind.MoveTo) return false;
+                        if (kind > (byte)(rules == 21 ? RunCommandKind.RefundGrowth : rules == 22 ? RunCommandKind.DiagramAbility : rules == 23 ? RunCommandKind.LunaPull : rules == 24 ? RunCommandKind.SatelliteOrigin : rules == 25 ? RunCommandKind.OpeningRoute : rules == 26 ? RunCommandKind.UseResearch : rules == 27 ? RunCommandKind.ContentExpansion : rules == 28 ? RunCommandKind.GrandArchive : rules == 29 ? RunCommandKind.MarketBalance : rules == 30 ? RunCommandKind.StatusRules : rules == 31 ? RunCommandKind.TowerArchive : rules == 32 ? RunCommandKind.FiveFloors : rules == 33 ? RunCommandKind.BattleRework : rules == 34 ? RunCommandKind.ApproachTree : rules == 35 ? RunCommandKind.StyleTree : rules == 36 ? RunCommandKind.GrowthLimit : rules<=38?RunCommandKind.LeaveLoot:RunCommandKind.ExpeditionPreparation)) return false;
+                        if (rules < 24 && kind == (byte)RunCommandKind.ChooseApproach && argument > 3) return false;
+                        if (rules < 38 && kind == (byte)RunCommandKind.ExpeditionSupplies && argument != 0) return false;
+                        if (rules < 41 && kind == (byte)RunCommandKind.ExpeditionPreparation && (argument & ~511)!=0) return false;
                         commands[i] = new RunCommand((RunCommandKind)kind, argument);
                     }
                     data = new RunSaveData { Seed = seed, CharacterId = character, SavedUtcTicks = ticks,

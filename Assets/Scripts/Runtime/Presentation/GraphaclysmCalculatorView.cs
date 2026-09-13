@@ -13,7 +13,7 @@ namespace Graphaclysm.Runtime.Presentation
         private int deckPage;
         private static readonly string[] Keys = { "7", "8", "9", "+", "sin(", "4", "5", "6", "−", "cos(", "1", "2", "3", "×", "(", "0", ".", "t", "÷", ")" };
         private static readonly string[] DepthLabels = { "01", "02", "03", "04", "05", "06", "07", "08" };
-        private static readonly string[] RoomLabels = { "전투", "정예", "보스", "이벤트", "유물", "휴식" };
+        private static readonly string[] RoomLabels = { "전투", "정예", "보스", "이벤트", "유물", "휴식", "공방", "관측소", "보급", "상점" };
 
         private void DrawCalculator()
         {
@@ -57,17 +57,19 @@ namespace Graphaclysm.Runtime.Presentation
         }
         private void UndoMove()
         {
-            if (castActive || run == null) return;
+            if (castActive || combatSkillTargeting || run == null) return;
             if (run.TryUndoMove()) { message = "이동 전 위치와 비용을 되돌렸습니다."; Refresh(); }
         }
 
         private void DrawRoom()
         {
+            if (run.IsShop) { DrawShop(); return; }
             Header("BETWEEN THE TRACES", seedText);
             RoomStory room = run.CurrentRoom;
             Label(new Rect(145, 163, 1380, 80), room.Title, ui.PageTitle);
             Label(new Rect(151, 282, 1080, 163), room.Body, ui.Heading);
-            Label(new Rect(151, 473, 1150, 48), roomResourceText, ui.Body);
+            Label(new Rect(151, 473, 1150, 48), roomResourceText
+                + (run.HasRewardPacks ? " · "+run.SupplyInventoryText : run.HasEconomy ? " · 은화 " + run.Coins + " · 연구권 " + run.ResearchTickets : ""), ui.Body);
             RunNodeKind kind = run.Map.Definition.GetNode(run.Map.ActiveNodeIndex).Kind;
             DrawRoomGlyph(new Vector2(1515, 360), 94, kind, Violet);
             float width = 1560f / room.ChoiceCount - 22;
@@ -88,6 +90,18 @@ namespace Graphaclysm.Runtime.Presentation
         }
         private static void DrawRoomGlyph(Vector2 p, float size, RunNodeKind kind, Color color)
         {
+            if (kind == RunNodeKind.Shop)
+            { Border(new Rect(p.x-size*.7f,p.y-size*.25f,size*1.4f,size),color,2);
+                Line(p+new Vector2(-size,-size*.3f),p+new Vector2(size,-size*.3f),color,3);
+                Line(p+new Vector2(-size,-size*.3f),p+new Vector2(-size*.6f,-size),color,2);
+                Line(p+new Vector2(-size*.6f,-size),p+new Vector2(size*.6f,-size),color,2);
+                Line(p+new Vector2(size*.6f,-size),p+new Vector2(size,-size*.3f),color,2); return; }
+            if (kind == RunNodeKind.Workshop)
+            { Line(p+new Vector2(-size,-size),p+new Vector2(size,size),color,3); Line(p+new Vector2(size,-size),p+new Vector2(-size,size),color,3); return; }
+            if (kind == RunNodeKind.Observatory)
+            { Ring(p,size*.8f,color); Diamond(p,size*.45f,color,2); return; }
+            if (kind == RunNodeKind.Supply)
+            { Border(new Rect(p.x-size*.7f,p.y-size*.7f,size*1.4f,size*1.4f),color,3); Line(p-Vector2.up*size*.5f,p+Vector2.up*size*.5f,color,2); Line(p-Vector2.right*size*.5f,p+Vector2.right*size*.5f,color,2); return; }
             if (kind == RunNodeKind.Rest)
             { Ring(p, size * 0.65f, color, 1.6f, 0.77f, 0.5f); Line(p + new Vector2(-size, size * 0.9f), p + new Vector2(size, size * 0.9f), color); }
             else if (kind == RunNodeKind.Event)

@@ -3,135 +3,307 @@ using Graphaclysm.Core.Combat;
 
 namespace Graphaclysm.Core.Runs
 {
-    public sealed class RunGrowthNode
+    /// <summary>
+    /// Run-scoped constellation state. Definitions are immutable catalog data; acquisition and
+    /// loadout selection are stored separately and rebuilt by command replay.
+    /// </summary>
+    public sealed partial class RunGrowthState
     {
-        public RunGrowthNode(string name, string description, int cost, int requiredLevel, int group, int parentIndex = -1)
-        {
-            Name = name; Description = description; Cost = cost; RequiredLevel = requiredLevel;
-            Group = group; ParentIndex = parentIndex;
-        }
-        public string Name { get; }
-        public string Description { get; }
-        public int Cost { get; }
-        public int RequiredLevel { get; }
-        public int Group { get; }
-        public int ParentIndex { get; }
-    }
+        public const int StartingPoints = 6;
+        public const int ExpectedFinalBudget = 35;
+        public const int StylePointLimit = 9;
+        public const int MaximumCombatForms = 2;
 
-    /// <summary>Run-scoped progression. It is rebuilt by command replay and intentionally resets with a new run.</summary>
-    public sealed class RunGrowthState
-    {
-        public const int NodeCount = 18;
-        private readonly RunGrowthNode[] nodes;
-        private int unlockedMask;
+        private readonly GrowthNodeDefinition[] nodes;
+        private readonly bool[] acquired;
+        private readonly bool[] equipped;
+        private int awardedPoints;
+        private int spentPoints;
 
-        public RunGrowthState(CombatArchetype archetype)
+        public RunGrowthState(CombatArchetype archetype, CombatApproach approach=CombatApproach.None, bool styleTree=false, bool boundedPoints=false, bool earnedStart=false)
         {
             Archetype = archetype;
-            nodes = archetype == CombatArchetype.Luna ? LunaNodes() : IanNodes();
-            Level = 1;
+            SpecializedApproach=approach;
+            IsStyleTree=styleTree;
+            if(boundedPoints&&!styleTree)throw new ArgumentException("Point limit requires a style tree.",nameof(boundedPoints));
+            HasPointLimit=boundedPoints;
+            InitialPoints=earnedStart?3:StartingPoints;
+            nodes = approach==CombatApproach.None?GrowthCatalog.For(archetype):styleTree?StyleTreeCatalog.Nodes(approach):ApproachGrowthCatalog.Nodes(approach);
+            acquired = new bool[nodes.Length];
+            equipped = new bool[nodes.Length];
+            if(IsSpecialized) acquired[0]=true;
         }
 
         public CombatArchetype Archetype { get; }
-        public int Level { get; private set; }
-        public int Experience { get; private set; }
-        public int Points { get; private set; }
-        public int ActiveVariant => IsUnlocked(0) ? 1 : IsUnlocked(1) ? 2 : IsUnlocked(2) ? 3 : 0;
-        public int ModuleVariant => IsUnlocked(3) ? 1 : IsUnlocked(4) ? 2 : IsUnlocked(5) ? 3
-            : IsUnlocked(6) ? 4 : IsUnlocked(7) ? 5 : IsUnlocked(8) ? 6 : 0;
-        public int UltimateVariant => IsUnlocked(9) ? 1 : IsUnlocked(10) ? 2 : IsUnlocked(11) ? 3 : 0;
-        public int UnlockedMask => unlockedMask;
-        public int ExperienceToNext => 3 + (Level - 1) / 3;
-        public RunGrowthNode GetNode(int index)
+        public bool IsStyleTree { get; }
+        public bool HasPointLimit { get; }
+        public int InitialPoints { get; }
+        public int MaximumPointBudget => HasPointLimit?StylePointLimit:int.MaxValue;
+        public int ParentOf(int index)=>IsStyleTree?StyleTreeCatalog.Parent(index):ApproachGrowthCatalog.Parent(index);
+        public CombatApproach SpecializedApproach { get; }
+        public bool IsSpecialized=>SpecializedApproach!=CombatApproach.None;
+        public int NodeCount => nodes.Length;
+        public int Points => InitialPoints + awardedPoints - spentPoints;
+        public int SpentPoints => spentPoints;
+        public int AwardedPoints => awardedPoints;
+        public int TotalPointBudget => InitialPoints + awardedPoints;
+        public int AcquiredCount { get { int count = 0; for (int i = 0; i < acquired.Length; i++) if (acquired[i]) count++; return count; } }
+        public int EquippedCombatFormCount { get { int count = 0; for (int i = 0; i < equipped.Length; i++) if (equipped[i] && nodes[i].EquipKind == GrowthEquipKind.CombatForm) count++; return count; } }
+
+        // Compatibility projections for the battle prototype. Only the six already playable
+        // v15 skill forms and six original ultimate forms map to legacy battle variants.
+        public int ActiveVariant => PrototypeCombatVariant(0);
+        public int SecondaryActiveVariant => PrototypeCombatVariant(1);
+        public int ModuleVariant => 0;
+        public int UltimateVariant => PrototypeUltimateVariant();
+        public int UnlockedMask { get { int mask = 0; for (int i = 0; i < acquired.Length && i < 31; i++) if (acquired[i]) mask |= 1 << i; return mask; } }
+
+        public GrowthNodeDefinition GetNode(int index)
         {
-            if (index < 0 || index >= NodeCount) throw new ArgumentOutOfRangeException(nameof(index));
+            if (index < 0 || index >= nodes.Length) throw new ArgumentOutOfRangeException(nameof(index));
             return nodes[index];
         }
 
-        public bool IsUnlocked(int index) => index >= 0 && index < NodeCount && (unlockedMask & (1 << index)) != 0;
+        public int IndexOf(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return -1;
+            for (int i = 0; i < nodes.Length; i++) if (nodes[i].Id == id) return i;
+            return -1;
+        }
+
+        public int IndexOfCommand(int commandId)
+        {
+            for (int i = 0; i < nodes.Length; i++) if (nodes[i].CommandId == commandId) return i;
+            return -1;
+        }
+
+        public bool IsUnlocked(int index) => index >= 0 && index < acquired.Length && acquired[index];
+        public bool IsEquipped(int index) => index >= 0 && index < equipped.Length && equipped[index];
+        public bool IsUnlocked(string id) => IsUnlocked(IndexOf(id));
+        public bool IsEquipped(string id) => IsEquipped(IndexOf(id));
+
+        public GrowthNodeDefinition GetEquippedNode(GrowthEquipKind kind, int ordinal = 0)
+        {
+            if (ordinal < 0) return null;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (!equipped[i] || nodes[i].EquipKind != kind) continue;
+                if (ordinal-- == 0) return nodes[i];
+            }
+            return null;
+        }
 
         public bool CanPurchase(int index)
         {
-            if (index < 0 || index >= NodeCount || IsUnlocked(index)) return false;
-            RunGrowthNode node = nodes[index];
-            if (Points < node.Cost || Level < node.RequiredLevel) return false;
-            if (node.ParentIndex >= 0 && !IsUnlocked(node.ParentIndex)) return false;
-            for (int i = 0; i < NodeCount; i++)
-                if (i != index && nodes[i].Group == node.Group && IsUnlocked(i)) return false;
+            if (index < 0 || index >= nodes.Length || acquired[index]) return false;
+            GrowthNodeDefinition node = nodes[index];
+            if (Points < node.Cost) return false;
+            if (SpentPoints < GrowthTreePaths.RequiredInvestment(node.Id)) return false;
+            if (!GrowthTreePaths.IsReachable(this, index)) return false;
+            for (int i = 0; i < node.RequiresAll.Length; i++) if (!IsUnlocked(node.RequiresAll[i])) return false;
+            if (node.RequiresAtLeastCount > 0)
+            {
+                int count = 0;
+                for (int i = 0; i < node.RequiresAtLeast.Length; i++) if (IsUnlocked(node.RequiresAtLeast[i])) count++;
+                if (count < node.RequiresAtLeastCount) return false;
+            }
+            if (!string.IsNullOrEmpty(node.ExclusiveGroup))
+                for (int i = 0; i < nodes.Length; i++)
+                    if (acquired[i] && nodes[i].ExclusiveGroup == node.ExclusiveGroup) return false;
             return true;
         }
 
         public bool TryPurchase(int index)
         {
             if (!CanPurchase(index)) return false;
-            RunGrowthNode node = nodes[index];
-            Points -= node.Cost;
-            unlockedMask |= 1 << index;
+            acquired[index] = true;
+            spentPoints += nodes[index].Cost;
+            TryAutoEquip(index);
+            return true;
+        }
+
+        public bool TryPurchaseCommand(int commandId)
+        {
+            int index = IndexOfCommand(commandId);
+            return index >= 0 && TryPurchase(index);
+        }
+
+        public bool CanSelect(int index)
+        {
+            if (index < 0 || index >= nodes.Length || !acquired[index]) return false;
+            GrowthNodeDefinition node = nodes[index];
+            if (node.EquipKind == GrowthEquipKind.Passive) return false;
+            if (equipped[index]) return node.EquipKind == GrowthEquipKind.CombatForm || node.EquipKind == GrowthEquipKind.Trait;
+            if (node.EquipKind == GrowthEquipKind.CombatForm)
+            {
+                if (EquippedCombatFormCount >= MaximumCombatForms) return false;
+                for (int i = 0; i < nodes.Length; i++)
+                    if (equipped[i] && nodes[i].EquipKind == GrowthEquipKind.CombatForm && nodes[i].Family == node.Family) return false;
+            }
+            if (node.EquipKind == GrowthEquipKind.Trait)
+            {
+                for (int i = 0; i < node.RequiresAll.Length; i++)
+                {
+                    int dependency = IndexOf(node.RequiresAll[i]);
+                    if (dependency >= 0 && nodes[dependency].EquipKind != GrowthEquipKind.Passive && !equipped[dependency])
+                        return false;
+                }
+                string group = TraitGroup(node);
+                int limit = node.EquipLimit > 0 ? node.EquipLimit : 1;
+                int selected = 0;
+                for (int i = 0; i < nodes.Length; i++) if (equipped[i] && TraitGroup(nodes[i]) == group) selected++;
+                if (selected >= limit) return false;
+            }
             return true;
         }
 
         public bool TrySelect(int index)
         {
-            return false;
+            if (!CanSelect(index)) return false;
+            GrowthNodeDefinition node = nodes[index];
+            if (equipped[index])
+            {
+                UnequipWithDependents(index);
+                return true;
+            }
+            if (node.EquipKind == GrowthEquipKind.Identity || node.EquipKind == GrowthEquipKind.Ultimate)
+                for (int i = 0; i < nodes.Length; i++) if (nodes[i].EquipKind == node.EquipKind) UnequipWithDependents(i);
+            equipped[index] = true;
+            return true;
         }
 
-        public void AddExperience(int amount)
+        public bool TrySelectCommand(int commandId)
+        {
+            int index = IndexOfCommand(commandId);
+            return index >= 0 && TrySelect(index);
+        }
+
+        public void AddPoints(int amount)
         {
             if (amount <= 0) return;
-            Experience += amount;
-            while (Experience >= ExperienceToNext)
+            if(HasPointLimit)amount=Math.Min(amount,Math.Max(0,StylePointLimit-TotalPointBudget));
+            if (awardedPoints > int.MaxValue - amount) throw new ArgumentOutOfRangeException(nameof(amount));
+            awardedPoints += amount;
+        }
+
+        // Single-node refunds never silently remove another purchase.
+        public bool CanRefund(int index) => !(IsSpecialized && index==0) && IsUnlocked(index) && RefundBlocker(index) < 0;
+
+        public int RefundBlocker(int index)
+        {
+            if (!IsUnlocked(index)) return -1;
+            acquired[index] = false;
+            int remaining = spentPoints - nodes[index].Cost;
+            try
             {
-                Experience -= ExperienceToNext;
-                Level++;
-                Points++;
+                for (int i = 0; i < nodes.Length; i++)
+                {
+                    if (!acquired[i]) continue;
+                    var node = nodes[i];
+                    if (remaining - node.Cost < GrowthTreePaths.RequiredInvestment(node.Id)
+                        || !GrowthTreePaths.IsReachable(this, i)) return i;
+                    for (int j = 0; j < node.RequiresAll.Length; j++)
+                        if (!IsUnlocked(node.RequiresAll[j])) return i;
+                    int count = 0;
+                    for (int j = 0; j < node.RequiresAtLeast.Length; j++)
+                        if (IsUnlocked(node.RequiresAtLeast[j])) count++;
+                    if (count < node.RequiresAtLeastCount) return i;
+                }
+                return -1;
             }
+            finally { acquired[index] = true; }
+        }
+
+        public bool TryRefund(int index)
+        {
+            if (!CanRefund(index)) return false;
+            UnequipWithDependents(index);
+            acquired[index] = false;
+            spentPoints -= nodes[index].Cost;
+            return true;
+        }
+
+        public bool TryReset()
+        {
+            if(IsSpecialized && spentPoints==0)return false;
+            if (spentPoints == 0 && AcquiredCount == 0) return false;
+            Array.Clear(acquired, 0, acquired.Length);
+            Array.Clear(equipped, 0, equipped.Length);
+            spentPoints = 0;
+            if(IsSpecialized) acquired[0]=true;
+            return true;
         }
 
         public BattleSkillLoadout CreateLoadout()
-            => new BattleSkillLoadout(ActiveVariant, ModuleVariant, UltimateVariant, unlockedMask);
+            => new BattleSkillLoadout(ActiveVariant, ModuleVariant, UltimateVariant, 0,
+                SecondaryActiveVariant, CreateCompiledBuild());
 
-        private static RunGrowthNode[] IanNodes() => new[]
+        public CompiledGrowthBuild CreateCompiledBuild()
         {
-            new RunGrowthNode("삼중 유리길", "유리 쇄도를 피해 6의 넓은 세 갈래 관통으로 교체합니다.", 1, 2, 0),
-            new RunGrowthNode("집행의 직선", "유리 쇄도를 피해 10의 단일 처형선으로 교체합니다. 처치 시 즉시 재사용합니다.", 1, 2, 0),
-            new RunGrowthNode("거울 교환", "유리 쇄도를 대상 뒤로 전이해 주변을 피해 7로 폭발시키는 기술로 교체합니다.", 1, 2, 0),
-            new RunGrowthNode("오중 굴절", "삼중 유리길을 피해 5의 다섯 갈래로 바꿉니다.", 1, 3, 1, 0),
-            new RunGrowthNode("반사 장막", "삼중 유리길 적중마다 보호막 2, 기본 보호막 3을 얻습니다.", 1, 3, 1, 0),
-            new RunGrowthNode("연쇄 처형", "집행의 직선으로 처치하면 공명 1을 얻습니다.", 1, 3, 2, 1),
-            new RunGrowthNode("파열 흔적", "집행의 직선에 맞은 적에게 파열 3을 남깁니다.", 1, 3, 2, 1),
-            new RunGrowthNode("잔상 폭발", "거울 교환의 폭발 반경이 1.15에서 1.85로 넓어집니다.", 1, 3, 3, 2),
-            new RunGrowthNode("위상 장막", "거울 교환 뒤 보호막 6과 요새화 3을 얻습니다.", 1, 3, 3, 2),
-            new RunGrowthNode("성좌 붕괴", "궁극기를 피해 +10과 파열 3을 주는 공격 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("불멸의 기록", "궁극기를 피해 +6, 고정 2, 자신 적중 시 회복 4 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("흑경 반전", "궁극기를 피해 +8, 적의 강화 제거와 약화 2를 주는 반전 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("붕괴 반향", "성좌 붕괴로 적 2명 이상 적중하면 공명 1을 돌려받습니다.", 1, 4, 5, 9),
-            new RunGrowthNode("날카로운 잔해", "성좌 붕괴의 피해가 추가로 4 증가합니다.", 1, 4, 5, 9),
-            new RunGrowthNode("정지된 장", "불멸의 기록이 남기는 고정의 지속시간이 1회 늘어납니다.", 1, 4, 6, 10),
-            new RunGrowthNode("불멸의 여백", "자신 적중 시 보호막 4와 회복 4를 추가로 얻습니다.", 1, 4, 6, 10),
-            new RunGrowthNode("흡광 장막", "흑경 반전으로 자신을 맞히면 해로운 상태를 지우고 보호막 6을 얻습니다.", 1, 4, 7, 11),
-            new RunGrowthNode("역상 파열", "흑경 반전이 약화 3과 파열 2를 함께 남깁니다.", 1, 4, 7, 11)
-        };
+            var acquiredIds = new string[AcquiredCount];
+            int equippedCount = 0;
+            for (int i = 0; i < equipped.Length; i++) if (equipped[i]) equippedCount++;
+            var equippedIds = new string[equippedCount];
+            int acquiredCursor = 0, equippedCursor = 0;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (acquired[i]) acquiredIds[acquiredCursor++] = nodes[i].Id;
+                if (equipped[i]) equippedIds[equippedCursor++] = nodes[i].Id;
+            }
+            return new CompiledGrowthBuild(acquiredIds, equippedIds);
+        }
 
-        private static RunGrowthNode[] LunaNodes() => new[]
+        private void TryAutoEquip(int index)
         {
-            new RunGrowthNode("만월 착지", "월광 도약을 넓은 착지 파동으로 교체합니다. 주변 적에게 피해 5를 줍니다.", 1, 2, 0),
-            new RunGrowthNode("초승달 회귀", "월광 도약을 피해 9의 왕복 참격으로 교체합니다. 사용 후 원래 자리로 돌아옵니다.", 1, 2, 0),
-            new RunGrowthNode("별무리 전이", "월광 도약을 대상에서 주변 적으로 이어지는 피해 5의 연쇄 전이로 교체합니다.", 1, 2, 0),
-            new RunGrowthNode("넘치는 만월", "만월 착지의 파동 반경이 1.70에서 2.20으로 넓어집니다.", 1, 3, 1, 0),
-            new RunGrowthNode("은하 피난처", "만월 착지 때 해로운 상태를 지우고 보호막 4·요새화 3을 얻습니다.", 1, 3, 1, 0),
-            new RunGrowthNode("월식 흉터", "초승달 회귀에 맞은 적에게 노출 3을 남깁니다.", 1, 3, 2, 1),
-            new RunGrowthNode("유성 호흡", "초승달 회귀 적중 시 체력 3을 회복하고 추진 3을 얻습니다.", 1, 3, 2, 1),
-            new RunGrowthNode("별자리 확장", "별무리 전이의 연결 반경이 2.40에서 3.60으로 넓어집니다.", 1, 3, 3, 2),
-            new RunGrowthNode("낙성 추격", "별무리 전이로 적을 처치하면 즉시 재사용하고 공명 1을 얻습니다.", 1, 3, 3, 2),
-            new RunGrowthNode("만월의 포옹", "궁극기를 큰 자가 적중 반경과 정화·보호막·회복 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("그믐의 칼날", "궁극기를 피해 +4와 작은 보호막·회복을 갖는 공격 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("월식 정지", "궁극기를 피해 +2와 적 고정 2를 주는 제어 형태로 교체합니다.", 1, 3, 4),
-            new RunGrowthNode("월광 회수", "만월의 포옹으로 적 2명 이상 적중하면 공명 1을 돌려받습니다.", 1, 4, 5, 9),
-            new RunGrowthNode("차오른 만월", "자가 적중 반경이 1.50이 되고 보호막 4·회복 2가 추가됩니다.", 1, 4, 5, 9),
-            new RunGrowthNode("긴 밤의 칼날", "그믐의 칼날이 주는 피해가 추가로 4 증가합니다.", 1, 4, 6, 10),
-            new RunGrowthNode("새벽의 숨", "자신 적중 시 보호막 4와 회복 4를 추가로 얻습니다.", 1, 4, 6, 10),
-            new RunGrowthNode("시간 회수", "월식 정지를 방출하면 전투 기술의 남은 대기시간을 없앱니다.", 1, 4, 7, 11),
-            new RunGrowthNode("정지 파동", "월식 정지가 적에게 약화 3을 함께 남깁니다.", 1, 4, 7, 11)
-        };
+            if (nodes[index].EquipKind != GrowthEquipKind.Passive) TrySelect(index);
+        }
+
+        private void UnequipWithDependents(int index)
+        {
+            if (index < 0 || index >= equipped.Length || !equipped[index]) return;
+            equipped[index] = false;
+            string id = nodes[index].Id;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (!equipped[i] || nodes[i].EquipKind != GrowthEquipKind.Trait) continue;
+                for (int requirement = 0; requirement < nodes[i].RequiresAll.Length; requirement++)
+                    if (nodes[i].RequiresAll[requirement] == id) { equipped[i] = false; break; }
+            }
+        }
+
+        private static string TraitGroup(GrowthNodeDefinition node)
+        {
+            if (!string.IsNullOrEmpty(node.EquipLimitGroup)) return node.EquipLimitGroup;
+            if (!string.IsNullOrEmpty(node.ExclusiveGroup)) return node.ExclusiveGroup;
+            return node.RequiresAll.Length > 0 ? node.RequiresAll[0] : node.Id;
+        }
+
+        private int PrototypeCombatVariant(int slot)
+        {
+            int found = 0;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (!equipped[i] || nodes[i].EquipKind != GrowthEquipKind.CombatForm || !nodes[i].IsImplemented) continue;
+                if (found++ != slot) continue;
+                string id = nodes[i].Id;
+                if (id == "ian.triple.form" || id == "luna.fulljump.form") return 1;
+                if (id == "ian.execute.form" || id == "luna.return.form") return 2;
+                if (id == "ian.exchange.form" || id == "luna.chain.form") return 3;
+            }
+            return 0;
+        }
+
+        private int PrototypeUltimateVariant()
+        {
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                if (!equipped[i] || nodes[i].EquipKind != GrowthEquipKind.Ultimate || !nodes[i].IsImplemented) continue;
+                string id = nodes[i].Id;
+                if (id == "ian.u.collapse.form" || id == "luna.u.embrace.form") return 1;
+                if (id == "ian.u.immortal.form" || id == "luna.u.blade.form") return 2;
+                if (id == "ian.u.invert.form" || id == "luna.u.stop.form") return 3;
+            }
+            return 0;
+        }
     }
 }

@@ -10,7 +10,11 @@ namespace Graphaclysm.Core.Runs
         Boss,
         Event,
         Treasure,
-        Rest
+        Rest,
+        Workshop,
+        Observatory,
+        Supply,
+        Shop
     }
 
     /// <summary>

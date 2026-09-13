@@ -32,7 +32,7 @@ namespace Graphaclysm.Application
                 {
                     int source = starts[d] + j; int first = random.Next(widths[d + 1]);
                     edges[source].Add(starts[d + 1] + first);
-                    if (widths[d + 1] > 1 && random.Next(100) < 55)
+                    if (widths[d + 1] > 1)
                         edges[source].Add(starts[d + 1] + (first + 1 + random.Next(widths[d + 1] - 1)) % widths[d + 1]);
                 }
                 for (int j = 0; j < widths[d + 1]; j++)
@@ -46,28 +46,53 @@ namespace Graphaclysm.Application
             for (int d = 0; d < Depths; d++)
                 for (int j = 0; j < widths[d]; j++)
                 {
-                    int index = starts[d] + j; RunNodeKind kind = PickKind(d, random);
+                    int index = starts[d] + j; RunNodeKind kind = PickKind(d, j, random);
                     RoomStory story = kind == RunNodeKind.Event ? RoomStoryCatalog.Event(random.Next(RoomStoryCatalog.EventCount))
-                        : kind == RunNodeKind.Rest ? RoomStoryCatalog.Rest : kind == RunNodeKind.Treasure ? RoomStoryCatalog.Treasure : null;
+                        : kind == RunNodeKind.Rest ? RoomStoryCatalog.Rest : kind == RunNodeKind.Treasure ? RoomStoryCatalog.Treasure
+                        : kind == RunNodeKind.Workshop ? RoomStoryCatalog.Workshop : kind == RunNodeKind.Observatory ? RoomStoryCatalog.Observatory
+                        : kind == RunNodeKind.Supply ? RoomStoryCatalog.Supply : null;
                     int template = random.Next(EncounterNames.Length);
                     string name = story?.Title ?? (kind == RunNodeKind.Boss ? (random.Next(2) == 0 ? "경계의 기억" : "멎은 성운") : EncounterNames[template]);
                     if(kind == RunNodeKind.Boss) name = d < 8 ? "첫 문 · 유리 감시자" : d < 16 ? "둘째 문 · 밤의 기록자" : "심층 · 무명의 원점";
                     BattleDefinition battle = story == null ? Encounter(d, kind, template, random, character, playerMaxHealth) : null;
+                    if (d < 7 && battle != null)
+                    {
+                        int trial = (d+j)%3;
+                        battle = TacticalEncounter(trial, character, playerMaxHealth, kind == RunNodeKind.Elite);
+                        name = trial == 0 ? "사선과 봉인" : trial == 1 ? "끊어야 할 연결" : "봉인된 매듭";
+                    }
                     nodes[index] = new RunMapNodeDefinition("dungeon." + d + "." + j, name, d, lanes[index], kind, battle,
                         edges[index].ToArray(), story, playerMaxHealth);
                 }
             return new RunMapDefinition(nodes, RoomsPerFloor);
         }
-        private static RunNodeKind PickKind(int depth, IRandomSource random)
+        // Three short, repeatable first-floor encounters for evaluating different answers with the same deck.
+        public static BattleDefinition TacticalEncounter(int variant, CharacterDefinition c, int maxHealth, bool elite = false)
+        {
+            if (variant < 0 || variant > 2) throw new ArgumentOutOfRangeException(nameof(variant));
+            var first = variant == 2 ? EnemyBehaviorDefinition.LinkGuardian() : EnemyBehaviorDefinition.LineGunner();
+            var second = variant == 1 ? EnemyBehaviorDefinition.LinkGuardian() : EnemyBehaviorDefinition.SealScribe();
+            int health = elite ? 32 : 24, attack = elite ? 4 : 3;
+            return new BattleDefinition(maxHealth,c.MaxEnergy,new[] {
+                new EnemyDefinition("trial.first",variant == 2 ? "연결 수호자" : "선형 포수",2,1,health,attack,first),
+                new EnemyDefinition("trial.second",variant == 1 ? "연결 수호자" : "봉인 서기관",8,1,health+2,attack,second)
+            },c.Archetype,fragments:true,terrain:new[] {
+                new BattleTerrainDefinition("trial.prism",BattleTerrainKind.Prism,5,0,.48),
+                new BattleTerrainDefinition("trial.aegis",BattleTerrainKind.Aegis,2,-.7,.48)
+            });
+        }
+
+        private static RunNodeKind PickKind(int depth, int option, IRandomSource random)
         {
             depth %= RoomsPerFloor;
-            if (depth == 0 || depth == 3 || depth == 5) return RunNodeKind.Battle;
+            if (depth == 0 || depth == 3 || depth == 5) return option % 2 == 0 ? RunNodeKind.Battle : RunNodeKind.Elite;
             if (depth == 7) return RunNodeKind.Boss;
-            if (depth == 2) return random.Next(4) == 0 ? RunNodeKind.Rest : RunNodeKind.Event;
-            if (depth == 4) return RunNodeKind.Treasure;
-            if (depth == 6) return random.Next(3) == 0 ? RunNodeKind.Elite : RunNodeKind.Rest;
-            int roll = random.Next(100);
-            return roll < 48 ? RunNodeKind.Battle : roll < 68 ? RunNodeKind.Event : roll < 85 ? RunNodeKind.Elite : RunNodeKind.Rest;
+            if (depth == 2) return option == 0 ? RunNodeKind.Event : option == 1 ? RunNodeKind.Rest : RunNodeKind.Observatory;
+            if (depth == 4) return option == 0 ? RunNodeKind.Treasure : option == 1 ? RunNodeKind.Workshop : RunNodeKind.Supply;
+            if (depth == 6) return option == 0 ? RunNodeKind.Elite : option == 1 ? RunNodeKind.Rest : RunNodeKind.Workshop;
+            if (option == 0) return RunNodeKind.Battle;
+            if (option == 1) return random.Next(2) == 0 ? RunNodeKind.Event : RunNodeKind.Observatory;
+            return random.Next(2) == 0 ? RunNodeKind.Supply : RunNodeKind.Rest;
         }
         private static BattleDefinition Encounter(int depth, RunNodeKind kind, int template, IRandomSource random, CharacterDefinition c, int playerMaxHealth)
         {
@@ -95,10 +120,12 @@ namespace Graphaclysm.Application
                 if (mirrorY) y = -y;
                 if (Math.Abs(x - 4) < 1 && Math.Abs(y + 2) < 1) y = Math.Abs(y) + 0.3;
                 x += (random.Next(51) - 25) / 100.0; y += (random.Next(31) - 15) / 100.0;
-                int health = 18 + (depth % RoomsPerFloor) * 3 + (depth / RoomsPerFloor) * 17 + random.Next(9) + (kind == RunNodeKind.Elite ? 8 : 0) + (kind == RunNodeKind.Boss && i == 1 ? 20 : 0);
-                int attack = 2 + (depth % RoomsPerFloor) / 4 + (depth / RoomsPerFloor) * 2 + (kind == RunNodeKind.Elite ? 1 : 0);
-                int behavior = (template + i + random.Next(3)) % 3;
+                int health = 22 + (depth % RoomsPerFloor) * 4 + (depth / RoomsPerFloor) * 20 + random.Next(9) + (kind == RunNodeKind.Elite ? 16 : 0) + (kind == RunNodeKind.Boss && i == 1 ? 34 : 0);
+                int attack = 3 + (depth % RoomsPerFloor) / 3 + (depth / RoomsPerFloor) * 2 + (kind == RunNodeKind.Elite ? 2 : 0);
+                int behavior = (template + i + random.Next(5)) % 5;
                 var ai = behavior == 0 ? EnemyBehaviorDefinition.SteadyAttack() : behavior == 1 ? EnemyBehaviorDefinition.ChargeBurst()
+                    : behavior == 3 ? EnemyBehaviorDefinition.EscalatingAttack()
+                    : behavior == 4 ? EnemyBehaviorDefinition.Skirmisher(Math.Max(1, Math.Min(9, 10 - x)), -y * 0.8)
                     : EnemyBehaviorDefinition.AlternatingPosition(Math.Max(1, Math.Min(9, 10 - x)), -y * 0.8);
                 enemies[i] = new EnemyDefinition("enemy." + i, EnemyNames[(template + i) % EnemyNames.Length], x, y, health, attack, ai);
             }
@@ -115,8 +142,13 @@ namespace Graphaclysm.Application
             {
                 int candidate = (start + scan * 5) % TerrainX.Length;
                 double x = TerrainX[candidate], y = TerrainY[candidate];
-                BattleTerrainKind kind = result.Count == 1 ? BattleTerrainKind.Prism : BattleTerrainKind.Obstacle;
-                double radius = kind == BattleTerrainKind.Obstacle ? 0.68 : 0.48;
+                // One terrain obstacle at most; the rest invite a choice about where and when to draw.
+                BattleTerrainKind kind = result.Count == 0 ? (start % 2 == 0 ? BattleTerrainKind.Pulse : BattleTerrainKind.Obstacle)
+                    : result.Count == 1 ? (start % 3 == 0 ? BattleTerrainKind.Aegis : start % 3 == 1 ? BattleTerrainKind.Capacitor : BattleTerrainKind.Prism)
+                    : start % 3 == 1 ? BattleTerrainKind.Aegis : BattleTerrainKind.Capacitor;
+                double radius = kind == BattleTerrainKind.Pulse ? 1.05 : kind == BattleTerrainKind.Obstacle ? 0.68 : 0.48;
+                x = Math.Max(radius, Math.Min(10 - radius, x));
+                y = Math.Max(-4 + radius, Math.Min(4 - radius, y));
                 if (!CanPlaceTerrain(x, y, radius, enemies, result)) continue;
                 result.Add(new BattleTerrainDefinition("terrain." + result.Count, kind, x, y, radius));
             }

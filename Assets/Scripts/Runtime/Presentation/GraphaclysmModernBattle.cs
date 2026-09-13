@@ -13,11 +13,16 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawBattle()
         {
-            DrawBoard(); DrawBattleTopBar(); DrawPlayerPanel(); DrawEnemyPanel(); DrawHand(); HandleBoardMovement();
+            DrawBoard(); DrawBattleTopBar(); DrawPlayerPanel(); DrawEnemyPanel(); DrawHand(); DrawApproachBattle(); HandleBoardMovement();
+            DrawPlayerImpact();
+            DrawCombatSkillPreview();
+            DrawSpatialSkillPreview();
+            DrawSatellite();
+            if(flow.IsNodeTrial && ui.Button(new Rect(28,798,314,40),"체험 종료 · 성좌로   G")) ReturnNodeTrial();
             if((message.Length>0 && ViewTime<feedbackUntil) || (hoveredHand>=0 && cardFailures[hoveredHand].Length>0))
             {
-                Fill(new Rect(600, 78, 720, 38), new Color(.06f, .055f, .1f, .88f));
-                Label(new Rect(612,80,696,34),hoveredHand>=0 && cardFailures[hoveredHand].Length>0?cardFailures[hoveredHand]:message,ui.SmallLight,true);
+                Fill(new Rect(420, 60, 1110, 26), new Color(.06f, .055f, .1f, .88f));
+                Label(new Rect(426,60,1098,26),hoveredHand>=0 && cardFailures[hoveredHand].Length>0?cardFailures[hoveredHand]:message,ui.SmallLight,true);
             }
         }
 
@@ -39,11 +44,12 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(108, 710, 180, 28), battle.UsesFragments ? "턴 드로우" : "에너지", ui.Small);
             Label(new Rect(290, 704, 125, 36), battle.UsesFragments ? drawStatus : energyText, battle.UsesFragments ? ui.Body : ui.Number);
             Label(new Rect(100, 752, 330, 48), selfStateText, ui.Small);
-            if (ui.Button(new Rect(100, 780, 320, 31), "이동 취소", false, !castActive && battle.Tactics.CanUndoMove)) UndoMove();
+            if (ui.Button(new Rect(100, 780, 320, 31), "이동 취소", false,
+                !castActive && !combatSkillTargeting && battle.Tactics.CanUndoMove)) UndoMove();
             for (int i = 0; i < TacticalCombatState.UltimateCost; i++)
                 Fill(new Rect(102 + i * 53, 824, 42, 4), i < battle.Tactics.Resonance ? Violet : new Color(0.75f, 0.73f, 0.77f));
             if (ui.Button(new Rect(100, 843, 320, 60), ultimateText, true,
-                !castActive && battle.Tactics.Resonance >= TacticalCombatState.UltimateCost))
+                !castActive && !combatSkillTargeting && battle.Tactics.Resonance >= TacticalCombatState.UltimateCost))
             { run.TryToggleUltimate(); Refresh(); }
             Rect ultimateInfo = new Rect(100, 911, 330, 73);
             Label(ultimateInfo, ultimateDescription, ui.Small);
@@ -82,22 +88,13 @@ namespace Graphaclysm.Runtime.Presentation
                 Vector2 p = FieldPoint(enemy.X, enemy.Y);
                 if (Vector2.Distance(Event.current.mousePosition, p) < 40 || EnemyRow(i).Contains(Event.current.mousePosition)) hoveredEnemy = i;
             }
-            // Only the inspected enemy's telegraph is emphasized. A single shared danger zone remains visible otherwise.
+            DrawTacticalThreats();
+            // Reposition previews stay available on inspection; every attack is drawn above.
             int aimed = hoveredEnemy;
-            if (aimed < 0)
-                for (int i = 0; i < battle.Enemies.Count; i++)
-                    if (battle.Enemies[i].IsAlive && battle.Enemies[i].Intent.Kind == EnemyIntentKind.Attack
-                        && (aimed < 0 || battle.Enemies[i].AimRadius > battle.Enemies[aimed].AimRadius)) aimed = i;
             if (aimed >= 0)
             {
                 EnemyState enemy = battle.Enemies[aimed];
-                if (enemy.Intent.Kind == EnemyIntentKind.Attack)
-                {
-                    Vector2 aim = FieldPoint(enemy.AimX, enemy.AimY);
-                    Ring(aim, (float)enemy.AimRadius * FieldUnit, new Color(Threat.r, Threat.g, Threat.b, 0.45f), 1.3f);
-                    if (hoveredEnemy >= 0) Line(FieldPoint(enemy.X, enemy.Y), aim, new Color(Threat.r, Threat.g, Threat.b, 0.3f));
-                }
-                else if (hoveredEnemy >= 0 && enemy.Intent.Kind == EnemyIntentKind.Reposition)
+                if (enemy.Intent.Kind == EnemyIntentKind.Reposition)
                 {
                     Vector2 target = FieldPoint(enemy.Intent.TargetX, enemy.Intent.TargetY);
                     Diamond(target, 30, new Color(Gold.r, Gold.g, Gold.b, 0.55f));
@@ -112,13 +109,19 @@ namespace Graphaclysm.Runtime.Presentation
                 Vector2 p = FieldPoint(enemy.X, enemy.Y);
                 Color color = damagePreview[i] > 0 ? new Color(0.96f, 0.78f, 0.78f) : new Color(0.66f, 0.62f, 0.77f);
                 Disc(p, 29, new Color(0.17f, 0.15f, 0.23f));
-                Diamond(p, 30, color, 1.8f); Diamond(p, 17, color);
+                if(enemy.Definition.Behavior.Kind>=EnemyBehaviorKind.RotatingGun)
+                    DrawArchiveEnemySeal(p,enemy.IsBoss?31:24,EnemyArchive.Find(enemy.Definition.Behavior.Kind));
+                else {Diamond(p, 30, color, 1.8f); Diamond(p, 17, color);}
                 Line(p + new Vector2(-30, 0), p + new Vector2(0, 17), color);
                 Line(p + new Vector2(0, -30), p + new Vector2(17, 0), color);
                 Label(new Rect(p.x - 69, p.y - 16, 35, 30), enemyBadges[i], ui.SmallLight, true);
                 if (hoveredEnemy == i) Ring(p, (float)BattleSession.EnemyHitRadius * FieldUnit, color);
-                Fill(new Rect(p.x - 27, p.y + 40, 54, 3), new Color(0.4f, 0.34f, 0.47f));
-                Fill(new Rect(p.x - 27, p.y + 40, 54f * enemy.Health / enemy.Definition.MaxHealth, 3), color);
+                if (combatSkillTargeting && !battle.UsesDiagramAbility && battle.Approach != CombatApproach.Execution && battle.Approach != CombatApproach.Observation)
+                    Ring(p, (float)BattleSession.EnemyHitRadius * FieldUnit + 10,
+                        hoveredEnemy == i ? Gold : new Color(Gold.r, Gold.g, Gold.b, .32f), hoveredEnemy == i ? 2.5f : 1.2f);
+                float healthWidth=enemy.IsBoss?116:54, healthHeight=enemy.IsBoss?6:3;
+                Fill(new Rect(p.x-healthWidth*.5f,p.y+44,healthWidth,healthHeight),new Color(.4f,.34f,.47f));
+                Fill(new Rect(p.x-healthWidth*.5f,p.y+44,healthWidth*enemy.Health/enemy.Definition.MaxHealth,healthHeight),color);
                 if (!castActive && damagePreview[i] > 0 && (!battle.UsesFragments || hoveredEnemy==i || showBattleDetails)) Label(new Rect(p.x + 37, p.y - 20, 80, 40), enemyDamage[i], ui.Light);
             }
             Vector2 player = FieldPoint(battle.Tactics.X, battle.Tactics.Y);
@@ -165,9 +168,9 @@ namespace Graphaclysm.Runtime.Presentation
                 SkillVisual skill = Visual(game.Deck.GetHandCard(hoveredHand));
                 if (skill != null)
                 {
-                    Fill(new Rect(1488, 627, 342, 181), new Color(1, 1, 1, 0.72f));
-                    Label(new Rect(1503, 635, 310, 27), RarityNames[(int)skill.Card.Rarity], ui.Small);
-                    Label(new Rect(1503, 663, 311, 140), skill.Details, ui.Small);
+                    Fill(new Rect(1488, 627, 342, 281), new Color(1, 1, 1, 0.92f));
+                    Fill(new Rect(1503,641,310,4),Rarity(skill.Card.DiagramRarity));
+                    DrawReadableEffectRows(new Rect(1503,658,311,245),skill);
                 }
             }
             else if (hoveredEnemy >= 0 && enemyStatuses[hoveredEnemy].Length > 0)
@@ -179,30 +182,50 @@ namespace Graphaclysm.Runtime.Presentation
             if (battle.UsesFragments)
             {
                 Label(new Rect(1490,809,335,28),castActive ? "선을 새기는 중" : outcomeText,ui.Small,true);
-                if(ui.Button(new Rect(1490,847,335,58),castActive ? lastPlotName : "방출   ↵",true,!castActive && battle.CanPlot)) StartCast();
-                if(ui.Button(new Rect(1490,915,161,43),"응축 · 넘기기",false,!castActive && battle.CanCondense)) Condense();
-                if(ui.Button(new Rect(1664,915,161,43),"해체 · 넘기기",false,!castActive)) Unravel();
-                if(ui.Button(new Rect(1490,971,335,31),"마지막 파편 되돌리기",false,!castActive && battle.PlayedCardCount > battle.SealedCardCount)) Undo();
+                if(ui.Button(new Rect(1490,847,335,58),castActive ? lastPlotName : "방출   ↵",true,!castActive && !combatSkillTargeting && battle.CanPlot)) StartCast();
+                if(ui.Button(new Rect(1490,915,161,43),"응축 · 넘기기",false,!castActive && !combatSkillTargeting && battle.CanCondense)) Condense();
+                if(ui.Button(new Rect(1664,915,161,43),"해체 · 넘기기",false,!castActive && !combatSkillTargeting)) Unravel();
+                if(ui.Button(new Rect(1490,971,335,31),"마지막 파편 되돌리기",false,!castActive && !combatSkillTargeting && battle.PlayedCardCount > battle.SealedCardCount)) Undo();
                 return;
             }
             bool draftReady = !battle.Equation.IsCalculator || calculatorValid;
             Label(new Rect(1490, 835, 335, 35), castActive ? "선을 새기는 중" : !draftReady ? "수식 입력을 마치세요" : outcomeText, ui.Body, true);
             if (ui.Button(new Rect(1490, 882, 335, 68), castActive ? lastPlotName : !draftReady ? "입력 중" : !battle.CanPlot ? "작도 불가" : "작도   ↵", true,
-                !castActive && battle.CanPlot && (!battle.Equation.IsCalculator || calculatorValid))) StartCast();
-            if (ui.Button(new Rect(1490, 961, 335, 33), "한 장 되돌리기", false, !castActive && battle.PlayedCardCount > 0)) Undo();
+                !castActive && !combatSkillTargeting && battle.CanPlot && (!battle.Equation.IsCalculator || calculatorValid))) StartCast();
+            if (ui.Button(new Rect(1490, 961, 335, 33), "한 장 되돌리기", false,
+                !castActive && !combatSkillTargeting && battle.PlayedCardCount > 0)) Undo();
+        }
+
+        private int handPressedIndex = -1, handPressedCount;
+
+        private int PickHandCard(Vector2 pointer, int count, int focused)
+        {
+            // The inspection card and lifted card are drawn last, so they own input first.
+            if (focused >= 0 && focused < count && (handInspectionRect.Contains(pointer)
+                || HandCardRect(focused, count, true).Contains(pointer))) return focused;
+            for (int i = count - 1; i >= 0; i--)
+                if (i != focused && RotatedContains(HandCardRect(i, count, false), HandCardAngle(i, count), pointer))
+                    return i;
+            return -1;
         }
 
         private void DrawHand()
         {
-            int count = game.Deck.HandCount; if (count == 0) return;
-            int previousHover = hoveredHand;
-            hoveredHand = -1;
-            for (int i = count - 1; i >= 0; i--)
+            int count = game.Deck.HandCount;
+            if (count == 0) { handPressedIndex = hoveredHand = -1; return; }
+            if (combatSkillTargeting)
             {
-                Rect hit = HandCardRect(i, count, false);
-                if (RotatedContains(hit, HandCardAngle(i, count), Event.current.mousePosition))
-                { hoveredHand = i; break; }
+                ClearHandInspection();
+                for (int i = 0; i < count; i++)
+                {
+                    var visual = Visual(game.Deck.GetHandCard(i));
+                    if (visual != null) DrawHandCard(i, count, visual, false);
+                }
+                return;
             }
+            int previousHover = hoveredHand;
+            int pointed = PickHandCard(Event.current.mousePosition, count, previousHover);
+            hoveredHand = pointed;
             if (hoveredHand < 0 && previousHover >= 0 && previousHover < count
                 && (handInspectionRect.Contains(Event.current.mousePosition) || handHoverBridge.Contains(Event.current.mousePosition)
                     || keywordKeepsCard && (keywordTooltipRect.Contains(Event.current.mousePosition) || keywordHoverBridge.Contains(Event.current.mousePosition))))
@@ -214,7 +237,7 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 if (i == hoveredHand) continue;
                 SkillVisual visual = Visual(game.Deck.GetHandCard(i)); if (visual == null) continue;
-                if (DrawHandCard(i, count, visual, false)) break;
+                DrawHandCard(i, count, visual, false);
             }
             if (hoveredHand >= 0 && hoveredHand < count)
             {
@@ -224,7 +247,7 @@ namespace Graphaclysm.Runtime.Presentation
                     DrawHandCard(hoveredHand, count, focused, true);
                     float spacing = count <= 1 ? 0 : Mathf.Min(112, 780f / (count - 1));
                     float center = 960 + (hoveredHand - (count - 1) * .5f) * spacing;
-                    handInspectionRect = new Rect(Mathf.Clamp(center - 155, 390, 1210), 476, 310, 370);
+                    handInspectionRect = new Rect(Mathf.Clamp(center - 170, 390, 1180), 425, 340, 420);
                     Rect handCard = HandCardRect(hoveredHand, count, true);
                     handHoverBridge = Rect.MinMaxRect(
                         Mathf.Min(handInspectionRect.xMin, handCard.xMin) - 8,
@@ -235,14 +258,37 @@ namespace Graphaclysm.Runtime.Presentation
                 }
             }
             else { handInspectionRect = default(Rect); handHoverBridge = default(Rect); }
+            HandleHandCardInput(Event.current, pointed, count);
+        }
+
+        private void HandleHandCardInput(Event input, int pointed, int count)
+        {
+            if (combatSkillTargeting) { handPressedIndex = -1; return; }
+            if (input.button == 0 && input.type == EventType.MouseDown)
+            {
+                handPressedIndex = !castActive && !combatSkillTargeting ? pointed : -1;
+                handPressedCount = count;
+                if (pointed >= 0) input.Use();
+            }
+            else if (input.button == 0 && input.type == EventType.MouseUp)
+            {
+                int pressed = handPressedIndex;
+                handPressedIndex = -1;
+                if (pressed >= 0)
+                {
+                    input.Use();
+                    if (!castActive && !combatSkillTargeting && pressed == pointed && handPressedCount == count)
+                        PlayCard(pressed);
+                }
+            }
         }
 
         private void DrawMovementPreview(Vector2 player)
         {
-            if (castActive || battle.Phase != BattlePhase.PlayerPlanning || battle.Tactics.HasMoved) return;
+            if (castActive || combatSkillTargeting || battle.Phase != BattlePhase.PlayerPlanning || battle.Tactics.HasMoved) return;
             bool anchored = battle.Tactics.Statuses.Get(CombatStatusKind.Anchor) > 0;
             Color range = anchored ? new Color(Threat.r, Threat.g, Threat.b, .28f) : new Color(.66f, .85f, .96f, .34f);
-            Ring(player, (float)TacticalCombatState.MoveDistance * FieldUnit, range, 1.4f, .86f, .18f);
+            Ring(player, (float)battle.Tactics.CurrentMoveDistance * FieldUnit, range, 1.4f, .86f, .18f);
             Vector2 pointer = Event.current.mousePosition;
             if (!Field.Contains(pointer) || anchored) return;
             ScreenToField(pointer, out double x, out double y);
@@ -254,12 +300,50 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void HandleBoardMovement()
         {
-            Event e = Event.current;
+            HandleBoardInput(Event.current);
+        }
+
+        private void HandleBoardInput(Event e)
+        {
             if (e.type != EventType.MouseDown || e.button != 0 || ModalOpen || castActive
-                || battle.Phase != BattlePhase.PlayerPlanning || battle.Tactics.HasMoved
-                || !Field.Contains(e.mousePosition) || hoveredHand >= 0
+                || battle.Phase != BattlePhase.PlayerPlanning
+                || !combatSkillTargeting && (hoveredHand >= 0
                 || handInspectionRect.Contains(e.mousePosition) || keywordTooltipRect.Contains(e.mousePosition)
-                || keywordSourceRect.Contains(e.mousePosition) || keywordOwnerRect.Contains(e.mousePosition)) return;
+                || hoveredTerrain < 0 && (keywordSourceRect.Contains(e.mousePosition) || keywordOwnerRect.Contains(e.mousePosition)))) return;
+            if (combatSkillTargeting)
+            {
+                if (battle.Approach == CombatApproach.Observation)
+                {
+                    if (!Field.Contains(e.mousePosition)) return;
+                    ScreenToField(e.mousePosition, out double satelliteX, out double satelliteY);
+                    PlaceSatelliteAt(satelliteX, satelliteY); e.Use(); return;
+                }
+                if (battle.Approach == CombatApproach.Execution || lunaPullTargeting)
+                {
+                    if (!Field.Contains(e.mousePosition)) return;
+                    ScreenToField(e.mousePosition, out double skillX, out double skillY);
+                    if (lunaPullTargeting) UseLunaPullAt(skillX, skillY); else UseExecutionAt(skillX, skillY);
+                    e.Use(); return;
+                }
+                if (battle.UsesDiagramAbility)
+                {
+                    if (!Field.Contains(e.mousePosition)) return;
+                    ScreenToField(e.mousePosition, out double aimX, out double aimY);
+                    if (run.TryUseDiagramAbility(aimX, aimY, diagramAngle))
+                    { combatSkillTargeting = false; message = battle.RecordingArmed ? "기록 예약 · 이번 피해 75% / 다음 방출에 기록 추가 공격" : "조정 완료 · 흰 도안이 실제 공격 위치입니다."; Refresh(); }
+                    e.Use(); return;
+                }
+                if (hoveredEnemy >= 0) UseCombatSkillOnTarget(hoveredEnemy);
+                else
+                {
+                    message = "살아 있는 적 표식이나 오른쪽 목록을 선택하세요.";
+                    Refresh();
+                }
+                e.Use();
+                return;
+            }
+            if (battle.Tactics.HasMoved) return;
+            if (!Field.Contains(e.mousePosition)) return;
             if (showEquation)
             {
                 float height = battle.UsesFragments ? 345 : battle.Equation.IsCalculator ? 167 : 64;
@@ -274,6 +358,16 @@ namespace Graphaclysm.Runtime.Presentation
         {
             x = (point.x - Field.x) / FieldUnit;
             y = 4.0 - (point.y - Field.y) / FieldUnit;
+        }
+
+        private void ClearHandInspection()
+        {
+            hoveredHand = handPressedIndex = -1;
+            handInspectionRect = handHoverBridge = default(Rect);
+            keywordTooltipRect = keywordHoverBridge = keywordSourceRect = keywordOwnerRect = default(Rect);
+            keywordKeepsCard = false;
+            keywordPinned = false;
+            hoveredKeywordTitle = hoveredKeywordBody = "";
         }
 
         private static float HandCardAngle(int index, int count)
@@ -308,16 +402,14 @@ namespace Graphaclysm.Runtime.Presentation
             GUI.matrix = saved * Matrix4x4.TRS(rect.center, Quaternion.Euler(0, 0, angle), Vector3.one)
                 * Matrix4x4.TRS(-rect.center, Quaternion.identity, Vector3.one);
             DrawSkillCard(rect, visual, focused, false);
-            bool clicked = !castActive && GUI.Button(rect, GUIContent.none, GUIStyle.none);
             GUI.matrix = saved;
-            if (clicked) PlayCard(index);
-            return clicked;
+            return false;
         }
 
         private void DrawSkillCard(Rect r, SkillVisual visual, bool hovered, bool large)
         {
             if (visual.Card.IsFragment) { DrawFragmentCard(r,visual,hovered,large); return; }
-            Color rarity = Rarity(visual.Card.Rarity);
+            Color rarity = Rarity(visual.Card.DiagramRarity);
             Fill(new Rect(r.x + 3, r.y + 5, r.width, r.height), new Color(0.16f, 0.12f, 0.24f, 0.15f));
             Fill(r, hovered ? new Color(0.99f, 0.98f, 0.96f) : new Color(0.93f, 0.92f, 0.92f));
             Border(r, hovered ? Violet : rarity);
@@ -336,11 +428,11 @@ namespace Graphaclysm.Runtime.Presentation
             }
             if (large)
             {
-                Label(new Rect(r.x + pad, r.y + 205, r.width - pad * 2, 58), visual.Card.Description, ui.Body, true);
+                DrawExplainedText(new Rect(r.x + pad, r.y + 205, r.width - pad * 2, 58), visual.Card.Description, ui.Body, true);
                 Line(new Vector2(r.x + pad, r.y + 276), new Vector2(r.xMax - pad, r.y + 276), new Color(rarity.r, rarity.g, rarity.b, 0.55f));
                 if (visual.KeywordNames != null && visual.KeywordNames.Length > 0)
                     DrawCardKeywords(new Rect(r.x + pad, r.y + 287, r.width - pad * 2, 34), visual, false, r);
-                Label(new Rect(r.x + pad, r.y + 328, r.width - pad * 2, 30), visual.Abilities, ui.Small, true);
+                DrawExplainedText(new Rect(r.x + pad, r.y + 328, r.width - pad * 2, 30), visual.Abilities, ui.Small, true);
             }
             else
             {

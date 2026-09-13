@@ -1,8 +1,158 @@
 ﻿# GRAPHACLYSM Architecture
 
+## 최신 · 하나로 이어진 탑 지도 · UI v42
+
+전체 층을 절대 Layer 기준의 세로 지도에 연결. 층 필터/나머지 좌표 제거, 보스→다음 층의 기존 경로 유지. 드래그/휠/스크롤바와 현재 위치/꼭대기/입구 이동. 탑 배경의 긴 기둥·발판·층 경계가 방과 같은 스크롤로 이동한다. 기존 그림 재질과 코드 기반 건축 구조를 사용한다. 진행/저장/전투 규칙41·계정4는 불변. View 수명: 지도당 노드 문자열 배열2개(NodeCount), 층 문자열 배열1개(FloorCount); 지도 교체 때만 할당. [1차 정리와 검증 범위](Docs/PROJECT_CHECKPOINT_V42.md). 후속 기능은 사용자 지시 후 결정.
+
+## 이전 · 잔광 24노드 확장 · 규칙41
+
+잔광 14→24노드(26→36단계). 기존 투자/잔액/분대/비용 보존, 추가 초기화 없음. 후속 체력·회복·공명·보호막·시작 은화·작도 피해·추가 열쇠·시작 손패를 실제 원정에 연결한다. 단일 성좌 드래그/휠/스크롤바/중앙·선행 이동. 계정 v4는 이전14노드 v3의 초기화 완료 상태를 보존하며, 원정 규칙41 준비 비트 확장으로 진행 원정은 불변. 상세: [잔광 확장](Docs/LEGACY_EXPANSION_V41.md).
+
+## 이전 · 잔광 성좌 UI·투자 초기화 · v40
+
+사용자 제공 문화 비교 이미지를 직접 참고해 중앙 마름모 핵과 좌우 연결된14항목 성좌로 교체한다. 탭/상품 목록 제거, 노드 클릭 상세·습득 버튼·선행 노드 이동. 기존 실제 선행/수치/비용 유지. 영구 저장 v3에서 이전 투자를 한 번 전액 환급하고 단계/분대 개방 초기화, 종료 기록과 진행 원정 스냅샷 보존. 전투/원정 저장 규칙39는 유지한다. [구현·복구·검증](Docs/LEGACY_TREE_V40.md).
+
+## 최신 · 즉시 파편 선택·잔광 원정 준비 · 규칙39
+
+새 원정의 연구권을 없애고, 색별 카드 추첨 확률이 다른 즉시 파편 선택 보상2개로 교체했다. 상점에서도 파편 선택 상품을 구매하고 같은 상점으로 복귀한다. 잔광 기존6항목을 보존하며 작도 피해·시작 은화·유물 지참·열쇠·보상 색 상승·분대3개 개방을 추가했다(총14항목). 캐릭터 선택에서 기본 탐사/돌파/수호/발굴 중 하나를 고른다. 실제 효과와 준비 스냅샷을 연결하고, 영구 저장 v1은 v2 안정 ID로 보존해 읽는다. 이전 원정은 당시 규칙 유지. 조사 근거·수치·소유권·검증 범위는 [구현 기록](Docs/PREPARATION_V39.md). 이전 잔광 제안의 항목 제거·환급은 적용하지 않는다.
+
+## 최신 · 한 줄 보상·무료 시작 유물 정정 · 규칙38
+
+보상은 세로 카드 한 줄, 드래그/휠/가로 스크롤바/좌우 버튼 탐색. 수령·넘김·상자 시도 완료 카드는 숨기고 빈자리 정리, 원래 보상 인덱스/저장 상태는 보존한다. 드래그 끝 수령 방지. 새 출발·재시작은 무료 유물 없이 시작하며 기존37 원정 유물은 보존. 시작3점·총9점·열쇠1개 유지. `Docs/REWARD_ROW_V38.md`. 시작 유물은 잔광의 한 항목이라는 사용자 의도를 따른 별도 미구현 기획: `Docs/LEGACY_REWORK_PROPOSAL_V38.md`. 잔광 구매/환급/정산 코드는 이번에 바꾸지 않는다.
+
+## 최신 · 시작3점·선택 전리품·유물 상자 · 규칙37
+
+새 원정 ExpeditionSupplies는 시작3점+진행최대6점(총9점), 비보스5승마다1점 최대2/1~4층 보스마다1점을 준다. 방 통과 무료점수 제거, 성장 이벤트1점·최소체력6/상점24은화. 무료 시작 유물3택1·열쇠1개. 은화/연구권/카드/유물/열쇠/상자는 카드형 전리품에서 수령하며 남은 보상을 두고 갈 수 있다. 열쇠 확정/직접50% 상자는 한 번만 시도, 재접속 재추첨 없음. 기존36 이하 원정 보존. 잔광 출발점 투자는 새 원정 성장 경험으로 전환하고 기존 계정 단계/재화 보존. 상세·검증·한계: `Docs/EXPEDITION_SUPPLIES_V37.md`.
+
+## 최신 · 최대 성장9점·트리 배치 · 규칙36
+
+새 원정 GrowthLimit은 투자+잔여 합계 최대9점(시작6 유지). 반환/재배분으로 추가 지급 여유를 만들지 않는다. 모든 지급은 RunGrowthState.AddPoints에서 제한하고 방 보상은 실제 지급량만 표시한다. 이전35 이하 원정은 예산 보존.16노드 트리는 세 줄기 직접 연결·간격 조정·일반 이름 표시·각성 구분. `Docs/GROWTH_LIMIT_V36.md`.
+
+## 최신 · 네 궁극기 유지·16노드 성좌 · 규칙35
+
+사용자 결정으로 ZIP은 참고만 사용한다. 궁극기를 캐릭터별로 합치지 않는다. 새 원정 StyleTree는 방식별16노드(무료1+강화9+각성6), 기술/궁극 각성 각각1개. 기존 조건부 상태45개를 새 트리에서 제거하고 과거55노드는 저장 재생용으로 보존한다. 상세/한계: `Docs/STYLE_TREES_V35.md`. 5층·성장점 지급·유물/방 구성은 이번 범위에서 유지. 전투수명 도안2/적 피해배열1 추가, 예측과 실제에 공유.
+
+## 최신 · 전투방식별55노드 · 규칙34
+
+새 ApproachTree 원정은 집행/기록/조율/관측별55노드(무료뿌리1+전용변경9+조건부상태45)를 적용한다. 하나의 뿌리·상향·직계자식최대3·주요 양자택일. 습득한 효과는 다음 전투부터 자동 적용된다. 기존 원정은 자동 이관하지 않는다. 아래 ‘새 트리 미구현’ 기록보다 이 절이 우선한다. 상세: `Docs/APPROACH_TREES_V34.md`.
+
+BattleSpecialization은 전투 수명 bool55/bool37 배열과 정수 조건 마스크를 사용한다. 본 방출 전 조건을 고정하고 후속 상태로 재평가하지 않는다. 수치 설명은 Refresh 캐시, 트리 위치는 레이아웃 생성 시 계산. 사용자 Editor/저장 보존.
+
+## 전투방식 궁극기·보스 추첨 · 규칙33
+
+BattleRework가 새 원정에서만 보스 추첨과 ApproachUltimates를 활성화한다. Core는 별도 도안1개와 적 수만큼 피해 배열을 전투 수명 동안 소유한다. 궁극기 재현은 일반 기록과 슬롯을 공유하지 않고 카드 능력을 재호출하지 않는다. 추가 조립은 기존 명령 재생으로 복원하고 Application이 중간 드로우를 생략한다. UI 문자열은 Refresh 캐시, 도안 표시는 Core의 실제 보관식을 사용한다. 상세/저장/후속 성좌 계약은 `Docs/BATTLE_REWORK_V33.md`.
+
+## 5층 원정 · 규칙32
+
+FiveFloorTower가 과거3층 지도를 새 출발에서만 확장한다. RunJournal.FiveFloors 명령으로 저장 호환성을 유지한다. EnemyFieldPatterns는 공격 영역의 단일 소유자이며 ThreatView와 IsAimingAt이 같은 좌표를 사용한다. 적 enum 기존 ID 보존. 상세·검증은 `Docs/FIVE_FLOORS_V32.md`.
+
+## 키워드 클릭 · 규칙31 유지
+
+문단 캐시 키는 ExcludedTitle도 포함한다. 자기 용어와 동의어를 클릭 영역 생성에서 제외하므로 그리기와 입력이 같은 결과를 쓴다. 회복/수식은 자동 링크하지 않는다. 추가 캐시 용량/전투 데이터 변경은 없다.
+
+GraphaclysmGrowthGlossary는 View 소유 최대512개 문단 배치 캐시(문자열/Rect/GUIStyle/정렬과 글자별 클릭 영역)를 재사용한다. 공통 의미 배열은 앱 수명이며 상태 설명은 중첩 정적 타입으로 초기화 순서 의존성을 피한다. GraphaclysmBattlefieldView가 단일 고정 팝업·닫기 입력 소비를 소유한다. 테스트용 GUI 콜백은 UNITY_EDITOR 전용이다. Core/Application 저장 필드·전투 버퍼 변경 없음. [동작과 검증](Docs/KEYWORD_CLICK.md).
+
+## 규칙31 · 적 사전·층 보스·유물100
+
+EnemyArchive20유형/RelicArchive100정의는 앱 수명. TowerArchiveContent는 새 출발에 지도 정의를 복사하고 기존 연결을 보존한다. EnemyState의 AttackShape/Enraged는 턴 시작에 고정. BattleArchiveEffects는 원정 유물 참조·조건 int 마스크·발동 횟수를 소유하고 본 방출만 평가한다. View의 유물 참조 배열100, 새 문양은 기존 코드 그리기이며 프레임별 배열 없음. [규칙·과거 저장·소유권](Docs/TOWER_ARCHIVE_V31.md).
+
+## 규칙30 · 상태 연계
+
+StatusCardRules가 현재105종 불변 정의, StatusRules 명령이 출발 활성화, BattleApproaches/CombatStatusState가 이동·상태 소비를 소유한다. 전투원 상태17슬롯(구 ID 보존), 추가40바이트 원소 데이터. 이전29 visual105개는 View 수명으로 추가 캐시. [규칙·저장·메모리](Docs/STATUS_RULES_V30.md).
+
+## 카드 설명 구획화 · 규칙29 유지
+
+Presentation의 SkillVisual에 효과 제목/본문/기간/앞면 요약 배열(현재 파편 최대2개), 수식·위력 문자열을 초기화 시 캐시한다. GraphaclysmCardReadability는 View 수명의 GUIStyle4개/재사용 GUIContent1개로 실제 높이를 측정하고 효과별 구획을 그린다. Core/저장/확률/효과 변경 없음. [레이아웃·검증](Docs/CARD_READABILITY_V29.md).
+
+## 규칙29 · 카드 균형과13상품
+
+`CardMarketBalance`는105종 새 불변 정의·색 선추첨·가격, `MarketBalance` Application partial은 출발 opt-in·13상품 생성을 소유한다. 과거 정의 Version28/Previous/Find를 보존하고 All/Current만 새 정의. `CardDefinition.WeavePower`를 실제 피해와 UI가 공유한다. View의 SkillVisual은 현재/과거 카드 참조를 구별해 효과 설명이 달라지는 저장 호환을 보장한다. 추가146개 과거 visual 캐시는 View 수명,13개 판매bool/상품 배열은 Run 수명, 생성 중 카드 참조5개는 임시다. [정확한 수치·메모리·저장 계약](Docs/CARD_MARKET_V29.md).
+
+## 이전 카드 색 재검토 · 규칙28 유지
+
+`CardDefinition.DiagramRarity` → `WeaveArchive.DiagramGrade`로 UI/색 필터를 통일한다. 기존 `Rarity`는 역사적 보상 가중치·가격, `WeaveProfile.Tier`는 원래 카드 위력에도 쓰이므로 변경하지 않는다. 정적16개4문자 표/참조 배열만 추가, 프레임별 할당 없음. 기존 원정 저장과 경제·전투 보존. [105종 전후 분류](Docs/CARD_COLOR_REVIEW.md).
+
+## 규칙 28 ·105종 합성 카드
+
+`AdvancedWeaves`는64개 불변 연산 프로필과 표시 문자열을 가진다. 기존 FragmentEquation prefix 배열에서1536회 합성하며 연산별 주파수 상한을 검사한다. `WeaveArchive`는 기존41개 카드의 재분류 복사와64개 새 정의를 만든다. Legacy35/Version27의41개는 이전 규칙 그대로 보존하고 GrandArchive 명령에서만105개 보상 풀·동일ID 재분류 시작 덱을 채택한다. 과거 저장 RNG와 가격을 바꾸지 않는다.
+
+View는 초기화용 FragmentEquation 하나(약216KiB)를 재사용해 신규 문양65점씩을 보관한다. 색/역할 필터는105개 인덱스 버퍼를 재사용한다. 프레임별 신규 합성/배열은 없다. [효과·표시·저장·검증 범위](Docs/WEAVE_ARCHIVE_V28.md).
+
+## 규칙 27 · 카탈로그 확장과 공간 공격
+
+`ContentExpansion`은 새 출발 경제 명령 뒤에서만 보상 풀을41카드/24유물로 복사·교체하고 원본 생성→도입 배치→확장 배치를 같은 시드로 만든다. `Legacy`는 이전35/20개 풀을 유지하므로 기존 저널 재생에는 새 항목이 섞이지 않는다. View는 `All`로 전체 도감/visual을 초기화한다. 새 카드도 기존1536표본 prefix 버퍼만 사용하며 신규 시간축 변형은 주파수×2를 검사한다.
+
+`EnemyState`의 기존 조준 좌표와 고정 반경으로 고리/십자/쌍점 공격을 계산한다. 별도 투사체나 프레임별 배열은 없다. `BattleSession`의 유물 int4개/bool1개는 전투 수명이며 원본 방출의 피해 스냅샷으로 조건을 확인한다. 상세 메모리/저장 계약과 검증은 [v27](Docs/CONTENT_AND_SHOP_V27.md).
+
+## 규칙 26 · 원정 경제와 콘텐츠
+
+`ExpeditionEconomy` partial이 지갑·연구권·상품6개/판매 상태·추가 유물 대기·카드 제거 예약을 소유한다. `ExpeditionContent`는 출발 시에만 결정적 지도 정의를 생성하며 방 내용과 전투 조합을 분산한다. ChooseApproach → OpeningRoute → ExpeditionEconomy opt-in 저널을 사용하고 구버전21~25 이어하기에는 삽입하지 않는다. 전리품 RNG와 상점 재고 RNG는 카드 보상 RNG에서 분리한다. 구매 실패/제거 취소는 차감하지 않으며 제거 확정 뒤에도 같은 상점으로 돌아간다.
+
+View는 동일 비율의 필드 변환으로 조준/렌더링을 유지하고, 기술 조준 중 카드 상세와 오래된 팝업 차단 영역을 무시한다. `GrowthRuntimeSupport`는 현재 전투 경로에서 작동하는 노드를 구분하는 표시 계약이며 전체 성좌 효과 구현체는 아니다. 새 규칙의 쌍성 핵심만 실제 관측 방식 전환을 추가했다. [범위·저장·검증](Docs/EXPEDITION_ECONOMY_V26.md), [다음 성좌 개편](Docs/GROWTH_REWORK_NEXT.md).
+
+## 규칙 25 · 새 원정의 첫 층 흐름
+
+OpeningRoute 명령은 새 출발의 ChooseApproach 직후에만 지도 진행 객체를 교체한다. 1층 불변 정의/연결을 생성하고 기존 2·3층 정의와 RNG 소비는 보존한다. 과거 21~24 저널에는 명령이 없어 기존 원정을 그대로 재생한다. 전투 기술/충돌 루프에는 변경과 추가 할당이 없다. LastExplorationPoints는 방 완료 재생에서 계산되는 표시 값이다. 상세는 `Docs/OPENING_ROUTE_V25.md`.
+
+## 핵심 능력 체험 · 원정 규칙 24 유지
+
+NodeTrialComparison은 창 수명에 연습 원정 둘과 결과 문자열을 소유하며 실제 명령으로 사용 전/후를 구성한다. PrototypeGameFlow는 체험 수명에 원래 원정/캐릭터 참조와 인덱스를 보존한다. 원정과 별도 난수/카드 상태를 사용하는 체험 하나로 전환하고 종료 시 같은 객체를 복구한다. SaveCurrent는 체험 중에도 TrialReturnRun을 저장하며 체험은 저널 명령이 아니다. View는 성좌 카메라/선택/검색을 값으로 보관한다. 최대 임시 버퍼·종료 경로·범위는 `Docs/CORE_NODE_TRIALS.md`.
+
+## 규칙 24 · 관측 루나
+
+BattleSession/BattleApproaches가 위성 좌표 double 두 개와 존재/원점 선택 bool 두 개를 소유하고 기존 approachUsedTurn으로 배치 기회를 제한한다. 자가 적중은 BodyPlotHit OR SatellitePlotHit 한 번으로 기존 방출 효과에 합류한다. 첫 파편은 선택한 원점을 전달하며 귀환점은 몸 의미를 유지한다. 새 배열·기하 복제 없음. View는 기존 도형 그리기로 위성/범위/연결을 표시하며 실제 좌표를 변경하지 않는다. 새 시작값4와 끝에 추가한 두 명령, 21~23 호환은 `Docs/OBSERVATION_LUNA_V24.md` 참조.
+
+## 규칙 23 · 공간 기술
+
+BattleApproaches의 방향 돌진/견인은 연속 원 충돌과 경계 절단으로 같은 경로를 미리보기·실행에서 공유한다. CombatSkillPreview를 공통 처리기에 넘기되 새 돌진은 TargetIndex=-1로 경로 밖 보장 타격을 제거한다. 과거 명령은 기존 대상 예측기를 유지한다. 루나의 두 기술은 approachUsedTurn을 공유한다. EnemyState는 추가 double 두 개로 사선 시작점을 고정한다.
+
+View 견인 연출 배열 두 개는 첫 사용/적 수 변경 시 현재 적 수만큼 할당해 재사용한다. 예측은 배열을 만들지 않으며 문구는 포인터·revision 변경에 갱신한다. 신규 명령과 기존21/22 저장 호환, 검증 범위는 `Docs/SPATIAL_SKILLS_V23.md`를 따른다.
+
+## 규칙 22 · 원정 연결
+
+`RunGameSession.StartingApproach`는 첫 저널 명령으로 고정하고 `EffectiveApproach`는 구현된 핵심 장착에서 결정한다. 시작 명령에 한해 원정 소유 RunDeck를 6장으로 교체하고 손패 크기를 6으로 설정한다. 기존 21 저널에는 그 명령이 없어 과거 규칙이 유지된다. 다음 전투 생성 시 적/지형 정의 배열을 복사한 BattleDefinition과 기존 불변 성장 스냅샷을 넘긴다. 새 할당은 방 진입에만 생긴다.
+
+역위상은 도안 연산 코드 180을 예약 sentinel로 사용하며 실제 180도 회전이 아니다. 기존 prefix 버퍼에 가로축 반전을 적용하고 prefix별 bool[9]로 반전 이력을 보관한다. 이어지는 회전과 응축 후 재반전도 수식 표시와 일치한다. 조준 연산은 임시 배열 없이 기존 미리보기 버퍼를 사용한다. 상세 저장/범위는 `Docs/APPROACH_CAMPAIGN_V22.md`.
+
+## 한 번의 작도 비교 전투
+
+`BattleDefinition.Approach`가 새 전투 규칙을 명시적으로 선택하며 기본 None은 기존 규칙을 유지한다. `BattleApproaches`는 전투 수명의 도안 예측 버퍼 1개(조율/기록), 기록 버퍼 1개(기록만)를 소유한다. 각 EquationState의 파편 버퍼는 기존 `(8+1)×1536` double x/y 배열 약 216 KiB를 재사용한다. 회전 기록은 FragmentEquation당 double[9]. 미리보기/충돌 중 새 배열을 만들지 않는다. View는 조준 위치 변경에만 설명을 갱신하고 기존 AstralSpellRenderer의 재사용 Material/GL 배치로 기록과 후보 도안을 그린다.
+
+`RunGameSession.IsPractice`는 무저널 revision으로 UI를 갱신하며 저장·일반 원정 보상을 금지한다. `PrototypeGameFlow.TryStartPractice`는 일반 원정 시드를 진행시키지 않는다. 손패와 도안 조정 후 취소 검증은 `BattleSession.UndoFloor`를 Application이 먼저 확인한다. 상세 계약과 미완료 범위는 `Docs/ONE_PLOT_COMBAT.md`를 따른다.
+
+## v20 적 역할과 대응 판정
+
+성장 UX 추가: `GrowthUiCatalog`의 불변 문자열/의미 ID 사전은 240개로 앱 수명. `GrowthAcquisitionPlanner`의 후보 HashSet/List와 성장 복사본은 사용자가 계획을 열 때만 할당하고 확장/결합 10,000회로 제한한다. View 검색 bool 배열은 원정 수명, 결과 문자열 배열은 계획창 수명이다. `LegacyProgression.TryPurchaseRanks`는 후보 계정 저장 후 채택하며 이전 계정에 미리 결제하지 않는다. 저장 바이트 구조는 유지. 상세·미완료는 `Docs/Overhaul/GROWTH_UX_PROGRESS.md`.
+
+최신 Overhaul P0: `CombatSkillPreview`/`CombatSkillContact`는 BattleSession이 반환하는 값 타입이다. 실행은 현재 상태에서 다시 해석하며 외부 예측을 적용 명령으로 받지 않는다. 새 컬렉션 할당 없음. View는 battle/Run.Revision/hover 대상 기준으로 계산·문자열을 캐시하고 기술 조준 때만 표시한다. Editor 진단 문자열은 명령당 생성하며 디스크 저장·외부 전송하지 않는다. 입력용 HandleKeyEvent는 기존 HandleKeys의 동일 이벤트 처리기다. 저장 규칙 21, 상세는 `Docs/Overhaul/WORK_PLAN.md`.
+
+`EnemyState`는 포수의 고정 사선 끝점과 서기관/수호자 상태를 소유한다. `BattleThreats`는 실제 그래프의 봉인 표식/연결 매듭 교차를 검사하며 `BattleSession`은 방출 주 피해를 적 수만큼의 재사용 배열에 고정한 뒤 처리한다. 배열은 전투 Reset 수명이다. `GraphaclysmThreatView`는 같은 좌표/반경/해제 결과로 예고를 그린다. 1층 조합 세 종류는 `DungeonGenerator.TacticalEncounter`에서 생성한다. 저장 규칙 20으로 새 원정 필요. [규칙과 검증](Docs/TACTICAL_THREATS_V20.md).
+
+## v19 후속 · 개별 반환과 손패 입력
+
+`RunGrowthState.CanRefund/RefundBlocker/TryRefund`가 남은 노드의 선행·투자 조건을 보존하며 개별 비용을 반환한다. `RefundGrowth`는 명령 끝에 추가하며 기존 규칙 19를 유지한다. View의 `PickHandCard`는 그림 순서의 역순으로 단일 입력 대상을 정하고 `HandleHandCardInput`은 누름/뗌을 연결한다. 추가 상태는 View 수명의 정수 두 개이며 프레임별 배열 할당은 없다. [변경·검증](Docs/NODE_REFUND_CARD_INPUT.md).
+
+## v19 성장 단계와 피해 피드백
+
+`GrowthTreePaths`가 의존성 깊이와 투자 문턱을, `RunGrowthState`가 구매 검사를 소유한다. `GrowthPlayerText`는 원본 카탈로그를 변경하지 않는 표시용 요약이다. `RunRooms`의 숙련·훈련·보급은 전투 생성 시 실제 수치로 전달되며 기존 선택 명령으로 재생한다. `BattleSession`은 적 행동별 체력/보호막 피해를 기록하고 `GraphaclysmPlayerImpact`는 이를 표시만 한다. 저장 규칙 19. [범위와 검증](Docs/PROGRESSION_READABILITY_V19.md).
+
+## 이전 v18 장치·호버·탑 지도
+
+`BattleSession`의 partial `BattleDevices`가 지형 사용/봉쇄 상태와 그래프 접촉·예상 체력 피해를 소유한다. 적 패턴과 지형 선택은 결정적 생성기에 포함된다. 저장 규칙은 18이다. `GrowthTreeLayout`은 중복 선행 선을 캐시하며 `GraphaclysmGrowthGlossary`는 본문과 같은 폰트의 위치로 밑줄/호버를 그린다. 지도 View만 좌표 방향과 생성 배경을 바꾸며 RunMap 경로 규칙은 유지한다. [범위와 검증](Docs/ASCENT_PLAYABILITY_V18.md).
+
+## 이전 v17 성장 경로와 배치
+
+`GrowthTreePaths`는 효과/장착 의존성과 별도로 진입 후보 OR 조건을 소유한다. 배열은 초기화 시 캐시하고 `CanPurchase`가 검사한다. 저장 규칙은 17이다. `GrowthTreeLayout`은 각 캐릭터의 의존성을 읽어 좌표·높이·연결·설명을 만들고 View가 원정별로 재사용한다. Section/장착 종류별 구역이나 가짜 허브를 배치하지 않는다. `GraphaclysmGrowthTreeView`는 탐색·선택·습득 버튼을 소유하고 변경을 Run 명령으로 전달한다. 상세는 `Docs/ASCENDING_GROWTH_V17.md`다.
+
+## 이전 v16 대형 변형 성좌 소유권
+
+`GrowthCatalog`는 생성된 240개 불변 정의와 안정 ID를 소유한다. `RunGrowthState`는 캐릭터가 접근하는 144개 정의를 참조하고 획득·장착 상태, 직접 성장점, 선행/배타/장착 제한과 재배분을 소유한다. 전투 시작에는 `CompiledGrowthBuild`가 획득/장착 ID를 불변 스냅샷으로 복사해 `BattleSkillLoadout`에 전달한다. JSON 원본은 `Tools/GenerateGrowthCatalog.ps1`로 `GrowthCatalog.Generated.cs`에 반영한다.
+
+Application은 지도·휴식에서만 성장 변경 명령을 허용한다. 저장에는 노드 배열 순번 대신 안정 ID의 결정적 명령 키를 기록하며 카탈로그가 충돌을 검사한다. Presentation은 144노드를 한 월드 캔버스에 배치하고 팬·줌·초점 이동과 상태를 표시하되 규칙을 재계산하지 않는다. 내부 section 값은 배치할 가지를 정할 뿐 별도 화면이나 별도 스킬트리를 만들지 않는다. 저장은 형식 2/규칙 16이다. 새 효과의 전투 해석 계층은 아직 연결 전이며 `Docs/LARGE_CONSTELLATION_V16.md`의 구현 상태 구분을 따른다.
+
 ## v15 자유 이동과 기술 성좌 소유권
 
-`RunGrowthState`는 캐릭터별 18노드 정의, 부모와 8개 배타 그룹, 해금 마스크를 소유한다. `BattleSkillLoadout`은 선택한 3종 전투 기술/3종 궁극기 형태와 부가 노드 마스크를 새 전투에 전달한다. `BattleSession`은 캐릭터별 직선·다중선·착지 파동·왕복·연쇄 적중과 안전한 기술 착지, 주 대상 보장 판정을 소유한다.
+`RunGrowthState`는 캐릭터별 18노드 정의, 부모와 8개 배타 그룹, 해금 마스크를 소유한다. `BattleSkillLoadout`은 선택한 3종 전투 기술/3종 궁극기 형태와 부가 노드 마스크를 새 전투에 전달한다. `BattleSession`은 캐릭터별 직선·다중선·착지 파동·왕복·연쇄 적중과 안전한 기술 착지, 주 대상 보장 판정, 마지막 체력/보호막 피해 합계를 소유한다. Presentation은 기술 버튼/K 뒤 대상 지정 상태와 클릭만 소유하고 실제 대상 인덱스를 Application 명령으로 전달한다.
 
 `TacticalCombatState`는 반경 1.8 자유 좌표 이동 가능 여부와 취소 원점을 소유한다. `BattleSession.TryResolveMoveDestination`은 경계 제한과 적·기둥 주변의 고정 후보 탐색을 수행하고, `RunGameSession`은 0.01 단위 좌표를 `MoveTo` 명령 하나에 압축해 기록·재생한다. Presentation은 포인터를 필드 좌표로 바꾸고 Core가 반환한 실제 도착점만 미리 그린다. 저장은 형식 2/규칙 15다. [전투 조작·기술 성좌 v15](Docs/COMBAT_CONTROL_GROWTH_V15.md)를 따른다.
 

@@ -69,6 +69,13 @@ namespace Graphaclysm.Core.Equations
         private FragmentEquation fragments;
         public bool IsFragmentMode => fragments != null && baseFunction == BaseFunctionKind.Fragments;
         public FragmentEquation Fragments => fragments;
+        internal void CopyDiagramTo(EquationState target, double ox, double oy, double degrees)
+        {
+            if (!IsFragmentMode || !HasBase) throw new InvalidOperationException("A diagram needs a fragment.");
+            target.EnableFragments(); fragments.CopyDiagramTo(target.fragments, ox, oy, degrees);
+            target.hasBase = true;
+        }
+        internal void ArrangeDiagram(double ox, double oy, double degrees) => fragments.Arrange(ox, oy, degrees);
         public void EnableFragments() { if (fragments == null) fragments = new FragmentEquation(); fragments.Clear(); baseFunction = BaseFunctionKind.Fragments; hasBase = false; modifierCount = 0; }
         public bool TryAppendFragment(FragmentKind kind, double playerX = 5, double playerY = 0) { if (!IsFragmentMode || !fragments.TryAppend(kind, playerX, playerY)) return false; hasBase = true; return true; }
         private bool traceDirty = true;

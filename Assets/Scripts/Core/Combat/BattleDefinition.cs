@@ -9,7 +9,7 @@ namespace Graphaclysm.Core.Combat
 
         public BattleDefinition(int playerMaxHealth, int playerMaxEnergy, EnemyDefinition[] enemies,
             CombatArchetype archetype = CombatArchetype.None, bool calculator = false, bool fragments = false,
-            BattleTerrainDefinition[] terrain = null)
+            BattleTerrainDefinition[] terrain = null, CombatApproach approach = CombatApproach.None)
         {
             if (playerMaxHealth <= 0)
             {
@@ -27,6 +27,10 @@ namespace Graphaclysm.Core.Combat
             }
 
             PlayerMaxHealth = playerMaxHealth;
+            if (approach < CombatApproach.None || approach > CombatApproach.Observation
+                || approach != CombatApproach.None && (!fragments || archetype == CombatArchetype.None))
+                throw new ArgumentException("Combat approaches require a fragment battle and a character.", nameof(approach));
+            Approach = approach;
             Archetype = archetype;
             if (calculator && fragments) throw new ArgumentException("A battle uses one equation mode.");
             UsesCalculator = calculator; UsesFragments = fragments;
@@ -51,6 +55,7 @@ namespace Graphaclysm.Core.Combat
         }
 
         public int PlayerMaxHealth { get; }
+        public CombatApproach Approach { get; }
         public CombatArchetype Archetype { get; }
         public bool UsesCalculator { get; }
         public bool UsesFragments { get; }

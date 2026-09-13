@@ -3,7 +3,8 @@ using System.Text;
 
 namespace Graphaclysm.Core.Equations
 {
-    public enum FragmentKind { Counterpoint, Orbit, Petal, Expand, Contract, Mirror, TranslateRight, TranslateDown, Square, Overtone, HomeAnchor, WestAnchor, NorthAnchor, TwinEcho, StarPetal, Surge, Ellipse, Lissajous, Epitrochoid, Limacon, Shear, PhaseOffset, ComplexCube, CometBurst, KaleidoscopeFold, ShardFracture, NebulaRibbon }
+    public enum FragmentKind { Counterpoint, Orbit, Petal, Expand, Contract, Mirror, TranslateRight, TranslateDown, Square, Overtone, HomeAnchor, WestAnchor, NorthAnchor, TwinEcho, StarPetal, Surge, Ellipse, Lissajous, Epitrochoid, Limacon, Shear, PhaseOffset, ComplexCube, CometBurst, KaleidoscopeFold, ShardFracture, NebulaRibbon, VerticalWeave, QuarterTurn, DiagonalWeave, EastAnchor, SouthAnchor, DoubleLoop,
+        Weave0_0, Weave0_1, Weave0_2, Weave0_3, Weave1_0, Weave1_1, Weave1_2, Weave1_3, Weave2_0, Weave2_1, Weave2_2, Weave2_3, Weave3_0, Weave3_1, Weave3_2, Weave3_3, Weave4_0, Weave4_1, Weave4_2, Weave4_3, Weave5_0, Weave5_1, Weave5_2, Weave5_3, Weave6_0, Weave6_1, Weave6_2, Weave6_3, Weave7_0, Weave7_1, Weave7_2, Weave7_3, Weave8_0, Weave8_1, Weave8_2, Weave8_3, Weave9_0, Weave9_1, Weave9_2, Weave9_3, Weave10_0, Weave10_1, Weave10_2, Weave10_3, Weave11_0, Weave11_1, Weave11_2, Weave11_3, Weave12_0, Weave12_1, Weave12_2, Weave12_3, Weave13_0, Weave13_1, Weave13_2, Weave13_3, Weave14_0, Weave14_1, Weave14_2, Weave14_3, Weave15_0, Weave15_1, Weave15_2, Weave15_3 }
 
     /// <summary>Each card wraps the entire preceding periodic curve. Fixed prefix tables avoid exponential evaluation.</summary>
     public sealed class FragmentEquation
@@ -16,8 +17,40 @@ namespace Graphaclysm.Core.Equations
         public double OriginY => originY[Count];
         private readonly FragmentKind[] steps = new FragmentKind[Capacity];
         private readonly int[] frequencies = new int[Capacity + 1];
+        private readonly double[] rotations = new double[Capacity + 1];
+        private readonly bool[] reflections = new bool[Capacity + 1];
+        private bool isSnapshot;
         public int Count { get; private set; }
         public int Frequency => frequencies[Count];
+        // Copy only geometry, never the source card history or its triggered abilities.
+        internal void CopyDiagramTo(FragmentEquation target, double ox, double oy, double degrees)
+        {
+            double angle = degrees * Math.PI / 180, c = Math.Cos(angle), s = Math.Sin(angle);
+            int source = Count * Segments;
+            for (int i = 0; i < Segments; i++)
+            {
+                double px = x[source + i], py = y[source + i];
+                target.x[Segments + i] = degrees == 180 ? px : c * px - s * py;
+                target.y[Segments + i] = degrees == 180 ? -py : s * px + c * py;
+            }
+            target.Count = 1; target.originX[1] = ox; target.originY[1] = oy;
+            target.frequencies[1] = Frequency;
+            target.isSnapshot = true;
+        }
+        internal void Arrange(double ox, double oy, double degrees)
+        {
+            double angle = degrees * Math.PI / 180, c = Math.Cos(angle), s = Math.Sin(angle);
+            int offset = Count * Segments;
+            for (int i = 0; i < Segments; i++)
+            {
+                double px = x[offset + i], py = y[offset + i];
+                x[offset + i] = degrees == 180 ? px : c * px - s * py;
+                y[offset + i] = degrees == 180 ? -py : s * px + c * py;
+            }
+            originX[Count] = ox; originY[Count] = oy;
+            if (degrees == 180) { rotations[Count] = -rotations[Count]; reflections[Count] = !reflections[Count]; }
+            else rotations[Count] += degrees;
+        }
         public FragmentEquation()
         {
             frequencies[0] = 1; originX[0] = 5;
@@ -25,8 +58,15 @@ namespace Graphaclysm.Core.Equations
         }
         public static string Symbol(FragmentKind kind)
         {
+            if(AdvancedWeaves.IsAdvanced(kind)) return AdvancedWeaves.Get(kind).Symbol;
             switch (kind)
             {
+                case FragmentKind.VerticalWeave: return "0.65x / 1.4y";
+                case FragmentKind.QuarterTurn: return "i[□]";
+                case FragmentKind.DiagonalWeave: return "x / y+0.7x";
+                case FragmentKind.EastAnchor: return "O → 2";
+                case FragmentKind.SouthAnchor: return "O ↓ 1.5";
+                case FragmentKind.DoubleLoop: return "Re□ + iIm□₂";
                 case FragmentKind.Lissajous: return "Re□₂ + iIm□₃";
                 case FragmentKind.Epitrochoid: return "□ − 0.4□₄";
                 case FragmentKind.Limacon: return "(1+.55cos t)□";
@@ -58,8 +98,15 @@ namespace Graphaclysm.Core.Equations
         }
         public static string Rule(FragmentKind kind)
         {
+            if(AdvancedWeaves.IsAdvanced(kind)) return AdvancedWeaves.Get(kind).Rule;
             switch (kind)
             {
+                case FragmentKind.VerticalWeave: return "0.65 Re(F) + 1.4i Im(F)";
+                case FragmentKind.QuarterTurn: return "−Im(F) + i Re(F) · 기준점 둘레 90° 회전";
+                case FragmentKind.DiagonalWeave: return "Re(F) + i (Im(F) + 0.7 Re(F))";
+                case FragmentKind.EastAnchor: return "O.x ← O.x + 2 (필드 안으로 제한); F 유지";
+                case FragmentKind.SouthAnchor: return "O.y ← O.y − 1.5 (필드 안으로 제한); F 유지";
+                case FragmentKind.DoubleLoop: return "Re(F(t)) + i Im(F(2t))";
                 case FragmentKind.Lissajous: return "Re(F(2t)) + i Im(F(3t))";
                 case FragmentKind.Epitrochoid: return "F(t) − 0.4 F(4t)";
                 case FragmentKind.Limacon: return "(1 + 0.55 cos(t)) × F(t)";
@@ -91,6 +138,7 @@ namespace Graphaclysm.Core.Equations
         }
         private int NextFrequency(FragmentKind kind)
         {
+            if(AdvancedWeaves.IsAdvanced(kind)) return AdvancedWeaves.Get(kind).NextFrequency(Frequency);
             switch(kind)
             {
                 case FragmentKind.Counterpoint: case FragmentKind.Lissajous: case FragmentKind.ComplexCube: return Frequency*3;
@@ -98,7 +146,7 @@ namespace Graphaclysm.Core.Equations
                 case FragmentKind.Epitrochoid: return Frequency*4;
                 case FragmentKind.Orbit: return Frequency+2;
                 case FragmentKind.Petal: return Frequency+3;
-                case FragmentKind.Square: case FragmentKind.TwinEcho: return Frequency*2;
+                case FragmentKind.Square: case FragmentKind.TwinEcho: case FragmentKind.DoubleLoop: return Frequency*2;
                 case FragmentKind.StarPetal: return Frequency+5;
                 case FragmentKind.Limacon: return Frequency+1;
                 case FragmentKind.CometBurst: return Frequency+7;
@@ -108,7 +156,7 @@ namespace Graphaclysm.Core.Equations
                 default: return Frequency;
             }
         }
-        public bool CanAppend(FragmentKind kind) => kind >= FragmentKind.Counterpoint && kind <= FragmentKind.NebulaRibbon && Count < Capacity && NextFrequency(kind) <= MaximumFrequency;
+        public bool CanAppend(FragmentKind kind) => kind >= FragmentKind.Counterpoint && kind <= FragmentKind.Weave15_3 && Count < Capacity && NextFrequency(kind) <= MaximumFrequency;
         public bool TryAppend(FragmentKind kind, double playerX = 5, double playerY = 0)
         {
             if (!CanAppend(kind) || double.IsNaN(playerX) || double.IsNaN(playerY) || double.IsInfinity(playerX) || double.IsInfinity(playerY)) return false;
@@ -118,17 +166,31 @@ namespace Graphaclysm.Core.Equations
                 originY[0] = Math.Max(-3.5, Math.Min(3.5, playerY));
             }
             int previous = Count * Segments, next = previous + Segments;
+            var advanced=AdvancedWeaves.IsAdvanced(kind)?AdvancedWeaves.Get(kind):null;
+            rotations[Count + 1] = 0;
+            reflections[Count + 1] = false;
             frequencies[Count + 1] = NextFrequency(kind); steps[Count] = kind;
             originX[Count+1] = originX[Count]; originY[Count+1] = originY[Count];
             if(kind == FragmentKind.HomeAnchor) {originX[Count+1] = Math.Max(.5,Math.Min(9.5,playerX)); originY[Count+1] = Math.Max(-3.5,Math.Min(3.5,playerY));}
             if(kind == FragmentKind.WestAnchor) originX[Count+1] = Math.Max(.5,originX[Count]-2);
             if(kind == FragmentKind.NorthAnchor) originY[Count+1] = Math.Min(3.5,originY[Count]+1.5);
+            if(kind == FragmentKind.EastAnchor) originX[Count+1] = Math.Min(9.5,originX[Count]+2);
+            if(kind == FragmentKind.SouthAnchor) originY[Count+1] = Math.Max(-3.5,originY[Count]-1.5);
             for (int i = 0; i < Segments; i++)
             {
                 double a = x[previous + i], b = y[previous + i], nx = a, ny = b;
                 double t = i * Math.PI * 2 / Segments;
+                if(advanced!=null)
+                {
+                    advanced.Apply(x,y,previous,i,out nx,out ny);
+                    x[next+i]=nx; y[next+i]=ny; continue;
+                }
                 switch (kind)
                 {
+                    case FragmentKind.VerticalWeave: nx *= .65; ny *= 1.4; break;
+                    case FragmentKind.QuarterTurn: nx = -b; ny = a; break;
+                    case FragmentKind.DiagonalWeave: ny = b + .7*a; break;
+                    case FragmentKind.DoubleLoop: ny = y[previous+(i*2)%Segments]; break;
                     case FragmentKind.Lissajous:
                         nx=x[previous+(i*2)%Segments]; ny=y[previous+(i*3)%Segments]; break;
                     case FragmentKind.Epitrochoid:
@@ -177,7 +239,7 @@ namespace Graphaclysm.Core.Equations
             Count++; return true;
         }
         public bool TryUndo() { if (Count == 0) return false; Count--; return true; }
-        public void Clear() { Count = 0; }
+        public void Clear() { Count = 0; isSnapshot = false; Array.Clear(rotations, 0, rotations.Length); Array.Clear(reflections, 0, reflections.Length); }
         public void Sample(double normalized, out double px, out double py)
         {
             double position = (normalized - Math.Floor(normalized)) * Segments;
@@ -189,7 +251,14 @@ namespace Graphaclysm.Core.Equations
         public string BuildFormula()
         {
             var text = new StringBuilder("F₀(t) = 1.6 exp(it)\n");
-            for (int i = 0; i < Count; i++) text.Append(i+1).Append("  ").Append(Rule(steps[i])).Append(i == Count-1 ? "" : "\n");
+            if (isSnapshot) text.Clear().Append("기록된 실제 도안 F(t) · 카드 능력은 복제하지 않음");
+            else for (int i = 0; i < Count; i++)
+            {
+                text.Append(i+1).Append("  ").Append(Rule(steps[i]));
+                if (reflections[i+1]) text.Append(" → 가로축 거울 반전");
+                if (rotations[i+1] != 0) text.Append(" → 전체 회전 ").Append(rotations[i+1].ToString("0")).Append("°");
+                if (i != Count-1) text.Append("\n");
+            }
             text.Append("\n전장 = O + F(t); O = (").Append(OriginX.ToString("0.##")).Append(", ").Append(OriginY.ToString("0.##")).Append(")");
             return text.ToString();
         }

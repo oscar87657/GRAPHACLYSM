@@ -106,10 +106,10 @@ namespace Graphaclysm.Runtime.Presentation
         {
             switch (rarity)
             {
-                case CardRarity.Uncommon: return new Color(0.36f, 0.64f, 0.62f);
-                case CardRarity.Rare: return new Color(0.66f, 0.51f, 0.8f);
-                case CardRarity.Legendary: return Gold;
-                default: return new Color(0.55f, 0.57f, 0.66f);
+                case CardRarity.Uncommon: return new Color(0.30f, 0.79f, 0.70f);
+                case CardRarity.Rare: return new Color(0.73f, 0.51f, 0.96f);
+                case CardRarity.Legendary: return new Color(0.98f,0.76f,0.29f);
+                default: return new Color(0.69f, 0.73f, 0.79f);
             }
         }
     }

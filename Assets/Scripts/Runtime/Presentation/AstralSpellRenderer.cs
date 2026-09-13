@@ -54,6 +54,21 @@ namespace Graphaclysm.Runtime.Presentation
             GL.End(); GL.PopMatrix();
         }
 
+        public void DrawGhost(EquationState equation, Rect rect, Color color)
+        {
+            if (Event.current.type != EventType.Repaint || equation == null || !equation.HasBase || !ink.SetPass(0)) return;
+            GL.PushMatrix(); GL.LoadPixelMatrix(0, Screen.width, Screen.height, 0); GL.MultMatrix(GUI.matrix);
+            GL.Begin(GL.QUADS);
+            for (int i = 0; i < equation.CurveSegmentCount; i++)
+            {
+                equation.Sample(i / (double)equation.CurveSegmentCount, out double x0, out double y0);
+                equation.Sample((i + 1) / (double)equation.CurveSegmentCount, out double x1, out double y1);
+                if (GraphSegmentClipper.ClipToField(ref x0, ref y0, ref x1, ref y1))
+                    Emit(ToScreen(rect, x0, y0), ToScreen(rect, x1, y1), 2, color);
+            }
+            GL.End(); GL.PopMatrix();
+        }
+
         private static Vector2 ToScreen(Rect r, double x, double y)
             => new Vector2(r.x + (float)x * r.width / 10, r.yMax - ((float)y + 4) * r.height / 8);
 

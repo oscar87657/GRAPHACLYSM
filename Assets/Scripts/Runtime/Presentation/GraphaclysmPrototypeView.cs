@@ -795,7 +795,7 @@ namespace Graphaclysm.Runtime.Presentation
             Matrix4x4 oldMatrix = GUI.matrix;
             GUIUtility.RotateAroundPivot(angle, drawRect.center);
 
-            Color rarityColor = GetRarityColor(card.Rarity);
+            Color rarityColor = GetRarityColor(card.DiagramRarity);
             DrawRect(new Rect(drawRect.x - 3f, drawRect.y - 3f, drawRect.width + 6f, drawRect.height + 6f), rarityColor);
             Color baseColor = new Color(0.22f, 0.28f, 0.43f);
 
@@ -1193,7 +1193,7 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 CardDefinition card = deck.GetHandCard(i);
                 string prefix = GetCardRole(card.Type);
-                cardLabels[i] = GetRarityLabel(card.Rarity) + " · " + prefix
+                cardLabels[i] = prefix
                     + " · " + card.Cost + " EN\n\n"
                     + card.DisplayName + "\n" + card.FormulaLabel + "\n\n" + CompactDescription(card);
             }
@@ -1213,7 +1213,7 @@ namespace Graphaclysm.Runtime.Presentation
                 {
                     CardDefinition reward = run.RewardOptions[i];
                     string prefix = GetCardRole(reward.Type);
-                    rewardLabels[i] = GetRarityLabel(reward.Rarity) + " · " + prefix
+                    rewardLabels[i] = prefix
                         + " · " + reward.Cost + " EN\n\n"
                         + reward.DisplayName + "\n" + reward.FormulaLabel + "\n\n"
                         + reward.Description + "\n적: " + reward.EnemyEffect + "\n자신: " + reward.PlayerEffect;
@@ -1712,7 +1712,7 @@ namespace Graphaclysm.Runtime.Presentation
                 CardDefinition reward = run.RewardOptions[i];
                 Rect cardRect = new Rect(firstX + i * (cardWidth + gap), cardY, cardWidth, cardHeight);
                 bool hovered = cardRect.Contains(Event.current.mousePosition);
-                DrawRect(new Rect(cardRect.x - 3, cardRect.y - 3, cardRect.width + 6, cardRect.height + 6), GetRarityColor(reward.Rarity));
+                DrawRect(new Rect(cardRect.x - 3, cardRect.y - 3, cardRect.width + 6, cardRect.height + 6), GetRarityColor(reward.DiagramRarity));
 
                 if (hovered)
                 {
@@ -1727,7 +1727,7 @@ namespace Graphaclysm.Runtime.Presentation
                     : new Color(0.48f, 0.28f, 0.68f);
                 GUI.backgroundColor = Color.Lerp(
                     GUI.backgroundColor,
-                    GetRarityColor(reward.Rarity),
+                    GetRarityColor(reward.DiagramRarity),
                     0.32f);
 
                 if (GUI.Button(cardRect, rewardLabels[i], cardStyle))

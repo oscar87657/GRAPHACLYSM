@@ -38,16 +38,45 @@ namespace Graphaclysm.Core.Cards
             CardDefinition.CreateWeaveFragment("frag.shatter","파쇄의 정리",FragmentKind.ComplexCube,CardRarity.Rare,"균열을 세제곱해 깊게 새기기",0,Enemy(CardAbilityKind.Rupture,5,2)),
             CardDefinition.CreateWeaveFragment("frag.requiem","붉은 만가",FragmentKind.Epitrochoid,CardRarity.Rare,"불타는 바깥 회전을 되감기",0,Enemy(CardAbilityKind.Burn,4,3),Enemy(CardAbilityKind.Rupture,2,2)),
             CardDefinition.CreateWeaveFragment("frag.refraction","굴절 보법",FragmentKind.ShardFracture,CardRarity.Uncommon,"궤적을 여섯 조각처럼 벌려 꺾기",0,Enemy(CardAbilityKind.Exposure,2,2),Self(CardAbilityKind.Momentum,3,2)),
-            CardDefinition.CreateWeaveFragment("frag.sanctuary","성운의 품",FragmentKind.NebulaRibbon,CardRarity.Rare,"가로 다섯 번·세로 두 번으로 성운 리본 짜기",0,Self(CardAbilityKind.Fortify,6,2),Self(CardAbilityKind.Heal,4))
+            CardDefinition.CreateWeaveFragment("frag.sanctuary","성운의 품",FragmentKind.NebulaRibbon,CardRarity.Rare,"가로 다섯 번·세로 두 번으로 성운 리본 짜기",0,Self(CardAbilityKind.Fortify,6,2),Self(CardAbilityKind.Heal,4)),
+            CardDefinition.CreateWeaveFragment("frag.snare","붙잡는 초승",FragmentKind.Limacon,CardRarity.Common,"편월로 적을 위험 지대에 묶기",0,Enemy(CardAbilityKind.Anchor,1,2),Enemy(CardAbilityKind.Weaken,1,2)),
+            CardDefinition.CreateWeaveFragment("frag.needle","균열 바늘",FragmentKind.Shear,CardRarity.Common,"기울인 선에 다음 타격 예약",0,Enemy(CardAbilityKind.Rupture,3,2),Self(CardAbilityKind.Momentum,2,2)),
+            CardDefinition.CreateWeaveFragment("frag.harbor","달의 정박지",FragmentKind.Ellipse,CardRarity.Common,"넓은 황혼에 방어를 준비",0,Self(CardAbilityKind.Fortify,3,2),Enemy(CardAbilityKind.Weaken,1,2)),
+            CardDefinition.CreateWeaveFragment("frag.purge","재를 걷는 바람",FragmentKind.ShardFracture,CardRarity.Uncommon,"파쇄 궤적으로 강화와 잔불을 정리",0,Enemy(CardAbilityKind.Cleanse,1),Self(CardAbilityKind.Cleanse,1))
         };
-        public static IReadOnlyList<CardDefinition> All => cards;
+        public static IReadOnlyList<CardDefinition> Legacy => cards;
+        private static readonly CardDefinition[] expanded = ExpandCatalog();
+        public static IReadOnlyList<CardDefinition> Version27 => expanded;
+        private static readonly CardDefinition[] archive = WeaveArchive.Build(expanded);
+        public static IReadOnlyList<CardDefinition> Version28 => archive;
+        private static readonly CardDefinition[] balanced = CardMarketBalance.Build(archive);
+        public static IReadOnlyList<CardDefinition> Version29 => balanced;
+        private static readonly CardDefinition[] statusCards = StatusCardRules.Build(balanced);
+        public static IReadOnlyList<CardDefinition> All => statusCards;
+        private static CardDefinition[] ExpandCatalog()
+        {
+            var additions = new[] {
+                CardDefinition.CreateWeaveFragment("frag.spire","솟는 첨탑",FragmentKind.VerticalWeave,CardRarity.Common,"가로를 좁히고 세로를 1.4배",0,Enemy(CardAbilityKind.Rupture,2),Self(CardAbilityKind.Shield,4)),
+                CardDefinition.CreateWeaveFragment("frag.quarter","직각의 춤",FragmentKind.QuarterTurn,CardRarity.Common,"기준점 둘레로 도안 전체를 90° 회전",1,Enemy(CardAbilityKind.Weaken,1)),
+                CardDefinition.CreateWeaveFragment("frag.diagonal","오르는 사선",FragmentKind.DiagonalWeave,CardRarity.Uncommon,"오른쪽일수록 위로 기울이기",0,Enemy(CardAbilityKind.Exposure,2),Self(CardAbilityKind.Momentum,2,2)),
+                CardDefinition.CreateWeaveFragment("frag.east","동쪽의 문",FragmentKind.EastAnchor,CardRarity.Common,"도안 그대로 기준점만 오른쪽 2",0,Enemy(CardAbilityKind.Anchor,1,1)),
+                CardDefinition.CreateWeaveFragment("frag.south","별의 하강",FragmentKind.SouthAnchor,CardRarity.Common,"도안 그대로 기준점만 아래 1.5",0,Self(CardAbilityKind.Fortify,4,2)),
+                CardDefinition.CreateWeaveFragment("frag.double_loop","두 개의 고리",FragmentKind.DoubleLoop,CardRarity.Rare,"가로는 유지하고 세로 궤적만 두 번 반복",0,Enemy(CardAbilityKind.Burn,3),Self(CardAbilityKind.Cleanse,1))
+            };
+            var result = new CardDefinition[cards.Length + additions.Length];
+            Array.Copy(cards,result,cards.Length); Array.Copy(additions,0,result,cards.Length,additions.Length);
+            return result;
+        }
         // Utility fragments do not earn free damage simply for occupying a socket.
         public static int Power(FragmentKind kind)
         {
+            if(AdvancedWeaves.IsAdvanced(kind)) return AdvancedWeaves.Get(kind).Tier>=3?3:2;
             switch(kind)
             {
                 case FragmentKind.HomeAnchor: case FragmentKind.WestAnchor: case FragmentKind.NorthAnchor:
-                case FragmentKind.Contract: case FragmentKind.TranslateRight: case FragmentKind.Mirror: case FragmentKind.PhaseOffset: return 0;
+                case FragmentKind.Contract: case FragmentKind.TranslateRight: case FragmentKind.Mirror: case FragmentKind.PhaseOffset:
+                case FragmentKind.QuarterTurn: case FragmentKind.EastAnchor: case FragmentKind.SouthAnchor: return 0;
+                case FragmentKind.DoubleLoop: return 2;
                 case FragmentKind.Surge: case FragmentKind.ComplexCube: return 3;
                 case FragmentKind.CometBurst: case FragmentKind.KaleidoscopeFold: case FragmentKind.ShardFracture: return 2;
                 case FragmentKind.NebulaRibbon: return 3;
@@ -55,6 +84,10 @@ namespace Graphaclysm.Core.Cards
                 default: return 1;
             }
         }
-        public static CardDefinition Find(string id) { for(int i=0;i<cards.Length;i++) if(cards[i].Id==id) return cards[i]; throw new ArgumentException("Unknown fragment.",nameof(id)); }
+        // Old starting decks/replays keep their exact definitions. New opt-in uses Current.
+        public static CardDefinition Find(string id) { for(int i=0;i<expanded.Length;i++) if(expanded[i].Id==id) return expanded[i]; return Previous(id); }
+        public static CardDefinition Previous(string id) { foreach(var card in archive) if(card.Id==id) return card; throw new ArgumentException("Unknown fragment.",nameof(id)); }
+        public static CardDefinition MarketCard(string id) { foreach(var card in balanced) if(card.Id==id) return card; throw new ArgumentException("Unknown fragment.",nameof(id)); }
+        public static CardDefinition Current(string id) { foreach(var card in statusCards) if(card.Id==id) return card; throw new ArgumentException("Unknown fragment.",nameof(id)); }
     }
 }

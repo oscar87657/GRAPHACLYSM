@@ -74,8 +74,7 @@ namespace Graphaclysm.Tests.Runs
                 for(int i=0;i<map.NodeCount;i++)
                 {
                     var n=map.GetNode(i); Assert.That(reachable[i],Is.True);
-                    if(n.Layer%8==2) Assert.That(n.Kind==RunNodeKind.Event||n.Kind==RunNodeKind.Rest,Is.True);
-                    if(n.Layer%8==4) Assert.That(n.Kind,Is.EqualTo(RunNodeKind.Treasure));
+                    if(n.Layer%8==2 || n.Layer%8==4) Assert.That(n.Battle,Is.Null,"Every route retains noncombat breaks");
                     if(n.Layer%8==7) Assert.That(n.Kind,Is.EqualTo(RunNodeKind.Boss));
                     if(n.Layer==23) Assert.That(n.NextNodeCount,Is.Zero);
                     else Assert.That(n.NextNodeCount,Is.GreaterThan(0));

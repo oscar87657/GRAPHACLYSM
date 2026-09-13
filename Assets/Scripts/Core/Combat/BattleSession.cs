@@ -48,7 +48,7 @@ namespace Graphaclysm.Core.Combat
     /// <summary>
     /// Authoritative battle state machine. It contains no Unity lifecycle or presentation code.
     /// </summary>
-    public sealed class BattleSession
+    public sealed partial class BattleSession
     {
         public const double EnemyHitRadius = 0.48;
         public const double MaximumTraceLength = 64;
@@ -69,38 +69,49 @@ namespace Graphaclysm.Core.Combat
         public int CondenseCount { get; private set; }
         public int SealedCardCount { get; private set; }
         public int CondenseHealthCost => (CondenseCount + 1) * 2;
-        public bool CanCondense => UsesFragments && Phase == BattlePhase.PlayerPlanning && CondenseCount < 2 && PlayerHealth > CondenseHealthCost;
+        public bool CanCondense => !InExtraAssembly && UsesFragments && Phase == BattlePhase.PlayerPlanning && CondenseCount < 2 && PlayerHealth > CondenseHealthCost;
         public int PendingDrawBonus { get { int n = 0; for(int i=SealedCardCount;i<playedCardCount;i++) n += playedCards[i].DrawBonus; return n; } }
-        public int WeaveDamageBonus { get { if(!UsesFragments) return 0; int n=0; for(int i=0;i<playedCardCount;i++) n+=FragmentCardCatalog.Power(playedCards[i].Fragment); return Math.Min(10,n); } }
+        public int WeaveDamageBonus { get { if(!UsesFragments) return 0; int n=0; for(int i=0;i<playedCardCount;i++) n+=playedCards[i].WeavePower; return Math.Min(10,n); } }
         public bool TryCondense()
         {
             if (!CanCondense) return false;
+            RecordCondensedDiagram();
             PlayerHealth -= CondenseHealthCost;
             if (condenseShield > 0) Tactics?.Statuses.Add(CombatStatusKind.Shield, condenseShield, 1);
             preserveFragments = true; CondenseCount++; SealedCardCount = playedCardCount;
             Phase = BattlePhase.EnemyTurn; return true;
         }
         public bool TryUnravel()
-        { if (!UsesFragments || Phase != BattlePhase.PlayerPlanning) return false; preserveFragments = false; CondenseCount = 0; ResetEquationHistory(); Phase = BattlePhase.EnemyTurn; return true; }
+        {
+            if (!UsesFragments || Phase != BattlePhase.PlayerPlanning) return false;
+            if (playedCardCount>0 && unravelShield>0) Tactics?.Statuses.Add(CombatStatusKind.Shield,unravelShield,1);
+            preserveFragments = false; CondenseCount = 0; ResetEquationHistory(); Phase = BattlePhase.EnemyTurn; return true;
+        }
         private int movementEnergySpent;
         private readonly int startingResonance;
         private readonly int startShield, selfShield, firstPlotDamage, shortWeaveDamage, longWeaveDamage, movedPlotShield;
         private readonly int condenseShield, startThorns, prismDamage, moveMomentum, longWeaveRupture, startFortify;
+        private readonly int soloAnchor, sharedResonance, condenseRupture, unravelShield;
+        private bool plotWasCondensed;
         private readonly BattleSkillLoadout skillLoadout;
         private int resolvedPlots;
         public int CombatSkillCooldown { get; private set; }
+        public int IncomingEventSerial { get; private set; }
+        public int LastPlayerHealthDamage { get; private set; }
+        public int LastPlayerShieldDamage { get; private set; }
         public double LastSkillOriginX { get; private set; }
         public double LastSkillOriginY { get; private set; }
         public double LastSkillEndX { get; private set; }
         public double LastSkillEndY { get; private set; }
         public int LastSkillHitCount { get; private set; }
         public int LastSkillDamage { get; private set; }
+        public int LastSkillShieldDamage { get; private set; }
         public bool LastSkillWide { get; private set; }
         public int LastSkillLaneCount { get; private set; }
         public int LastSkillStyle { get; private set; }
         public bool LastSkillCooldownReset { get; private set; }
         public bool CanUseCombatSkill => Phase == BattlePhase.PlayerPlanning && Tactics != null
-            && CombatSkillCooldown == 0 && HasLivingEnemy();
+            && !UsesDiagramAbility && Approach != CombatApproach.Observation && CombatSkillCooldown == 0 && HasLivingEnemy();
 
         public BattleSession(BattleDefinition definition)
             : this(definition, definition == null ? 0 : definition.PlayerMaxHealth, 0, 0)
@@ -132,8 +143,11 @@ namespace Graphaclysm.Core.Combat
             }
 
             playerMaxEnergy = definition.PlayerMaxEnergy + energyBonus;
+            archiveRelics=relics;
             this.plotDamageBonus = plotDamageBonus;
-            this.skillLoadout = skillLoadout;
+            this.skillLoadout = definition.Approach == CombatApproach.Execution
+                ? new BattleSkillLoadout(2, skillLoadout.ModuleVariant, skillLoadout.UltimateVariant, skillLoadout.TraitMask,
+                    growth: skillLoadout.Growth) : skillLoadout;
             this.startingResonance = Math.Min(6, startingResonance + (relics?.GetTotalMagnitude(RelicEffectKind.StartResonance) ?? 0));
             startShield = (relics?.GetTotalMagnitude(RelicEffectKind.StartShield) ?? 0) + Math.Max(0, startingShieldBonus);
             selfShield = relics?.GetTotalMagnitude(RelicEffectKind.SelfShield) ?? 0;
@@ -147,6 +161,10 @@ namespace Graphaclysm.Core.Combat
             moveMomentum = relics?.GetTotalMagnitude(RelicEffectKind.MoveMomentum) ?? 0;
             longWeaveRupture = relics?.GetTotalMagnitude(RelicEffectKind.LongWeaveRupture) ?? 0;
             startFortify = relics?.GetTotalMagnitude(RelicEffectKind.StartFortify) ?? 0;
+            soloAnchor = relics?.GetTotalMagnitude(RelicEffectKind.SoloAnchor) ?? 0;
+            sharedResonance = relics?.GetTotalMagnitude(RelicEffectKind.SharedResonance) ?? 0;
+            condenseRupture = relics?.GetTotalMagnitude(RelicEffectKind.CondenseRupture) ?? 0;
+            unravelShield = relics?.GetTotalMagnitude(RelicEffectKind.UnravelShield) ?? 0;
             if (definition.Archetype != CombatArchetype.None)
                 Tactics = new TacticalCombatState(definition.Archetype,
                     this.startingResonance,
@@ -165,7 +183,7 @@ namespace Graphaclysm.Core.Combat
 
         public EquationState Equation { get; }
         public TacticalCombatState Tactics { get; }
-        public bool PreviewPlayerHit => Tactics != null && Tactics.IsHit(Equation);
+        public bool PreviewPlayerHit => BodyPlotHit || SatellitePlotHit;
         public int TerrainCount => definition.TerrainCount;
         public bool PrismCharged
         {
@@ -175,7 +193,7 @@ namespace Graphaclysm.Core.Combat
                 for (int i = 0; i < definition.TerrainCount; i++)
                 {
                     BattleTerrainDefinition item = definition.GetTerrain(i);
-                    if (item.Kind == BattleTerrainKind.Prism
+                    if (item.Kind == BattleTerrainKind.Prism && !PositionSealed(item.X, item.Y, 0, true)
                         && EquationAnalyzer.IntersectsCircle(Equation, item.X, item.Y, item.Radius, Equation.CurveSegmentCount))
                         return true;
                 }
@@ -233,9 +251,16 @@ namespace Graphaclysm.Core.Combat
 
             PlayerHealth = startingHealth;
             Energy = playerMaxEnergy;
-            Turn = 1; resolvedPlots = 0; CondenseCount = 0; preserveFragments = false; CombatSkillCooldown = 0;
-            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillWide = false; LastSkillLaneCount = 1;
+            Turn = 1; resolvedPlots = 0; CondenseCount = 0; preserveFragments = false; CombatSkillCooldown = 0; plotWasCondensed=false;
+            ResetApproach();
+            ResetApproachUltimateState();
+            terrainSpent = new bool[TerrainCount];
+            threatPlotDamage = new int[enemies.Length];
+            terrainSilencedTurn = new int[TerrainCount];
+            LastSkillHitCount = 0; LastSkillDamage = 0; LastSkillShieldDamage = 0;
+            LastSkillWide = false; LastSkillLaneCount = 1;
             LastSkillStyle = 0; LastSkillCooldownReset = false;
+            IncomingEventSerial = 0; LastPlayerHealthDamage = 0; LastPlayerShieldDamage = 0;
             movementEnergySpent = 0;
             Tactics?.Reset(startingResonance);
             if(startShield>0) Tactics?.Statuses.Add(CombatStatusKind.Shield,startShield,1);
@@ -260,7 +285,13 @@ namespace Graphaclysm.Core.Combat
         public bool TryPlayCard(CardDefinition card, out CardPlayFailure failure)
         {
             if (!CanPlayCard(card, out failure)) return false;
-            if (card.IsFragment) Equation.TryAppendFragment(card.Fragment, Tactics?.X ?? 5, Tactics?.Y ?? 0);
+            if (card.IsFragment)
+            {
+                bool remote = !Equation.HasBase && HasSatellite && SatelliteOriginSelected
+                    && card.Fragment != Graphaclysm.Core.Equations.FragmentKind.HomeAnchor;
+                Equation.TryAppendFragment(card.Fragment, remote ? SatelliteX : Tactics?.X ?? 5,
+                    remote ? SatelliteY : Tactics?.Y ?? 0);
+            }
             else if (card.IsBaseFunction) Equation.SetBase(card.BaseFunction);
             else if (!card.IsInscription) Equation.TryAddModifier(card.Modifier);
             Energy -= card.Cost;
@@ -351,7 +382,7 @@ namespace Graphaclysm.Core.Combat
 
         public bool TryUndoLastCard(out CardDefinition card)
         {
-            if (Phase != BattlePhase.PlayerPlanning || playedCardCount == 0 || (UsesFragments && playedCardCount <= SealedCardCount))
+            if (Phase != BattlePhase.PlayerPlanning || playedCardCount == 0 || playedCardCount <= arrangementLockCount || (UsesFragments && playedCardCount <= SealedCardCount))
             {
                 card = null;
                 return false;
@@ -395,10 +426,10 @@ namespace Graphaclysm.Core.Combat
             double dx = requestedX - Tactics.X, dy = requestedY - Tactics.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
             if (distance < .1) return false;
-            if (distance > TacticalCombatState.MoveDistance)
+            if (distance > Tactics.CurrentMoveDistance)
             {
-                double scale = TacticalCombatState.MoveDistance / distance;
-                dx *= scale; dy *= scale; distance = TacticalCombatState.MoveDistance;
+                double scale = Tactics.CurrentMoveDistance / distance;
+                dx *= scale; dy *= scale; distance = Tactics.CurrentMoveDistance;
             }
             double candidateX = Math.Max(TacticalCombatState.PlayerRadius,
                 Math.Min(10 - TacticalCombatState.PlayerRadius, Tactics.X + dx));
@@ -454,68 +485,49 @@ namespace Graphaclysm.Core.Combat
         public bool TrySelectFormulaAxis(int axis) => Phase == BattlePhase.PlayerPlanning && Equation.TrySelectAxis(axis);
 
         public bool TryToggleUltimate()
-            => Phase == BattlePhase.PlayerPlanning && Tactics != null && Tactics.ToggleUltimate();
+            => !InExtraAssembly && Phase == BattlePhase.PlayerPlanning && Tactics != null && Tactics.ToggleUltimate();
 
         public bool TryUseCombatSkill(int targetIndex = -1)
         {
-            if (!CanUseCombatSkill) return false;
-            if (targetIndex < 0 || targetIndex >= enemies.Length || !enemies[targetIndex].IsAlive)
-                targetIndex = NearestLivingEnemy();
-            if (targetIndex < 0) return false;
+            return CommitCombatSkill(PreviewCombatSkill(targetIndex));
+        }
 
-            LastSkillOriginX = Tactics.X; LastSkillOriginY = Tactics.Y;
-            EnemyState target = enemies[targetIndex];
-            double dx = target.X - Tactics.X, dy = target.Y - Tactics.Y;
-            double distance = Math.Sqrt(dx * dx + dy * dy);
-            if (distance < .001) return false;
-            dx /= distance; dy /= distance;
-
+        private bool CommitCombatSkill(CombatSkillPreview preview)
+        {
+            if (!preview.CanUse) return false;
+            LastSkillOriginX = preview.OriginX; LastSkillOriginY = preview.OriginY;
+            double endX = preview.EndX, endY = preview.EndY;
             int variant = skillLoadout.ActiveVariant;
             bool ian = Tactics.Archetype == CombatArchetype.Ian;
-            double travel = Math.Min(2.8, Math.Max(.35,
-                distance - TacticalCombatState.PlayerRadius - EnemyHitRadius - .04));
-            double desiredX = Tactics.X + dx * travel, desiredY = Tactics.Y + dy * travel;
-            if (ian && variant == 3)
-            { desiredX = target.X + dx * 1.08; desiredY = target.Y + dy * 1.08; }
-            else if (!ian && variant != 2)
-            { desiredX = target.X - dx * 1.08; desiredY = target.Y - dy * 1.08; }
-            FindSkillLanding(desiredX, desiredY, out double endX, out double endY);
-
-            LastSkillStyle = ian ? (variant == 1 ? 1 : variant == 3 ? 2 : 0)
-                : (variant == 2 ? 3 : variant == 3 ? 4 : 2);
-            LastSkillLaneCount = ian && variant == 1 ? (skillLoadout.HasTrait(3) ? 5 : 3) : 1;
+            LastSkillStyle = preview.Style; LastSkillLaneCount = preview.LaneCount;
             LastSkillWide = LastSkillStyle == 1 || LastSkillStyle == 2;
-            double width = LastSkillStyle == 1 ? (LastSkillLaneCount == 5 ? 1.65 : 1.15) : .5;
-            double burstRadius = ian ? (variant == 3 ? (skillLoadout.HasTrait(7) ? 1.85 : 1.15) : 0)
-                : (variant == 1 ? (skillLoadout.HasTrait(3) ? 2.2 : 1.7) : variant == 0 ? 1.15 : 0);
-            double chainRadius = !ian && variant == 3 ? (skillLoadout.HasTrait(7) ? 3.6 : 2.4) : 0;
-            int damage = ian
-                ? (variant == 1 ? (LastSkillLaneCount == 5 ? 5 : 6) : variant == 2 ? 10 : variant == 3 ? 7 : 7)
-                : (variant == 1 ? 5 : variant == 2 ? 9 : variant == 3 ? 5 : 6);
-            int hitCount = 0, dealt = 0; bool killed = false;
+            int damage = preview.Damage;
+            int hitCount = 0, dealt = 0, shieldDamage = 0; bool killed = false;
             for (int i = 0; i < enemies.Length; i++)
             {
                 EnemyState enemy = enemies[i];
                 if (!enemy.IsAlive) continue;
-                bool hit = i == targetIndex;
-                if (!hit && burstRadius > 0)
-                { double ex = enemy.X - target.X, ey = enemy.Y - target.Y; hit = ex * ex + ey * ey <= (burstRadius + EnemyHitRadius) * (burstRadius + EnemyHitRadius); }
-                else if (!hit && chainRadius > 0)
-                { double ex = enemy.X - target.X, ey = enemy.Y - target.Y; hit = ex * ex + ey * ey <= chainRadius * chainRadius; }
-                else if (!hit && burstRadius <= 0 && chainRadius <= 0)
-                    hit = DistanceToSegment(enemy.X, enemy.Y, LastSkillOriginX, LastSkillOriginY, endX, endY) <= width + EnemyHitRadius;
-                if (!hit) continue;
+                if (!PreviewCombatSkillContact(preview, i).Hit) continue;
                 int before = enemy.Health;
-                enemy.TakeDamage(damage);
+                int shieldBefore = enemy.Statuses.Get(CombatStatusKind.Shield);
+                int consumedRupture = ExecutionRupture(enemy);
+                enemy.TakeDamage(damage + consumedRupture);
+                if (consumedRupture > 0) enemy.Statuses.Remove(CombatStatusKind.Rupture);
+                if (Approach == CombatApproach.Execution && enemy.IsAlive && consumedRupture == 0)
+                    enemy.Statuses.Add(CombatStatusKind.Rupture, 6+(HasRule(Graphaclysm.Core.Runs.ApproachRule.DashMark)?3:0), 2);
                 dealt += before - enemy.Health; hitCount++;
+                shieldDamage += shieldBefore - enemy.Statuses.Get(CombatStatusKind.Shield);
                 if (enemy.Health == 0) killed = true;
                 if (ian && variant == 2 && skillLoadout.HasTrait(6))
                     enemy.Statuses.Add(CombatStatusKind.Rupture, 3, 2);
                 if (!ian && variant == 2 && skillLoadout.HasTrait(5))
                     enemy.Statuses.Add(CombatStatusKind.Exposure, 3, 2);
             }
-            LastSkillEndX = endX; LastSkillEndY = endY; LastSkillHitCount = hitCount; LastSkillDamage = dealt;
-            if (ian || variant != 2) Tactics.SkillDashTo(endX, endY);
+            LastSkillEndX = endX; LastSkillEndY = endY; LastSkillHitCount = hitCount;
+            LastSkillDamage = dealt; LastSkillShieldDamage = shieldDamage;
+            SpecializationDash(hitCount>0,killed);
+            if (ian && preview.ReturnsToOrigin) Tactics.SkillDashTo(preview.OriginX,preview.OriginY);
+            else if (ian || variant != 2) Tactics.SkillDashTo(endX, endY);
             if (ian)
             {
                 if (variant == 1 && skillLoadout.HasTrait(4))
@@ -546,6 +558,7 @@ namespace Graphaclysm.Core.Combat
                 return false;
             }
 
+            plotWasCondensed = CondenseCount>0;
             preserveFragments = false; CondenseCount = 0;
             Phase = BattlePhase.Plotting;
             return true;
@@ -560,12 +573,23 @@ namespace Graphaclysm.Core.Combat
 
             int hitCount = 0;
             int totalDamage = 0;
+            LastCannonCut = PreviewCannonCut(Equation);
+            if (LastCannonCut) CannonDisconnected = true;
             bool playerHit = PreviewPlayerHit;
+            SnapshotRelicTriggers();
+            SnapshotApproachUltimate();
+            SnapshotSpecialization();
+            SnapshotStyleTree();
             int healing = 0;
             int shieldBefore = Tactics == null ? 0 : Tactics.Statuses.Get(CombatStatusKind.Shield);
-            bool resetSkillFromUltimate = Tactics != null && Tactics.UltimateArmed
+            bool resetSkillFromUltimate = !HasApproachUltimates && Tactics != null && Tactics.UltimateArmed
                 && Tactics.Archetype == CombatArchetype.Luna && Tactics.UltimateVariant == 3
                 && skillLoadout.HasTrait(16);
+
+            ResolveThreatBreaks();
+
+            int primaryHits=0;
+            for(int i=0;i<enemies.Length;i++) if(enemies[i].IsAlive && threatPlotDamage[i]>0) primaryHits++;
 
             for (int i = 0; i < enemies.Length; i++)
             {
@@ -575,14 +599,14 @@ namespace Graphaclysm.Core.Combat
                     continue;
                 }
 
-                int damage = PreviewDamage(enemy);
+                int damage = threatPlotDamage[i];
 
                 if (damage <= 0)
                 {
                     continue;
                 }
 
-                enemy.TakeDamage(damage);
+                enemy.TakePlotDamage(damage, Tactics == null ? 0 : Tactics.Statuses.Get(CombatStatusKind.Pierce));
                 enemy.Statuses.Remove(CombatStatusKind.Rupture);
                 for (int cardIndex = 0; cardIndex < playedCardCount; cardIndex++)
                 {
@@ -590,7 +614,7 @@ namespace Graphaclysm.Core.Combat
                         TacticalCombatState.ApplyEnemyInscription(enemy, playedCards[cardIndex].Inscription);
                     ApplyBundledAbilities(playedCards[cardIndex], AbilityTarget.Enemy, enemy.Statuses);
                 }
-                if (Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian)
+                if (!HasApproachUltimates && Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian)
                 {
                     if (Tactics.UltimateVariant == 1) enemy.Statuses.Add(CombatStatusKind.Rupture, 3, 2);
                     else if (Tactics.UltimateVariant == 2)
@@ -603,7 +627,7 @@ namespace Graphaclysm.Core.Combat
                     }
                     else enemy.Statuses.Add(CombatStatusKind.Anchor, 1, 1);
                 }
-                else if (Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Luna
+                else if (!HasApproachUltimates && Tactics != null && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Luna
                     && Tactics.UltimateVariant == 3)
                 {
                     enemy.Statuses.Add(CombatStatusKind.Anchor, 2, 1);
@@ -611,6 +635,8 @@ namespace Graphaclysm.Core.Combat
                 }
                 if (UsesFragments && playedCardCount >= 6 && longWeaveRupture > 0)
                     enemy.Statuses.Add(CombatStatusKind.Rupture, longWeaveRupture, 2);
+                if (soloAnchor>0 && primaryHits==1) enemy.Statuses.Add(CombatStatusKind.Anchor,soloAnchor,1);
+                if (condenseRupture>0 && plotWasCondensed) enemy.Statuses.Add(CombatStatusKind.Rupture,condenseRupture,2);
                 hitCount++;
                 totalDamage += damage;
             }
@@ -619,6 +645,7 @@ namespace Graphaclysm.Core.Combat
             {
                 Tactics.Statuses.Remove(CombatStatusKind.Focus);
                 Tactics.Statuses.Remove(CombatStatusKind.Momentum);
+                Tactics.Statuses.Remove(CombatStatusKind.Pierce);
                 if (playerHit)
                 {
                     healing = Tactics.BeginSelfHit();
@@ -632,7 +659,7 @@ namespace Graphaclysm.Core.Combat
                     healing = Math.Min(healing, PlayerMaxHealth - PlayerHealth);
                     PlayerHealth += healing;
                 }
-                if (playerHit && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian
+                if (!HasApproachUltimates && playerHit && Tactics.UltimateArmed && Tactics.Archetype == CombatArchetype.Ian
                     && Tactics.UltimateVariant == 2)
                 {
                     int amount = skillLoadout.HasTrait(15) ? 8 : 4;
@@ -643,9 +670,17 @@ namespace Graphaclysm.Core.Combat
                 }
                 if(Tactics.HasMoved && movedPlotShield>0) Tactics.Statuses.Add(CombatStatusKind.Shield,movedPlotShield,1);
                 Tactics.CompletePlot(playerHit, hitCount);
+                if (playerHit && hitCount>0 && sharedResonance>0) Tactics.GainResonance(sharedResonance);
                 if (resetSkillFromUltimate) CombatSkillCooldown = 0;
             }
 
+            totalDamage += ResolvePlotDevices();
+            totalDamage += ResolveRecording();
+            totalDamage += ResolveApproachUltimate();
+            ResolveArchiveRelics();
+            totalDamage += ResolveCardPulls();
+            ResolveSpecialization();
+            totalDamage += ResolveStyleTree();
             resolvedPlots++;
             Phase = AreAllEnemiesDefeated() ? BattlePhase.Victory : BattlePhase.EnemyTurn;
             return new PlotReport(hitCount, totalDamage, playerHit, healing,
@@ -659,14 +694,20 @@ namespace Graphaclysm.Core.Combat
                 throw new InvalidOperationException("Enemy turn resolution is only valid during the EnemyTurn phase.");
             }
 
+            if(ExtraAssemblyPending) { BeginExtraAssembly(); return 0; }
+            if(InExtraAssembly&&HasRule(Graphaclysm.Core.Runs.ApproachRule.ExtraEcho))styleReplayPending=false;
+            InExtraAssembly=false;
+            ApplySanctuary();
             int incomingDamage = 0;
+            IncomingEventSerial++; LastPlayerHealthDamage = 0; LastPlayerShieldDamage = 0;
             if (Tactics != null && Tactics.Statuses.Get(CombatStatusKind.Fortify) > 0)
                 Tactics.Statuses.Add(CombatStatusKind.Shield, Tactics.Statuses.Get(CombatStatusKind.Fortify), 1);
+            incomingDamage += ResolvePulseTerrain();
             for (int i = 0; i < enemies.Length; i++)
                 if (enemies[i].IsAlive) enemies[i].TakeDamage(enemies[i].Statuses.Get(CombatStatusKind.Burn));
             if (Tactics != null)
             {
-                int burn = Tactics.Statuses.AbsorbDamage(Tactics.Statuses.Get(CombatStatusKind.Burn));
+                int burn = AbsorbPlayerDamage(Tactics.Statuses.Get(CombatStatusKind.Burn));
                 PlayerHealth = Math.Max(0, PlayerHealth - burn);
                 incomingDamage += burn;
             }
@@ -677,15 +718,23 @@ namespace Graphaclysm.Core.Combat
                 {
                     bool allowReposition = enemy.Intent.Kind != EnemyIntentKind.Reposition
                         || !TerrainBlocks(enemy.Intent.TargetX, enemy.Intent.TargetY, EnemyHitRadius);
+                    if (SealPending(enemy)) enemy.SealUntilTurn = Turn + 1;
+                    ResolveArchiveEnemySupport(enemy);
                     int damage = enemy.ResolveIntent(allowReposition);
+                    if (CannonDisconnected && enemy.Definition.Id == "signature.cannon") damage = 0;
                     if (Tactics != null)
                     {
                         if (!enemy.IsAimingAt(Tactics.X, Tactics.Y, TacticalCombatState.PlayerRadius)) damage = 0;
-                        damage = Tactics.Statuses.AbsorbDamage(damage);
+                        damage = AbsorbPlayerDamage(damage);
                         if (damage > 0)
                         {
-                            if (enemy.Definition.Behavior.Kind == EnemyBehaviorKind.ChargeBurst)
+                            if(enemy.Definition.Behavior.Kind==EnemyBehaviorKind.ShieldLeech)
+                                enemy.Statuses.Add(CombatStatusKind.Shield,6,2);
+                            if (enemy.Definition.Behavior.Kind == EnemyBehaviorKind.ChargeBurst || enemy.Definition.Behavior.Kind==EnemyBehaviorKind.AshHunter)
                                 Tactics.Statuses.Add(CombatStatusKind.Burn, 2, 3);
+                            else if (HasStatusRules && enemy.IsLineGunner) Tactics.Statuses.Add(CombatStatusKind.FrailShield, 3, 2);
+                            else if (HasStatusRules && enemy.IsCrossGunner) Tactics.Statuses.Add(CombatStatusKind.FrailShield, 2, 3);
+                            else if (HasStatusRules && enemy.IsTwinMortar) Tactics.Statuses.Add(CombatStatusKind.Burn, 2, 3);
                             else Tactics.Statuses.Add(CombatStatusKind.Weaken, 1, 2);
                             int thorns = Tactics.Statuses.Get(CombatStatusKind.Thorns);
                             if (thorns > 0) enemy.TakeDamage(thorns);
@@ -744,10 +793,12 @@ namespace Graphaclysm.Core.Combat
                 enemy.Y,
                 EnemyHitRadius);
             if (damage <= 0) return 0;
-            return Math.Max(1, damage + plotDamageBonus + WeaveDamageBonus + (PrismCharged ? PrismDamageBonus + prismDamage : 0)
+            int output = Math.Max(1, damage + plotDamageBonus + WeaveDamageBonus + (PrismCharged ? PrismDamageBonus + prismDamage : 0)
                 + (resolvedPlots==0?firstPlotDamage:0) + (UsesFragments && playedCardCount<=3?shortWeaveDamage:0)
                 + (UsesFragments && playedCardCount>=6?longWeaveDamage:0) + (Tactics == null ? 0 : Tactics.AttackBonus)
-                + enemy.Statuses.Get(CombatStatusKind.Exposure) + enemy.Statuses.Get(CombatStatusKind.Rupture));
+                + enemy.Statuses.Get(CombatStatusKind.Exposure) + enemy.Statuses.Get(CombatStatusKind.Rupture) + SpecializationPlotPower
+                - PreviewGuardReduction(enemy));
+            return recordingArmed && !HasRule(Graphaclysm.Core.Runs.ApproachRule.RecordFull) ? Math.Max(1, output * 3 / 4) : output;
         }
 
         private void PrepareEnemyIntents()
@@ -758,14 +809,17 @@ namespace Graphaclysm.Core.Combat
                 if (Tactics != null)
                 {
                     enemies[i].AimAt(Tactics.X, Tactics.Y);
-                    if (enemies[i].IsAlive && enemies[i].Intent.Kind == EnemyIntentKind.Charge)
+                    if (enemies[i].IsAlive && enemies[i].Definition.Behavior.Kind == EnemyBehaviorKind.ChargeBurst
+                        && enemies[i].Intent.Kind == EnemyIntentKind.Charge)
                         enemies[i].Statuses.Add(CombatStatusKind.Shield, 12, 1);
                 }
             }
+            if (Tactics != null) PrepareThreats();
         }
 
         private bool TerrainBlocks(double x, double y, double radius)
         {
+            if (PositionSealed(x, y, radius)) return true;
             for (int i = 0; i < definition.TerrainCount; i++)
             {
                 BattleTerrainDefinition item = definition.GetTerrain(i);
@@ -781,12 +835,7 @@ namespace Graphaclysm.Core.Combat
             if (x < TacticalCombatState.PlayerRadius || x > 10 - TacticalCombatState.PlayerRadius
                 || y < -4 + TacticalCombatState.PlayerRadius || y > 4 - TacticalCombatState.PlayerRadius
                 || TerrainBlocks(x, y, TacticalCombatState.PlayerRadius)) return true;
-            for (int i = 0; i < enemies.Length; i++)
-            {
-                double dx = x - enemies[i].X, dy = y - enemies[i].Y;
-                double reach = TacticalCombatState.PlayerRadius + EnemyHitRadius;
-                if (enemies[i].IsAlive && dx * dx + dy * dy < reach * reach) return true;
-            }
+            // Enemy markers are targeting regions, not solid terrain. Contact/overlap is legal.
             return false;
         }
 
@@ -882,6 +931,7 @@ namespace Graphaclysm.Core.Combat
         private void ResetEquationHistory()
         {
             SealedCardCount = 0;
+            arrangementLockCount = 0; recordingArmed = false;
             for (int i = 0; i < playedCardCount; i++)
             {
                 playedCards[i] = null;

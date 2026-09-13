@@ -59,10 +59,12 @@ namespace Graphaclysm.Runtime.Presentation
             Label(new Rect(510, 971, 1120, 65), saveNotice, ui.Small);
             Fill(new Rect(127, 972, 351, 44), new Color(Paper.r, Paper.g, Paper.b, 0.86f));
             Label(new Rect(140, 978, 330, 32), "수식으로 엮는 카드 전투", ui.Small);
+            DrawApproachEntry();
         }
 
         private void DrawCharacters()
         {
+            if(squadSelectionOpen){DrawSquadSelection();return;}
             Vector2 left = new Vector2(610, 477), right = new Vector2(1310, 477);
             float pointerLeft = Vector2.Distance(Event.current.mousePosition, left);
             float pointerRight = Vector2.Distance(Event.current.mousePosition, right);
@@ -74,7 +76,7 @@ namespace Graphaclysm.Runtime.Presentation
             int preview = hoveredCharacter >= 0 ? hoveredCharacter : flow.SelectedCharacterIndex;
             bool ian = preview == 0;
             var previewCharacter = flow.GetCharacter(preview);
-            string previewStats = "체력 " + previewCharacter.MaxHealth + "     시작 손패 5 · 보존 한도 8";
+            string previewStats = "체력 " + previewCharacter.MaxHealth + "     시작 손패 6 · 보존 한도 8";
             Header("CHOOSE YOUR TRACE", "01 / TRAVELER");
             Label(new Rect(500, 118, 920, 54), "두 기록 사이에서 한 사람을 선택하세요", ui.PageTitle, true);
             DrawCharacterMedallion(0, left, ianMedallionClosed, ianMedallionOpen);
@@ -95,11 +97,21 @@ namespace Graphaclysm.Runtime.Presentation
             Border(new Rect(350, 770, 1220, 174), flow.SelectedCharacterIndex == preview ? Violet : Gold, 18);
             Label(new Rect(385, 789, 250, 48), ian ? "이안" : "루나", ui.PageTitle);
             Label(new Rect(650, 790, 450, 42), ian ? "흑유리의 기록자" : "천문 도구의 조율자", ui.Heading);
-            Label(new Rect(385, 842, 710, 67), ian ? "깨진 유리에도, 지나간 빛은 남아 있어." : "틀린 회전은 없어. 아직 맞물리지 않았을 뿐.", ui.Body);
+            Label(new Rect(385, 842, 710, 67), ian ? "깨진 유리에도, 지나간 빛은 남아 있어." : "어긋난 회전을, 새로운 궤적으로 잇는다.", ui.Body);
             Label(new Rect(1122, 790, 410, 43), previewStats, ui.Small);
             Label(new Rect(1122, 838, 410, 72), ian ? "흑유리 개방 · 피해 +6 / 이동 봉쇄" : "백야의 포옹 · 정화 / 보호막 / 회복", ui.Small);
             if (ui.Button(new Rect(143, 966, 220, 51), "돌아가기")) { flow.ReturnToMainMenu(); Refresh(); }
-            if (ui.Button(new Rect(785, 968, 350, 62), (flow.SelectedCharacterIndex == 0 ? "이안" : "루나") + "의 기록 시작", true)) { flow.TryStartRun(); Refresh(); }
+            if(ui.Button(new Rect(1420,968,360,62),ExpeditionSquads.Names[(int)selectedSquad]))squadSelectionOpen=true;
+            if (flow.SelectedCharacterIndex == 0)
+            {
+                if (ui.Button(new Rect(500, 968, 420, 62), "집행 이안으로 원정", true)) { flow.TryStartRun(CombatApproach.Execution); Refresh(); }
+                if (ui.Button(new Rect(950, 968, 420, 62), "기록 이안으로 원정")) { flow.TryStartRun(CombatApproach.Recording); Refresh(); }
+            }
+            else
+            {
+                if (ui.Button(new Rect(500, 968, 420, 62), "조율 루나로 원정", true)) { flow.TryStartRun(CombatApproach.Tuning); Refresh(); }
+                if (ui.Button(new Rect(950, 968, 420, 62), "관측 루나로 원정")) { flow.TryStartRun(CombatApproach.Observation); Refresh(); }
+            }
         }
 
         private Texture2D RelicTexture(RelicDefinition relic)
@@ -112,12 +124,54 @@ namespace Graphaclysm.Runtime.Presentation
 
         private void DrawRelicArt(Rect area, RelicDefinition relic)
         {
+            if (relic == null) return;
             Texture2D texture = RelicTexture(relic);
             if (texture != null) GUI.DrawTexture(area, texture, ScaleMode.ScaleToFit, true);
             else
             {
-                Diamond(area.center, Mathf.Min(area.width, area.height) * .38f, Gold);
-                Diamond(area.center, Mathf.Min(area.width, area.height) * .22f, Violet, 2);
+                DrawRelicEmblem(area,relic);
+            }
+        }
+
+        // Existing vector vocabulary; no duplicated bitmap assets or per-frame geometry arrays.
+        private static void DrawRelicEmblem(Rect area, RelicDefinition relic)
+        {
+            Vector2 p=area.center; float s=Mathf.Min(area.width,area.height)*.34f;
+            Ring(p,s,Gold,1.2f); Ring(p,s*.85f,new Color(Gold.r,Gold.g,Gold.b,.35f),1);
+            switch(relic.Effect)
+            {
+                case RelicEffectKind.Conditional:
+                    int points=3+(int)relic.Trigger%7;
+                    for(int i=0;i<points;i++)
+                    {
+                        float angle=(i+(int)relic.Reward*.08f)*Mathf.PI*2/points;
+                        Vector2 tip=p+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*s*.75f;
+                        Line(p,tip,Violet,2);Diamond(tip,s*.1f,Gold,1);
+                    }
+                    DrawStatusIcon(p,RelicArchive.RewardStatus(relic.Reward),(int)relic.Reward>=8?Threat:Violet);
+                    break;
+                case RelicEffectKind.SoloAnchor:
+                    Diamond(p+Vector2.up*s*.38f,s*.22f,Violet,3);
+                    Line(p+Vector2.up*s*.2f,p-Vector2.up*s*.65f,Violet,4);
+                    Line(p-Vector2.right*s*.45f,p+Vector2.right*s*.45f,Gold,3); break;
+                case RelicEffectKind.SharedResonance:
+                    Ring(p-Vector2.right*s*.3f,s*.4f,Violet,3);
+                    Ring(p+Vector2.right*s*.3f,s*.4f,Violet,3);
+                    Diamond(p,s*.18f,Gold,2); break;
+                case RelicEffectKind.CondenseRupture:
+                    Border(new Rect(p.x-s*.42f,p.y-s*.48f,s*.84f,s),Violet,9);
+                    Line(p-Vector2.up*s*.7f-Vector2.right*s*.2f,p-Vector2.up*s*.7f+Vector2.right*s*.2f,Gold,4);
+                    Diamond(p,s*.25f,Gold,3); break;
+                case RelicEffectKind.UnravelShield:
+                    Ring(p,s*.45f,Violet,3); Ring(p,s*.22f,Gold,2);
+                    Line(p+Vector2.right*s*.45f,p+new Vector2(s*.8f,s*.6f),Violet,3); break;
+                default:
+                    int variant=(int)relic.Effect%4;
+                    if(variant==0) { Diamond(p,s*.62f,Violet,3); Line(p-Vector2.up*s*.75f,p+Vector2.up*s*.75f,Gold,2); }
+                    else if(variant==1) { Ring(p,s*.5f,Violet,3); Line(p-Vector2.one*s*.5f,p+Vector2.one*s*.5f,Gold,3); }
+                    else if(variant==2) { Diamond(p-Vector2.right*s*.2f,s*.5f,Violet,2); Diamond(p+Vector2.right*s*.2f,s*.5f,Gold,2); }
+                    else { Line(p-Vector2.right*s*.6f,p+Vector2.up*s*.6f,Violet,3); Line(p+Vector2.up*s*.6f,p+Vector2.right*s*.6f,Violet,3); Ring(p,s*.2f,Gold,3); }
+                    break;
             }
         }
 
@@ -143,57 +197,116 @@ namespace Graphaclysm.Runtime.Presentation
                 Label(new Rect(tag.x + 8, tag.y + 28, tag.width - 16, 23), "선택된 기록", ui.Small, true);
         }
 
+        private Texture2D towerBackdrop;
         private Vector2 MapPoint(RunMapNodeDefinition node)
-            => new Vector2(554 + (node.Layer % run.Map.Definition.RoomsPerFloor) * (1170f / Mathf.Max(1, run.Map.Definition.RoomsPerFloor - 1)), 420 + node.Lane * 184);
+            => new Vector2(TowerViewport.center.x+(node.Lane-(run.Map.Definition.LaneCount-1)*.5f)*230,
+                TowerViewport.y+TowerLayerY(node.Layer)-towerMapScroll);
 
         private void DrawMap()
         {
-            Header("THE CHANGING ATLAS", seedText);
-            Label(new Rect(143, 180, 1350, 80), floorTitle, ui.PageTitle);
-            Label(new Rect(150, 277, 1410, 44), "보스 포함 층마다 8개 방 · 층 보스 격파 시 회복 8과 유물 · 덱과 유물은 다음 층으로", ui.Body);
-            DrawPortrait(new Rect(70, 422, 320, 507), flow.CurrentCharacter.Archetype == CombatArchetype.Ian ? ianPortrait : lunaPortrait);
-            Fill(new Rect(91, 947, 387, 92), new Color(Paper.r, Paper.g, Paper.b, 0.92f));
-            Label(new Rect(106, 957, 360, 35), flow.CurrentCharacter.DisplayName, ui.Heading);
-            Label(new Rect(106, 998, 360, 31), roomResourceText, ui.Small);
+            EnsureTowerMap();HandleTowerMapPan(Event.current);
+            if (towerBackdrop == null) towerBackdrop = Resources.Load<Texture2D>("Art/Generated/tower-ascent-v18");
+            Fill(new Rect(0,0,1920,1080),Ink);
+            DrawContinuousTowerBackdrop();
+            Fill(new Rect(64,140,510,820),new Color(.04f,.035f,.07f,.78f));
+            Label(new Rect(94,173,440,90),floorTitle,ui.PageTitleLight);
+            Label(new Rect(96,283,440,95),string.IsNullOrEmpty(run.OpeningStepHint)
+                ? "위로 이어지는 기록의 탑\n빛나는 방을 골라 올라가세요." : run.OpeningStepHint,ui.Light);
+            Label(new Rect(96,389,440,95),run.HasRewardPacks?run.MapPreparationText:"숙련 " + run.MasteryRank + " · 그래프 피해 +" + (run.MasteryRank+run.TrainingPower)
+                + "\n시작 보호막 +" + (run.MasteryRank+run.PreparedShield)
+                + "\n성장점 5점 투자마다 숙련 상승 (최대 5)",ui.SmallLight);
+            DrawPortrait(new Rect(140,496,285,330),flow.CurrentCharacter.Archetype == CombatArchetype.Ian ? ianPortrait : lunaPortrait);
+            Label(new Rect(96,858,440,64),roomResourceText,ui.SmallLight);
+            if (run.HasEconomy)
+            {
+                Label(new Rect(96,824,440,32),run.HasExpeditionSupplies?run.SupplyInventoryText:"은화 " + run.Coins + " · 연구권 " + run.ResearchTickets,ui.SmallLight);
+                if (!run.HasRewardPacks && ui.Button(new Rect(96,933,440,46),"연구권 1장 → 카드 선택",false,run.CanUseResearch))
+                { run.TryUseResearch(); Refresh(); return; }
+            }
+            Label(new Rect(80,45,1200,52),"THE ASCENDING ARCHIVE",ui.HeadingLight);
+            Label(new Rect(625,78,810,42),"드래그·휠로 탑 둘러보기 · 빛나는 방을 클릭하여 이동",ui.SmallLight);
+            if(ui.Button(new Rect(1480,170,330,50),"현재 위치로",true))FocusTowerCurrent();
+            if(ui.Button(new Rect(1480,235,155,46),"꼭대기",true))towerMapScroll=0;
+            if(ui.Button(new Rect(1650,235,160,46),"입구",true))towerMapScroll=TowerMaximumScroll;
+            if(ui.Button(new Rect(1700,48,130,46),"메뉴",true)) paused=true;
             var map = run.Map;
-            for (int d = 0; d < map.Definition.RoomsPerFloor; d++)
-                Label(new Rect(519 + d * (1170f / Mathf.Max(1, map.Definition.RoomsPerFloor - 1)), 342, 70, 30), DepthLabels[Mathf.Min(d, 7)], ui.Small, true);
             for (int i = 0; i < map.Definition.NodeCount; i++)
             {
-                var node = map.Definition.GetNode(i); if(node.Layer / map.Definition.RoomsPerFloor != run.CurrentFloor-1) continue; Vector2 p = MapPoint(node);
+                var node = map.Definition.GetNode(i); Vector2 p = MapPoint(node);
                 for (int e = 0; e < node.NextNodeCount; e++)
                 {
                     int target = node.GetNextNodeIndex(e);
-                    if(map.Definition.GetNode(target).Layer / map.Definition.RoomsPerFloor != run.CurrentFloor-1) continue;
                     bool near = map.IsAvailable(i) || (map.IsCompleted(i) && map.IsAvailable(target));
-                    Line(p, MapPoint(map.Definition.GetNode(target)), near ? Violet : new Color(Gold.r, Gold.g, Gold.b, 0.30f), near ? 1.7f : 1);
+                    DrawTowerLine(p, MapPoint(map.Definition.GetNode(target)), near ? new Color(.84f,.7f,1) : new Color(.65f,.6f,.75f,.44f), near ? 3f : 1.5f);
                 }
             }
+            DrawTowerFloorBanners();
             for (int i = 0; i < map.Definition.NodeCount; i++)
             {
-                var node = map.Definition.GetNode(i); if(node.Layer / map.Definition.RoomsPerFloor != run.CurrentFloor-1) continue; Vector2 p = MapPoint(node);
+                var node = map.Definition.GetNode(i); Vector2 p = MapPoint(node);
+                if(p.y-40<TowerViewport.yMin || p.y+62>TowerViewport.yMax)continue;
                 bool active = map.IsAvailable(i), complete = map.IsCompleted(i);
-                Disc(p, 34, active ? Ink : new Color(Paper.r, Paper.g, Paper.b, 0.95f));
-                DrawRoomGlyph(p, 26, node.Kind, active ? Paper : complete ? Violet : Muted);
-                if (active) Ring(p, 40, Violet, 1.7f);
-                Fill(new Rect(p.x - 77, p.y + 48, 154, 67), new Color(Paper.r, Paper.g, Paper.b, 0.9f));
-                Label(new Rect(p.x - 75, p.y + 49, 150, 29), complete ? "기록 완료" : RoomLabels[(int)node.Kind], ui.Body, true);
-                Label(new Rect(p.x - 75, p.y + 79, 150, 37), node.DisplayName, ui.Small, true);
-                if (active && GUI.Button(new Rect(p.x - 76, p.y - 40, 152, 156), GUIContent.none, GUIStyle.none))
+                Rect hit = new Rect(p.x-72,p.y-36,144,91);
+                bool hover = !towerMapDragging && TowerViewport.Contains(Event.current.mousePosition) && hit.Contains(Event.current.mousePosition);
+                Disc(p, 30, new Color(.065f,.05f,.11f,.97f));
+                Ring(p,32,active ? Gold : complete ? Violet : Muted,active ? 3 : 1);
+                DrawRoomGlyph(p, 22, node.Kind, active ? Paper : complete ? Violet : new Color(.65f,.61f,.72f));
+                if (active) Ring(p, 38, new Color(.84f,.7f,1), 1.7f);
+                Fill(new Rect(p.x-72,p.y+35,144,25),new Color(.04f,.03f,.07f,.94f));
+                Label(new Rect(p.x-72,p.y+35,144,25),complete ? "✓ 기록 완료"
+                    : towerMapLabels[i],ui.SmallLight,true);
+                if (hover)
+                {
+                    Fill(new Rect(1460,420,350,235),new Color(.05f,.04f,.09f,.95f));
+                    Label(new Rect(1480,440,310,60),node.DisplayName,ui.HeadingLight);
+                    Label(new Rect(1480,515,310,115),towerMapHints[i],ui.Light);
+                    Label(new Rect(1480,666,310,45),active?"선택하여 다음 방으로":complete?"지나온 기록":"연결된 길로 접근",ui.SmallLight);
+                }
+                if (active && !towerMapDragging && GUI.Button(hit, GUIContent.none, GUIStyle.none))
                 { run.TrySelectMapNode(i); message = ""; GUI.FocusControl(null); Refresh(); break; }
             }
-            Label(new Rect(550, 958, 900, 60), run.RoomResult, ui.Body, true);
-            if (ui.Button(new Rect(1510, 944, 250, 62), "원정 성장   G", true)) growthOpen = true;
+            towerMapScroll=GUI.VerticalScrollbar(new Rect(1422,130,20,840),towerMapScroll,TowerViewport.height,0,towerMapHeight);
+            Label(new Rect(620, 1015, 800, 42), run.RoomResult, ui.SmallLight, true);
+            if (ui.Button(new Rect(1490, 930, 320, 62), "원정 성장   G", true)) growthOpen = true;
+        }
+
+        private static string MapRewardHint(RunNodeKind kind)
+        {
+            switch(kind)
+            {
+                case RunNodeKind.Battle: return "일반 전투 · 카드 보상";
+                case RunNodeKind.Shop: return "은화로 카드·유물·회복·성장 구매";
+                case RunNodeKind.Elite: return "강한 적 · 승리하면 유물 선택";
+                case RunNodeKind.Boss: return "층 보스 · 유물과 다음 층";
+                case RunNodeKind.Workshop: return "원정 피해 강화 또는 카드 제거";
+                case RunNodeKind.Observatory: return "체력을 내고 성장점 / 공명";
+                case RunNodeKind.Supply: return "다음 전투 보호막 / 회복 / 카드";
+                case RunNodeKind.Rest: return "회복 / 공명 / 카드 제거";
+                case RunNodeKind.Treasure: return "유물 선택 또는 회복";
+                default: return "사건의 선택과 대가";
+            }
         }
 
         private void DrawRewardsOrResult()
         {
+            if (run.IsPractice) { DrawApproachResult(); return; }
+            if (run.Phase==RunPhase.Loot) { DrawExpeditionLoot(); return; }
             bool cardReward = run.Phase == RunPhase.CardReward, relicReward = run.Phase == RunPhase.RelicReward;
             Header("AFTER THE LIGHT", deckText);
             if (cardReward || relicReward)
             {
-                Label(new Rect(142, 159, 1500, 95), cardReward ? "새로운 선을 기억하다" : "빛이 머문 물건", ui.PageTitle);
-                Label(new Rect(150, 270, 1400, 45), cardReward ? "함께할 기술을 하나 고르세요." : "이번 여정에 남을 유물을 하나 고르세요.", ui.Body);
+                Label(new Rect(142, 159, 1500, 95), run.IsStartingRelic?"여행에 가져갈 첫 유물":cardReward ? "새로운 선을 기억하다" : "빛이 머문 물건", ui.PageTitle);
+                Label(new Rect(150, 270, 1400, 45), cardReward ? "지금 덱에 추가할 카드 한 장을 고르세요." : "이번 여정에 남을 유물을 하나 고르세요.", ui.Body);
+                if(cardReward && run.ActiveDraftGrade>=0)
+                {
+                    Label(new Rect(150,314,1570,60),Graphaclysm.Core.Cards.FragmentDraft.Chances(run.ActiveDraftGrade),ui.Small);
+                    Fill(new Rect(150,302,1570,3),Rarity((Graphaclysm.Core.Cards.CardRarity)run.ActiveDraftGrade));
+                }
+                else if (run.HasOpeningRoute)
+                    Label(new Rect(150, 324, 1570, 36), run.HasEconomy
+                        ? (string.IsNullOrEmpty(run.LastLootText) ? "방 완료" : run.LastLootText)
+                            + (run.IsResearchReward || run.IsStartingRelic ? "" : " · 성장점 +" + run.LastExplorationPoints)
+                        : "방 완료 · 성장점 +" + run.LastExplorationPoints + " / 사용 가능 " + run.Growth.Points + "점 · 보상 선택 후 지도에서 G로 성장", ui.Small);
                 for (int i = 0; i < 3; i++)
                 {
                     Rect r = new Rect(411 + i * 383, 377, 330, 419); bool hover = r.Contains(Event.current.mousePosition);
@@ -205,12 +318,12 @@ namespace Graphaclysm.Runtime.Presentation
                         var card = run.RewardOptions[i]; if (card == null) continue;
                         var visual = Visual(card); if (visual == null) continue;
                         DrawSkillCard(r, visual, hover, true);
-                        Label(new Rect(r.x, 816, r.width, 32), RarityNames[(int)card.Rarity], ui.Small, true);
+                        Fill(new Rect(r.x+25,816,r.width-50,4),Rarity(visual.Card.DiagramRarity));
                         if (hover)
                         {
-                            Fill(new Rect(127, 395, 243, 380), new Color(Paper.r, Paper.g, Paper.b, 0.93f));
-                            Label(new Rect(144, 411, 210, 52), card.DisplayName, ui.Heading);
-                            Label(new Rect(144, 480, 210, 281), visual.Details, ui.Small);
+                            Fill(new Rect(95,395,295,526),new Color(Paper.r,Paper.g,Paper.b,.98f));
+                            Label(new Rect(111,411,263,52),card.DisplayName,ui.Heading);
+                            DrawReadableCardDetails(new Rect(111,478,263,420),visual);
                         }
                     }
                     else
@@ -219,12 +332,12 @@ namespace Graphaclysm.Runtime.Presentation
                         Fill(r, new Color(1, 1, 1, 0.5f)); Border(r, hover ? Violet : Gold);
                         DrawRelicArt(new Rect(r.x + 48, r.y + 27, r.width - 96, 202), relic);
                         Label(new Rect(r.x + 25, r.y + 234, r.width - 50, 60), relic.DisplayName, ui.Heading, true);
-                        Label(new Rect(r.x + 25, r.y + 310, r.width - 50, 79), relic.Description, ui.Body, true);
+                        DrawExplainedText(new Rect(r.x + 25, r.y + 310, r.width - 50, 79), relic.Description, ui.Body, true);
                     }
                     if (GUI.Button(r, GUIContent.none, GUIStyle.none))
                     { if (cardReward) run.TrySelectReward(i); else run.TrySelectRelicReward(i); Refresh(); break; }
                 }
-                if (ui.Button(new Rect(799, 971, 322, 55), "지금의 덱으로 계속")) { run.TrySkipReward(); Refresh(); }
+                if (ui.Button(new Rect(799, 971, 322, 55), run.IsStartingRelic?"유물 없이 출발":cardReward?"카드 받지 않기":"유물 받지 않기")) { run.TrySkipReward(); Refresh(); }
                 return;
             }
             bool victory = run.Phase == RunPhase.Completed;

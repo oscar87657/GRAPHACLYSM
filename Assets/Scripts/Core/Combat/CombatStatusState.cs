@@ -5,13 +5,14 @@ namespace Graphaclysm.Core.Combat
     public enum CombatStatusKind
     {
         Shield, Focus, Regeneration, Burn, Weaken, Exposure, Anchor, Haste,
-        Thorns, Momentum, Fortify, Rupture
+        Thorns, Momentum, Fortify, Rupture, Ward, Pierce, FrailShield, Wound, Guidance
     }
 
-    /// <summary>Twelve fixed status slots per combatant, owned for one battle. No per-turn allocation.</summary>
+    /// <summary>Seventeen stable-ID slots including legacy Momentum. Owned per battle; no per-turn allocation.</summary>
     public sealed class CombatStatusState
     {
-        public const int Capacity = 12;
+        public const int Capacity = 17;
+        public bool Enhanced { get; internal set; }
         public const int MaximumMagnitude = 24;
         private readonly int[] magnitudes = new int[Capacity];
         private readonly int[] durations = new int[Capacity];
@@ -21,6 +22,14 @@ namespace Graphaclysm.Core.Combat
 
         internal void Add(CombatStatusKind kind, int amount, int duration)
         {
+            if (Enhanced && kind == CombatStatusKind.Momentum) kind = CombatStatusKind.Focus;
+            if (IsDebuff(kind) && Get(CombatStatusKind.Ward) > 0)
+            {
+                if (--magnitudes[(int)CombatStatusKind.Ward] == 0) Remove(CombatStatusKind.Ward);
+                return;
+            }
+            if (kind == CombatStatusKind.Shield) amount = Math.Max(0, amount - Get(CombatStatusKind.FrailShield));
+            if (amount <= 0) return;
             int index = (int)kind;
             magnitudes[index] = Math.Min(MaximumMagnitude, magnitudes[index] + amount);
             durations[index] = Math.Max(durations[index], duration);
@@ -58,11 +67,13 @@ namespace Graphaclysm.Core.Combat
             for (int i = 0; i < Capacity; i++)
             {
                 CombatStatusKind kind = (CombatStatusKind)i;
-                bool isDebuff = kind == CombatStatusKind.Burn || kind == CombatStatusKind.Weaken
-                    || kind == CombatStatusKind.Exposure || kind == CombatStatusKind.Anchor
-                    || kind == CombatStatusKind.Rupture;
+                bool isDebuff = IsDebuff(kind);
                 if (isDebuff == debuffs) Remove((CombatStatusKind)i);
             }
         }
+        public static bool IsDebuff(CombatStatusKind kind) => kind == CombatStatusKind.Burn
+            || kind == CombatStatusKind.Weaken || kind == CombatStatusKind.Exposure || kind == CombatStatusKind.Anchor
+            || kind == CombatStatusKind.Rupture || kind == CombatStatusKind.FrailShield
+            || kind == CombatStatusKind.Wound || kind == CombatStatusKind.Guidance;
     }
 }

@@ -102,12 +102,12 @@ namespace Graphaclysm.Tests.Combat
         }
 
         [Test]
-        public void Movement_AcceptsRadialTargetsAndSlidesAwayFromOccupiedPoints()
+        public void Movement_AcceptsRadialTargetsIncludingEnemyContact()
         {
             var battle = new BattleSession(Definition(x: 5.5, y: -2));
             Assert.That(battle.TryResolveMoveDestination(5.5, -2, out double x, out double y), Is.True);
             double enemyDistance = Math.Sqrt((x - 5.5) * (x - 5.5) + (y + 2) * (y + 2));
-            Assert.That(enemyDistance, Is.GreaterThanOrEqualTo(TacticalCombatState.PlayerRadius + BattleSession.EnemyHitRadius));
+            Assert.That(enemyDistance, Is.Zero);
             Assert.That(battle.TryMovePlayerTo(5.5, -2), Is.True);
             Assert.That(battle.Energy, Is.EqualTo(11));
             Assert.That(battle.TryMovePlayerTo(5, -1), Is.False);

@@ -13,6 +13,26 @@ namespace Graphaclysm.Tests.Application
         [SetUp] public void SetUp() { directory = Path.Combine(Path.GetTempPath(), "GraphaclysmSaveTests", Guid.NewGuid().ToString("N")); }
         [TearDown] public void TearDown() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 
+        [Test]
+        public void IndividualGrowthRefundRoundTripsAndCannotRunInBattle()
+        {
+            var run = PrototypeRunFactory.Create(302, PrototypeCharacterCatalog.All[0]);
+            int root = run.Growth.IndexOf(Graphaclysm.Core.Runs.GrowthTreePaths.RootId);
+            int leaf = run.Growth.IndexOf("common.origin.01");
+            Assert.That(run.TryPurchaseGrowthNode(root), Is.True);
+            Assert.That(run.TryPurchaseGrowthNode(leaf), Is.True);
+            int revision = run.Revision;
+            Assert.That(run.TryRefundGrowthNode(root), Is.False);
+            Assert.That(run.Revision, Is.EqualTo(revision));
+            Assert.That(run.TryRefundGrowthNode(leaf), Is.True);
+            var restored = RoundTrip(run);
+            Assert.That(restored.Growth.IsUnlocked(leaf), Is.False);
+            Assert.That(restored.TryPurchaseGrowthNode(leaf), Is.True);
+            Assert.That(restored.TrySelectMapNode(0), Is.True);
+            Assert.That(restored.TryRefundGrowthNode(leaf), Is.False);
+            RoundTrip(restored);
+        }
+
         private static RunGameSession Start(int character = 0)
         {
             var run = PrototypeRunFactory.Create(302, PrototypeCharacterCatalog.All[character]);
@@ -36,11 +56,20 @@ namespace Graphaclysm.Tests.Application
             Assert.That(b.Seed, Is.EqualTo(a.Seed)); Assert.That(b.Phase, Is.EqualTo(a.Phase));
             Assert.That(b.PlayerHealth, Is.EqualTo(a.PlayerHealth)); Assert.That(b.Resonance, Is.EqualTo(a.Resonance));
             Assert.That(b.PlayerMaxHealth, Is.EqualTo(a.PlayerMaxHealth));
-            Assert.That(b.Growth.Level, Is.EqualTo(a.Growth.Level)); Assert.That(b.Growth.Experience, Is.EqualTo(a.Growth.Experience));
+            Assert.That(b.TrainingPower, Is.EqualTo(a.TrainingPower));
+            Assert.That(b.PreparedShield, Is.EqualTo(a.PreparedShield));
+            Assert.That(b.MasteryRank, Is.EqualTo(a.MasteryRank));
             Assert.That(b.Growth.Points, Is.EqualTo(a.Growth.Points)); Assert.That(b.Growth.ActiveVariant, Is.EqualTo(a.Growth.ActiveVariant));
             Assert.That(b.Growth.ModuleVariant, Is.EqualTo(a.Growth.ModuleVariant));
             Assert.That(b.Growth.UltimateVariant, Is.EqualTo(a.Growth.UltimateVariant));
-            Assert.That(b.Growth.UnlockedMask, Is.EqualTo(a.Growth.UnlockedMask));
+            Assert.That(b.Growth.AcquiredCount, Is.EqualTo(a.Growth.AcquiredCount));
+            Assert.That(b.Growth.NodeCount, Is.EqualTo(a.Growth.NodeCount));
+            for (int i = 0; i < a.Growth.NodeCount; i++)
+            {
+                Assert.That(b.Growth.GetNode(i).Id, Is.EqualTo(a.Growth.GetNode(i).Id));
+                Assert.That(b.Growth.IsUnlocked(i), Is.EqualTo(a.Growth.IsUnlocked(i)));
+                Assert.That(b.Growth.IsEquipped(i), Is.EqualTo(a.Growth.IsEquipped(i)));
+            }
             Assert.That(b.Map.ActiveNodeIndex, Is.EqualTo(a.Map.ActiveNodeIndex));
             Assert.That(b.Map.LastCompletedNodeIndex, Is.EqualTo(a.Map.LastCompletedNodeIndex));
             Assert.That(b.Deck.Count, Is.EqualTo(a.Deck.Count)); Assert.That(b.Relics.Count, Is.EqualTo(a.Relics.Count));

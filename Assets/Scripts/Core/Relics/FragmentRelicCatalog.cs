@@ -58,9 +58,22 @@ namespace Graphaclysm.Core.Relics
             new RelicDefinition("relic.astral_key","천구의 열쇠","전투 시작 시 요새화 4를 얻습니다.",RelicEffectKind.StartFortify,4,"Art/Generated/relic-astral-key-v12")
         };
 
-        public static IReadOnlyList<RelicDefinition> All
+        public static IReadOnlyList<RelicDefinition> Legacy => Relics;
+        private static readonly RelicDefinition[] expanded = ExpandCatalog();
+        public static IReadOnlyList<RelicDefinition> Version30 => expanded;
+        private static readonly RelicDefinition[] archive=RelicArchive.Build(expanded);
+        public static IReadOnlyList<RelicDefinition> All => archive;
+        private static RelicDefinition[] ExpandCatalog()
         {
-            get { return Relics; }
+            var additions = new[] {
+                new RelicDefinition("relic.solitary_nail","외로운 원점 못","방출로 적 하나만 맞히면 그 적을 이번 적 행동 동안 고정합니다. 공격은 막지 않습니다.",RelicEffectKind.SoloAnchor,1),
+                new RelicDefinition("relic.paired_bell","쌍둥이 공명종","한 방출로 자신과 적을 함께 맞히면 공명 +1. 위성 대리 적중도 가능. 최대 6.",RelicEffectKind.SharedResonance,1),
+                new RelicDefinition("relic.pressure_vial","압력 유리병","응축한 뒤 방출로 맞힌 적에게 파열 3. 다음 타격 때 추가 피해로 소비합니다.",RelicEffectKind.CondenseRupture,3),
+                new RelicDefinition("relic.undo_spool","되감는 실패","파편이 있는 식을 해체하면 보호막 5. 빈 조립 해체에는 적용되지 않습니다.",RelicEffectKind.UnravelShield,5)
+            };
+            var result = new RelicDefinition[Relics.Length + additions.Length];
+            System.Array.Copy(Relics,result,Relics.Length); System.Array.Copy(additions,0,result,Relics.Length,additions.Length);
+            return result;
         }
     }
 }

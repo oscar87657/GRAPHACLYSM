@@ -24,15 +24,17 @@ namespace Graphaclysm.Core.Combat
         public bool CanUndoMove { get; private set; }
         private double moveOriginX, moveOriginY;
         private int savedHaste, savedHasteDuration, savedMomentum, savedMomentumDuration;
-        public double HitRadius => UltimateArmed && Archetype == CombatArchetype.Luna
+        private int savedFocus,savedFocusDuration;
+        public double HitRadius => !UsesApproachUltimate && UltimateArmed && Archetype == CombatArchetype.Luna
             ? (UltimateVariant == 1 ? (HasTrait(13) ? 1.5 : 1.25) : 1.0) : PlayerRadius;
         public int MoveCost => Statuses.Get(CombatStatusKind.Haste) > 0 ? 0 : 1;
+        public double CurrentMoveDistance => MoveDistance + (Statuses.Enhanced && Statuses.Get(CombatStatusKind.Haste) > 0 ? .9 : 0);
         public int AttackBonus => Statuses.Get(CombatStatusKind.Focus)
             - Statuses.Get(CombatStatusKind.Weaken)
             + Statuses.Get(CombatStatusKind.Momentum)
-            + (UltimateArmed && Archetype == CombatArchetype.Ian
+            + (!UsesApproachUltimate && UltimateArmed && Archetype == CombatArchetype.Ian
                 ? UltimateVariant == 1 ? 10 + (HasTrait(13) ? 4 : 0) : UltimateVariant == 3 ? 8 : 6 : 0)
-            + (UltimateArmed && Archetype == CombatArchetype.Luna
+            + (!UsesApproachUltimate && UltimateArmed && Archetype == CombatArchetype.Luna
                 ? UltimateVariant == 2 ? 4 + (HasTrait(14) ? 4 : 0) : UltimateVariant == 3 ? 2 : 0 : 0);
 
         internal TacticalCombatState(CombatArchetype archetype, int resonance, int ultimateVariant = 0, int skillTraitMask = 0)
@@ -67,7 +69,7 @@ namespace Graphaclysm.Core.Combat
                 || double.IsNaN(x) || double.IsInfinity(x) || double.IsNaN(y) || double.IsInfinity(y)) return false;
             double dx = x - X, dy = y - Y;
             double distanceSquared = dx * dx + dy * dy;
-            return distanceSquared >= .01 && distanceSquared <= MoveDistance * MoveDistance + 1e-8
+            return distanceSquared >= .01 && distanceSquared <= CurrentMoveDistance * CurrentMoveDistance + 1e-8
                 && x >= PlayerRadius && x <= 10.0 - PlayerRadius
                 && y >= -4.0 + PlayerRadius && y <= 4.0 - PlayerRadius;
         }
@@ -79,6 +81,7 @@ namespace Graphaclysm.Core.Combat
             moveOriginX = X; moveOriginY = Y;
             savedHaste = Statuses.Get(CombatStatusKind.Haste); savedHasteDuration = Statuses.Duration(CombatStatusKind.Haste);
             savedMomentum = Statuses.Get(CombatStatusKind.Momentum); savedMomentumDuration = Statuses.Duration(CombatStatusKind.Momentum);
+            savedFocus=Statuses.Get(CombatStatusKind.Focus); savedFocusDuration=Statuses.Duration(CombatStatusKind.Focus);
             X = x;
             Y = y;
             HasMoved = true;
@@ -89,11 +92,18 @@ namespace Graphaclysm.Core.Combat
         {
             X = moveOriginX; Y = moveOriginY; HasMoved = false; CanUndoMove = false;
             Statuses.Remove(CombatStatusKind.Momentum);
+            if(Statuses.Enhanced)
+            {
+                Statuses.Remove(CombatStatusKind.Focus);
+                if(savedFocus>0) Statuses.Add(CombatStatusKind.Focus,savedFocus,savedFocusDuration);
+            }
             if (savedHaste > 0) Statuses.Add(CombatStatusKind.Haste, savedHaste, savedHasteDuration);
             if (savedMomentum > 0) Statuses.Add(CombatStatusKind.Momentum, savedMomentum, savedMomentumDuration);
             savedHaste = 0; savedHasteDuration = 0; savedMomentum = 0; savedMomentumDuration = 0;
         }
 
+        internal bool UsesApproachUltimate { get; set; }
+        internal void LockMoveUndo() { CanUndoMove = false; }
         internal bool ToggleUltimate()
         {
             if (!UltimateArmed && Resonance < UltimateCost) return false;
@@ -107,9 +117,9 @@ namespace Graphaclysm.Core.Combat
         internal int BeginSelfHit()
         {
             Statuses.Add(CombatStatusKind.Shield, 3, 1);
-            if (UltimateArmed && Archetype == CombatArchetype.Ian && UltimateVariant == 3 && HasTrait(16))
+            if (!UsesApproachUltimate && UltimateArmed && Archetype == CombatArchetype.Ian && UltimateVariant == 3 && HasTrait(16))
             { Statuses.Cleanse(true); Statuses.Add(CombatStatusKind.Shield, 6, 1); }
-            if (!UltimateArmed || Archetype != CombatArchetype.Luna) return 0;
+            if (UsesApproachUltimate || !UltimateArmed || Archetype != CombatArchetype.Luna) return 0;
             Statuses.Cleanse(true);
             int shield = UltimateVariant == 1 ? 12 : UltimateVariant == 2 ? 6 : 8;
             int healing = UltimateVariant == 1 ? 7 : UltimateVariant == 2 ? 3 : 5;
@@ -178,7 +188,8 @@ namespace Graphaclysm.Core.Combat
             if (ability.Kind == CardAbilityKind.Heal) return ability.Magnitude;
             if (ability.Kind == CardAbilityKind.Cleanse)
                 statuses.Cleanse(ability.Target == AbilityTarget.Player);
-            else statuses.Add((CombatStatusKind)ability.Kind, ability.Magnitude, ability.Duration);
+            else if (ability.Kind != CardAbilityKind.Pull)
+                statuses.Add((CombatStatusKind)((int)ability.Kind >= 14 ? (int)ability.Kind - 2 : (int)ability.Kind), ability.Magnitude, ability.Duration);
             return 0;
         }
 

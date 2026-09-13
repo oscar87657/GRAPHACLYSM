@@ -9,7 +9,7 @@ namespace Graphaclysm.Runtime.Presentation
     {
         private static readonly string[] GridXLabels = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
         private static readonly string[] GridYLabels = { "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4" };
-        private static readonly string[] StatusNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "파열" };
+        private static readonly string[] StatusNames = { "보호막", "집중", "재생", "잔불", "약화", "노출", "고정", "경쾌", "가시", "추진", "요새화", "균열", "수호", "방패 관통", "약해진 방벽", "찢긴 상처", "유도" };
         // View owns hand-capacity buffers; strings rebuild only after commands.
         private string[] cardTooltips;
         private string tacticalText, ultimateText, playerLabel, moveLabel;
@@ -38,7 +38,7 @@ namespace Graphaclysm.Runtime.Presentation
             {
                 CardDefinition card = deck.GetHandCard(i);
                 bool playable = battle.CanPlayCard(card, out CardPlayFailure failure);
-                cardTooltips[i] = card.DisplayName + "  |  " + GetRarityLabel(card.Rarity) + " · " + GetCardRole(card.Type)
+                cardTooltips[i] = card.DisplayName + "  |  " + GetCardRole(card.Type)
                     + "\n" + card.FormulaLabel + "   ·   " + card.Cost + " EN\n\n" + card.Description
                     + "\n\n적 적중: " + (string.IsNullOrEmpty(card.EnemyEffect) ? "조립된 선으로 피해" : card.EnemyEffect)
                     + "\n자신 적중: " + (string.IsNullOrEmpty(card.PlayerEffect) ? "기본 보호막 3" : card.PlayerEffect)
@@ -85,7 +85,7 @@ namespace Graphaclysm.Runtime.Presentation
         {
             combatMessage = run.TryMovePlayer(dx, dy)
                 ? "이동했습니다. 붉은 영역은 이번 적 공격의 예정 범위입니다."
-                : "이동 불가: 남은 에너지, 필드 경계, 적과의 겹침, 고정 상태를 확인하세요.";
+                : "이동 불가: 남은 에너지, 필드 경계, 기둥, 고정 상태를 확인하세요.";
             RefreshCachedText();
         }
 
@@ -152,7 +152,7 @@ namespace Graphaclysm.Runtime.Presentation
             Rect tooltip = new Rect(Mathf.Clamp(x, 16, Screen.width - tooltipWidth - 16),
                 Mathf.Max(165, Screen.height - 385), tooltipWidth, 340);
             DrawRect(new Rect(tooltip.x - 2, tooltip.y - 2, tooltip.width + 4, tooltip.height + 4),
-                GetRarityColor(deck.GetHandCard(hoveredHandIndex).Rarity));
+                GetRarityColor(deck.GetHandCard(hoveredHandIndex).DiagramRarity));
             DrawRect(tooltip, new Color(0.06f, 0.075f, 0.13f, 0.99f));
             GUI.Label(tooltip, cardTooltips[hoveredHandIndex], tooltipStyle);
         }

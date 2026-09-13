@@ -5,7 +5,10 @@ namespace Graphaclysm.Core.Combat
     public enum BattleTerrainKind
     {
         Obstacle,
-        Prism
+        Prism,
+        Pulse,
+        Aegis,
+        Capacitor
     }
 
     /// <summary>Immutable terrain placed in the shared equation field.</summary>
@@ -14,7 +17,7 @@ namespace Graphaclysm.Core.Combat
         public BattleTerrainDefinition(string id, BattleTerrainKind kind, double x, double y, double radius)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Terrain requires an id.", nameof(id));
-            if (kind < BattleTerrainKind.Obstacle || kind > BattleTerrainKind.Prism)
+            if (kind < BattleTerrainKind.Obstacle || kind > BattleTerrainKind.Capacitor)
                 throw new ArgumentOutOfRangeException(nameof(kind));
             if (double.IsNaN(x) || double.IsInfinity(x) || double.IsNaN(y) || double.IsInfinity(y)
                 || double.IsNaN(radius) || double.IsInfinity(radius)

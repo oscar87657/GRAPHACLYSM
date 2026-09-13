@@ -19,34 +19,80 @@ namespace Graphaclysm.Tests.Combat
 
         private static RelicDefinition Relic(string id)
         {
-            foreach (var relic in FragmentRelicCatalog.All) if (relic.Id == id) return relic;
+            foreach (var relic in FragmentRelicCatalog.Version30) if (relic.Id == id) return relic;
             throw new InvalidOperationException("Missing relic " + id);
         }
 
         [Test]
-        public void RunGrowthUsesParentedExclusiveBranchesAndResetsWithANewRun()
+        public void LargeGrowthCatalogSeparatesAcquisitionFromTwoSlotLoadoutAndResets()
         {
             var growth = new RunGrowthState(CombatArchetype.Ian);
-            growth.AddExperience(30);
-            Assert.That(growth.Level, Is.GreaterThan(6));
-            Assert.That(growth.TryPurchase(3), Is.False, "A child cannot be purchased before its parent.");
-            Assert.That(growth.TryPurchase(0), Is.True);
-            Assert.That(growth.TryPurchase(1), Is.False);
-            Assert.That(growth.TryPurchase(3), Is.True);
+            Assert.That(growth.NodeCount, Is.EqualTo(144));
+            Assert.That(GrowthCatalog.All.Length, Is.EqualTo(240));
+            Assert.That(growth.Points, Is.EqualTo(6));
+
+            Assert.That(growth.TryPurchase(growth.IndexOf(GrowthTreePaths.RootId)), Is.True);
+            growth.AddPoints(4);
+            foreach (string id in new[] { "common.origin.01", "common.fragments.01", "common.geometry.02", "ian.inscription.core" })
+                Assert.That(growth.TryPurchase(growth.IndexOf(id)), Is.True);
+            int triple = growth.IndexOf("ian.triple.form");
+            int tripleTrait = growth.IndexOf("ian.triple.m1");
+            int execute = growth.IndexOf("ian.execute.form");
+            int brand = growth.IndexOf("ian.brand.form");
+            int spike = growth.IndexOf("ian.spike.form");
+            Assert.That(growth.TryPurchase(tripleTrait), Is.False, "A trait needs its form first.");
+            Assert.That(growth.TryPurchase(triple), Is.True);
             Assert.That(growth.ActiveVariant, Is.EqualTo(1));
-            Assert.That(growth.ModuleVariant, Is.EqualTo(1));
-            Assert.That(growth.TryPurchase(4), Is.False);
-            Assert.That(growth.TryPurchase(5), Is.False, "The execution child remains unreachable after choosing the wide form.");
-            Assert.That(growth.TryPurchase(9), Is.True);
-            Assert.That(growth.UltimateVariant, Is.EqualTo(1));
-            Assert.That(growth.TryPurchase(10), Is.False);
-            Assert.That(growth.TryPurchase(13), Is.True);
-            Assert.That(growth.UnlockedMask, Is.EqualTo((1 << 0) | (1 << 3) | (1 << 9) | (1 << 13)));
-            Assert.That(growth.TrySelect(0), Is.False);
+            Assert.That(growth.TryPurchase(brand), Is.True);
+            Assert.That(growth.EquippedCombatFormCount, Is.EqualTo(2));
+            Assert.That(growth.TryPurchase(execute), Is.True, "Forms can be acquired independently.");
+            Assert.That(growth.IsEquipped(execute), Is.False, "A second form from the same family cannot be equipped.");
+            Assert.That(growth.TryPurchase(spike), Is.True);
+            Assert.That(growth.IsEquipped(spike), Is.False, "A third combat form waits outside the two-slot loadout.");
+            Assert.That(growth.TrySelect(triple), Is.True);
+            Assert.That(growth.TrySelect(spike), Is.True);
+            Assert.That(growth.IsEquipped(spike), Is.True);
+
+            CompiledGrowthBuild build = growth.CreateCompiledBuild();
+            Assert.That(build.HasAcquired("ian.execute.form"), Is.True);
+            Assert.That(build.IsEquipped("ian.spike.form"), Is.True);
+            Assert.That(build.IsEquipped("ian.triple.form"), Is.False);
+
+            Assert.That(growth.TryReset(), Is.True);
+            Assert.That(growth.AcquiredCount, Is.Zero);
+            Assert.That(growth.Points, Is.EqualTo(10));
+            Assert.That(build.IsEquipped("ian.spike.form"), Is.True, "An encounter snapshot is immutable after respec.");
             var fresh = new RunGrowthState(CombatArchetype.Ian);
-            Assert.That(fresh.Level, Is.EqualTo(1));
-            Assert.That(fresh.Points, Is.Zero);
+            Assert.That(fresh.Points, Is.EqualTo(6));
             Assert.That(fresh.ActiveVariant, Is.Zero);
+        }
+
+        [Test]
+        public void AwakeningNeedsTwoOfThreeTraitsAndIdentityBranchesAreExclusive()
+        {
+            var growth = new RunGrowthState(CombatArchetype.Ian);
+            growth.AddPoints(6);
+            Assert.That(growth.TryPurchase(growth.IndexOf(GrowthTreePaths.RootId)), Is.True);
+            Assert.That(growth.TryPurchase(growth.IndexOf("common.geometry.02")), Is.True);
+            Assert.That(growth.TryPurchase(growth.IndexOf("common.origin.01")), Is.True);
+            int identity = growth.IndexOf("ian.inscription.core");
+            int otherIdentity = growth.IndexOf("ian.archive.core");
+            int form = growth.IndexOf("ian.triple.form");
+            int first = growth.IndexOf("ian.triple.m1");
+            int second = growth.IndexOf("ian.triple.m2");
+            int awakening = growth.IndexOf("ian.triple.awaken");
+
+            Assert.That(growth.TryPurchase(identity), Is.True);
+            Assert.That(growth.TryPurchase(otherIdentity), Is.False);
+            Assert.That(growth.TryPurchase(form), Is.True);
+            Assert.That(growth.TryPurchase(first), Is.True);
+            Assert.That(growth.TryPurchase(awakening), Is.False);
+            Assert.That(growth.TryPurchase(second), Is.True);
+            Assert.That(growth.CanPurchase(awakening), Is.False, "Awakening also requires the third tier.");
+            for(int i=0;i<growth.NodeCount && growth.SpentPoints<10;i++)
+                if(growth.GetNode(i).Owner==GrowthOwner.Common && growth.GetNode(i).Cost==1 && growth.CanPurchase(i)) growth.TryPurchase(i);
+            Assert.That(growth.TryPurchase(awakening), Is.True);
+            Assert.That(growth.Points, Is.Zero);
         }
 
         [Test]
@@ -71,6 +117,22 @@ namespace Graphaclysm.Tests.Combat
             Assert.That(luna.Enemies[0].Health, Is.EqualTo(91));
             Assert.That(luna.Tactics.HasMoved, Is.False, "Crescent Return ends at its origin instead of copying Ian's dash.");
             Assert.That(luna.Tactics.CanUndoMove, Is.False);
+        }
+
+        [Test]
+        public void CombatSkillReportsShieldDamageWhenHealthIsFullyProtected()
+        {
+            var battle = new BattleSession(new BattleDefinition(50, 4,
+                new[] { new EnemyDefinition("target", "Target", 5.6, -2, 100, 0,
+                    EnemyBehaviorDefinition.ChargeBurst()) }, CombatArchetype.Ian, fragments: true), 50);
+
+            Assert.That(battle.Enemies[0].Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(12));
+            Assert.That(battle.TryUseCombatSkill(0), Is.True);
+            Assert.That(battle.Enemies[0].Health, Is.EqualTo(100));
+            Assert.That(battle.Enemies[0].Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(5));
+            Assert.That(battle.LastSkillDamage, Is.Zero);
+            Assert.That(battle.LastSkillShieldDamage, Is.EqualTo(7));
+            Assert.That(battle.LastSkillHitCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -269,7 +331,7 @@ namespace Graphaclysm.Tests.Combat
         {
             int illustrated = 0;
             var relics = new RunRelicCollection();
-            foreach (var relic in FragmentRelicCatalog.All)
+            foreach (var relic in FragmentRelicCatalog.Version30)
             {
                 if (string.IsNullOrEmpty(relic.ImageResource)) continue;
                 illustrated++;
@@ -309,18 +371,23 @@ namespace Graphaclysm.Tests.Combat
                 var benefits = new LegacyBenefits(6, 1, 2, 20, 4, 0);
                 var run = PrototypeRunFactory.Create(481, PrototypeCharacterCatalog.All[0], benefits);
                 Assert.That(run.PlayerMaxHealth, Is.EqualTo(PrototypeCharacterCatalog.All[0].MaxHealth + 6));
-                Assert.That(run.TryPurchaseGrowthNode(0), Is.True);
-                Assert.That(run.TryPurchaseGrowthNode(3), Is.True);
+                int identity = run.Growth.IndexOf("ian.inscription.core");
+                int triple = run.Growth.IndexOf("ian.triple.form");
+                Assert.That(run.TryPurchaseGrowthNode(run.Growth.IndexOf(GrowthTreePaths.RootId)), Is.True);
+                Assert.That(run.TryPurchaseGrowthNode(run.Growth.IndexOf("common.geometry.02")), Is.True);
+                Assert.That(run.TryPurchaseGrowthNode(run.Growth.IndexOf("common.origin.01")), Is.True);
+                Assert.That(run.TryPurchaseGrowthNode(identity), Is.True);
+                Assert.That(run.TryPurchaseGrowthNode(triple), Is.True);
                 Assert.That(RunSaveStore.TryDecode(RunSaveStore.Encode(run.CaptureSave()), out var data), Is.True);
                 Assert.That(RunGameSession.TryRestore(data, out var restored, out _), Is.True);
                 Assert.That(restored.PlayerMaxHealth, Is.EqualTo(run.PlayerMaxHealth));
-                Assert.That(restored.Growth.Level, Is.EqualTo(run.Growth.Level));
+                Assert.That(restored.Growth.AcquiredCount, Is.EqualTo(run.Growth.AcquiredCount));
                 Assert.That(restored.Growth.ActiveVariant, Is.EqualTo(1));
-                Assert.That(restored.Growth.ModuleVariant, Is.EqualTo(1));
-                Assert.That(restored.Growth.UnlockedMask, Is.EqualTo(run.Growth.UnlockedMask));
+                Assert.That(restored.Growth.IsUnlocked("ian.inscription.core"), Is.True);
+                Assert.That(restored.Growth.IsUnlocked("ian.triple.form"), Is.True);
                 Assert.That(restored.TrySelectMapNode(0), Is.True);
                 Assert.That(restored.CurrentBattle.Battle.Tactics.Resonance, Is.EqualTo(2));
-                Assert.That(restored.CurrentBattle.Battle.Tactics.Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(4));
+                Assert.That(restored.CurrentBattle.Battle.Tactics.Statuses.Get(CombatStatusKind.Shield), Is.EqualTo(4 + restored.MasteryRank));
             }
             finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
         }

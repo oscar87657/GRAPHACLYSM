@@ -10,7 +10,8 @@ namespace Graphaclysm.Core.Relics
         HealAfterVictory,
         BonusDraw,
         StartShield, StartResonance, SelfShield, FirstPlotDamage, ShortWeaveDamage, LongWeaveDamage, MovedPlotShield, VictoryResonance,
-        CondenseShield, StartThorns, PrismDamage, MoveMomentum, LongWeaveRupture, StartFortify
+        CondenseShield, StartThorns, PrismDamage, MoveMomentum, LongWeaveRupture, StartFortify,
+        SoloAnchor, SharedResonance, CondenseRupture, UnravelShield, Conditional
     }
 
     /// <summary>
@@ -26,7 +27,7 @@ namespace Graphaclysm.Core.Relics
             string description,
             RelicEffectKind effect,
             int magnitude,
-            string imageResource = "")
+            string imageResource = "", RelicTrigger trigger = RelicTrigger.None, RelicReward reward = RelicReward.Focus)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -44,6 +45,9 @@ namespace Graphaclysm.Core.Relics
             Effect = effect;
             Magnitude = magnitude;
             ImageResource = imageResource ?? string.Empty;
+            Trigger=trigger;Reward=reward;
+            int lastLine=Description.LastIndexOf('\n');
+            Summary=trigger!=RelicTrigger.None && lastLine>=0 ? Description.Substring(0,lastLine) : Description;
         }
 
         public string Id { get; }
@@ -52,5 +56,8 @@ namespace Graphaclysm.Core.Relics
         public RelicEffectKind Effect { get; }
         public int Magnitude { get; }
         public string ImageResource { get; }
+        public RelicTrigger Trigger { get; }
+        public RelicReward Reward { get; }
+        public string Summary { get; }
     }
 }

@@ -20,7 +20,7 @@ namespace Graphaclysm.Tests.Combat
         private static RunRelicCollection Relics(params RelicEffectKind[] effects)
         {
             var r=new RunRelicCollection();
-            foreach(var e in effects)foreach(var item in FragmentRelicCatalog.All)if(item.Effect==e){r.TryAdd(item);break;}
+            foreach(var e in effects)foreach(var item in FragmentRelicCatalog.Version30)if(item.Effect==e){r.TryAdd(item);break;}
             return r;
         }
         private static BattleDefinition Definition(int health=100,int enemyHp=999,double enemyX=6.4,double enemyY=-2)
@@ -93,7 +93,7 @@ namespace Graphaclysm.Tests.Combat
         }
         [Test] public void OpeningRelicsApplyThroughRealRunAndResetWithoutAccumulation()
         {
-            var run=PrototypeRunFactory.Create(12);foreach(var r in FragmentRelicCatalog.All)
+            var run=PrototypeRunFactory.Create(12);foreach(var r in FragmentRelicCatalog.Version30)
                 if(r.Effect==RelicEffectKind.StartShield||r.Effect==RelicEffectKind.StartResonance)run.Relics.TryAdd(r);
             run.TrySelectMapNode(0);var b=run.CurrentBattle.Battle;
             Assert.That(b.Tactics.Resonance,Is.EqualTo(1));Assert.That(b.Tactics.Statuses.Get(CombatStatusKind.Shield),Is.EqualTo(6));
@@ -142,7 +142,7 @@ namespace Graphaclysm.Tests.Combat
         [Test] public void ExpandedCatalogsHaveUniqueIdsAndAllFloorsHaveStrongerBosses()
         {
             var ids=new HashSet<string>();foreach(var c in FragmentCardCatalog.All)Assert.That(ids.Add(c.Id),Is.True);
-            Assert.That(ids.Count,Is.EqualTo(31));ids.Clear();foreach(var r in FragmentRelicCatalog.All)Assert.That(ids.Add(r.Id),Is.True);Assert.That(ids.Count,Is.EqualTo(20));
+            Assert.That(ids.Count,Is.EqualTo(105));ids.Clear();foreach(var r in FragmentRelicCatalog.Version30)Assert.That(ids.Add(r.Id),Is.True);Assert.That(ids.Count,Is.EqualTo(24));
             var map=DungeonGenerator.Generate(21,PrototypeCharacterCatalog.All[0]);int hp=0,bosses=0;
             for(int i=0;i<map.NodeCount;i++){var node=map.GetNode(i);if(node.Kind!=RunNodeKind.Boss)continue;int sum=0;for(int j=0;j<node.Battle.EnemyCount;j++)sum+=node.Battle.GetEnemy(j).MaxHealth;Assert.That(sum,Is.GreaterThan(hp));hp=sum;bosses++;}
             Assert.That(bosses,Is.EqualTo(3));

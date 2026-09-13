@@ -20,7 +20,9 @@ namespace Graphaclysm.Application
         private readonly int turnDraw;
         private bool condensing;
         public int CondenseDrawCount => 1 + Math.Min(1, Battle.PendingDrawBonus);
-        public int NextDrawCount => turnDraw + Battle.PendingDrawBonus;
+        public int NextDrawCount => Battle.InExtraAssembly
+            ? turnDraw + nextDrawBonus + (Battle.Phase==BattlePhase.PlayerPlanning ? Battle.PendingDrawBonus : 0)
+            : turnDraw + Battle.PendingDrawBonus;
 
         public BattleGameSession(BattleSession battle, DeckSession deck, int turnDraw = 2)
         {
@@ -62,7 +64,7 @@ namespace Graphaclysm.Application
 
         public bool TryUndoLastPlayedCard(out CardDefinition restoredCard)
         {
-            if (playedCommandCount == 0 || Battle.PlayedCardCount != playedCommandCount || (Battle.UsesFragments && playedCommandCount <= Battle.SealedCardCount))
+            if (playedCommandCount == 0 || Battle.PlayedCardCount != playedCommandCount || (Battle.UsesFragments && playedCommandCount <= Battle.UndoFloor))
             {
                 restoredCard = null;
                 return false;
@@ -90,7 +92,7 @@ namespace Graphaclysm.Application
         public bool TryBeginPlot()
         {
             if (!Battle.CanPlot) return false;
-            condensing = false; nextDrawBonus = Battle.PendingDrawBonus;
+            condensing = false; nextDrawBonus = (Battle.InExtraAssembly ? nextDrawBonus : 0) + Battle.PendingDrawBonus;
             if (!Battle.TryBeginPlot()) return false;
             if (Battle.UsesFragments) Deck.ReleaseReserved();
             return true;
@@ -99,7 +101,7 @@ namespace Graphaclysm.Application
         public bool TryCondense()
         { if (!Battle.CanCondense) return false; nextDrawBonus = Math.Min(1, Battle.PendingDrawBonus); condensing = true; return Battle.TryCondense(); }
         public bool TryUnravel()
-        { if (!Battle.TryUnravel()) return false; condensing = false; nextDrawBonus = 0; Deck.ReleaseReserved(); ClearCommandHistory(); return true; }
+        { bool extra=Battle.InExtraAssembly; if (!Battle.TryUnravel()) return false; condensing = false; if(!extra)nextDrawBonus = 0; Deck.ReleaseReserved(); ClearCommandHistory(); return true; }
         public PlotReport ResolvePlot()
         {
             return Battle.ResolvePlot();
@@ -107,7 +109,9 @@ namespace Graphaclysm.Application
 
         public int ResolveEnemyTurn()
         {
+            bool extra=Battle.ExtraAssemblyPending;
             int damage = Battle.ResolveEnemyTurn();
+            if(extra) { ClearCommandHistory(); return damage; }
             if (Battle.Phase == BattlePhase.PlayerPlanning)
             {
                 if (Battle.UsesFragments)

@@ -18,7 +18,8 @@ namespace Graphaclysm.Application
         Completed,
         Defeated,
         Room,
-        DeckRefinement
+        DeckRefinement,
+        Loot
     }
 
     /// <summary>
@@ -27,16 +28,53 @@ namespace Graphaclysm.Application
     public sealed partial class RunGameSession
     {
         public const int RewardOptionCount = 3;
+        public bool IsPractice { get; internal set; }
+        public CombatApproach StartingApproach { get; private set; }
+        public CombatApproach EffectiveApproach
+        {
+            get
+            {
+                if (StartingApproach == CombatApproach.None) return CombatApproach.None;
+                var identity = Growth.GetEquippedNode(GrowthEquipKind.Identity);
+                if (identity?.Id == "ian.archive.core") return CombatApproach.Recording;
+                if (identity?.Id == "ian.inscription.core") return CombatApproach.Execution;
+                if (identity?.Id == "luna.orbit.core") return CombatApproach.Tuning;
+                if (HasEconomy && identity?.Id == "luna.binary.core") return CombatApproach.Observation;
+                return StartingApproach;
+            }
+        }
+        public bool TryChooseApproach(CombatApproach approach)
+        {
+            if (IsPractice || journal == null || journal.Count != 0 || Phase != RunPhase.MapSelection
+                || approach < CombatApproach.Execution || approach > CombatApproach.Observation
+                || (Growth.Archetype == CombatArchetype.Luna) != (approach >= CombatApproach.Tuning)) return false;
+            StartingApproach = approach;
+            Deck = new RunDeck(SignatureBattleFactory.CreateStartingDeck()); handSize = 6;
+            return Record(true, RunCommandKind.ChooseApproach, (int)approach);
+        }
+        public bool TryUseDiagramAbility(double x, double y, int angle = 0)
+        {
+            if (Phase != RunPhase.Battle || !CurrentBattle.Battle.TryUseDiagramAbility(x, y, angle)) return false;
+            int packed = PackMove(Math.Round(x, 2), Math.Round(y, 2)) | ((angle == 180 ? 7 : (angle + 90) / 30) << 20);
+            return Record(true, RunCommandKind.DiagramAbility, packed);
+        }
+        public bool TryPlaceSatellite(double x, double y)
+        {
+            if (Phase != RunPhase.Battle || !CurrentBattle.Battle.TryPlaceSatellite(x, y)) return false;
+            return Record(true, RunCommandKind.PlaceSatellite, PackMove(Math.Round(x, 2), Math.Round(y, 2)));
+        }
+        public bool TryToggleSatelliteOrigin() => Phase == RunPhase.Battle
+            && Record(CurrentBattle.Battle.TryToggleSatelliteOrigin(), RunCommandKind.SatelliteOrigin);
         public const int RelicRewardOptionCount = 3;
 
-        private readonly CardDefinition[] rewardPool;
+        private CardDefinition[] rewardPool;
         private readonly CardDefinition[] rewardOptions = new CardDefinition[RewardOptionCount];
-        private readonly RelicDefinition[] relicPool;
+        private RelicDefinition[] relicPool;
         private readonly RelicDefinition[] relicRewardOptions =
             new RelicDefinition[RelicRewardOptionCount];
         private readonly XorShiftRandom rewardRandom;
         private readonly uint runSeed;
-        private readonly int handSize;
+        private int handSize;
 
         private int persistentHealth;
         private int persistentResonance;
@@ -150,10 +188,10 @@ namespace Graphaclysm.Application
             Phase = RunPhase.MapSelection;
         }
 
-        public RunDeck Deck { get; }
+        public RunDeck Deck { get; private set; }
         public RunRelicCollection Relics { get; }
-        public RunGrowthState Growth { get; }
-        public RunMapProgress Map { get; }
+        public RunGrowthState Growth { get; private set; }
+        public RunMapProgress Map { get; private set; }
         public BattleGameSession CurrentBattle { get; private set; }
         public RunPhase Phase { get; private set; }
         public int EncounterNumber
@@ -178,7 +216,9 @@ namespace Graphaclysm.Application
             legacyVictoryHealing = Math.Max(0, benefits.VictoryHealing);
             legacyStartingResonance = Math.Max(0, benefits.StartingResonance);
             legacyStartingShield = Math.Max(0, benefits.StartingShield);
-            Growth.AddExperience(benefits.StartingExperience);
+            // The serialized field name is retained for profile compatibility. Its value now
+            // grants starting constellation points directly instead of exploration experience.
+            Growth.AddPoints(Math.Max(0, benefits.StartingExperience));
         }
 
         public int EncounterCount
@@ -214,9 +254,13 @@ namespace Graphaclysm.Application
             }
 
             RunMapNodeDefinition node = Map.Definition.GetNode(nodeIndex);
+            if(HasExpeditionSupplies && node.Battle==null) PrepareSupplyRoom(node.Story);
             RoomResult = "";
+            LastLootText = ""; LastCoinsAwarded = 0;
             if (node.Battle == null)
-            { CurrentBattle = null; encounterNumber = node.Layer + 1; Phase = RunPhase.Room; return Record(true, RunCommandKind.SelectNode, nodeIndex); }
+            { CurrentBattle = null; encounterNumber = node.Layer + 1; Phase = RunPhase.Room;
+                if (node.Kind == RunNodeKind.Shop) PrepareShop(nodeIndex);
+                return Record(true, RunCommandKind.SelectNode, nodeIndex); }
             StartEncounter(node, nodeIndex);
             return Record(true, RunCommandKind.SelectNode, nodeIndex);
         }
@@ -271,11 +315,53 @@ namespace Graphaclysm.Application
             return true;
         }
 
+        public bool TryUseExecutionDash(double x, double y)
+        {
+            x = Math.Round(x, 2); y = Math.Round(y, 2);
+            if (Phase != RunPhase.Battle || !CurrentBattle.Battle.TryUseExecutionDash(x, y)) return false;
+            Record(true, RunCommandKind.ExecutionDash, PackMove(x, y));
+            if (CurrentBattle.Battle.Phase == BattlePhase.Victory) CompleteVictory();
+            return true;
+        }
+
+        public bool TryUseLunaPull(double x, double y)
+        {
+            x = Math.Round(x, 2); y = Math.Round(y, 2);
+            if (Phase != RunPhase.Battle || !CurrentBattle.Battle.TryUseLunaPull(x, y)) return false;
+            Record(true, RunCommandKind.LunaPull, PackMove(x, y));
+            if (CurrentBattle.Battle.Phase == BattlePhase.Victory) CompleteVictory();
+            return true;
+        }
+
+        public bool CanEditGrowth => Phase == RunPhase.MapSelection
+            || (Phase == RunPhase.Room && CurrentRoom != null
+                && Map.Definition.GetNode(Map.ActiveNodeIndex).Kind == RunNodeKind.Rest);
+
         public bool TryPurchaseGrowthNode(int nodeIndex)
-            => Record(Phase == RunPhase.MapSelection && Growth.TryPurchase(nodeIndex), RunCommandKind.PurchaseGrowth, nodeIndex);
+        {
+            if(IsRetiredUltimateNode(nodeIndex)) return false;
+            if (nodeIndex < 0 || nodeIndex >= Growth.NodeCount) return false;
+            int commandId = Growth.GetNode(nodeIndex).CommandId;
+            return Record(CanEditGrowth && Growth.TryPurchase(nodeIndex), RunCommandKind.PurchaseGrowth, commandId);
+        }
 
         public bool TrySelectGrowthNode(int nodeIndex)
-            => Record(Phase == RunPhase.MapSelection && Growth.TrySelect(nodeIndex), RunCommandKind.SelectGrowth, nodeIndex);
+        {
+            if(IsRetiredUltimateNode(nodeIndex)) return false;
+            if (nodeIndex < 0 || nodeIndex >= Growth.NodeCount) return false;
+            int commandId = Growth.GetNode(nodeIndex).CommandId;
+            return Record(CanEditGrowth && Growth.TrySelect(nodeIndex), RunCommandKind.SelectGrowth, commandId);
+        }
+
+        public bool TryRefundGrowthNode(int nodeIndex)
+        {
+            if (nodeIndex < 0 || nodeIndex >= Growth.NodeCount) return false;
+            return Record(CanEditGrowth && Growth.TryRefund(nodeIndex), RunCommandKind.RefundGrowth,
+                Growth.GetNode(nodeIndex).CommandId);
+        }
+
+        public bool TryResetGrowth()
+            => Record(CanEditGrowth && Growth.TryReset(), RunCommandKind.ResetGrowth);
 
         public bool TryUndoLastPlayedCard(out CardDefinition restoredCard)
         {
@@ -308,6 +394,11 @@ namespace Graphaclysm.Application
 
         private void CompleteVictory()
         {
+            if (IsPractice)
+            {
+                persistentHealth = CurrentBattle.Battle.PlayerHealth;
+                Map.TryCompleteActiveNode(); Phase = RunPhase.Completed; return;
+            }
             persistentHealth = CurrentBattle.Battle.PlayerHealth;
             persistentResonance = Math.Min(6,(CurrentBattle.Battle.Tactics?.Resonance ?? 0) + Relics.GetTotalMagnitude(RelicEffectKind.VictoryResonance));
             int healing = Relics.GetTotalMagnitude(RelicEffectKind.HealAfterVictory) + legacyVictoryHealing;
@@ -321,9 +412,11 @@ namespace Graphaclysm.Application
                 throw new InvalidOperationException("The active map node could not be completed.");
             }
             AwardExploration(completedNodeKind);
+            if (HasEconomy) AwardCombatLoot(completedNodeKind);
 
             if(completedNodeKind == RunNodeKind.Boss && Map.Phase != RunMapProgressPhase.Completed)
             { persistentHealth = Math.Min(PlayerMaxHealth,persistentHealth+8); RoomResult = "층 보스 격파 · 체력 8 회복. 다음 층으로 이어집니다."; }
+            if (HasExpeditionSupplies) { PrepareCombatSupplies(completedNodeKind); return; }
             if (Map.Phase == RunMapProgressPhase.Completed)
             {
                 Phase = RunPhase.Completed;
@@ -384,7 +477,7 @@ namespace Graphaclysm.Application
                 return false;
             }
 
-            FinishReward();
+            FinishReward(true);
             return Record(true, RunCommandKind.SkipReward, 0);
         }
 
@@ -407,30 +500,68 @@ namespace Graphaclysm.Application
             return Record(true, RunCommandKind.SelectRelicReward, optionIndex);
         }
 
-        private void FinishReward()
+        private void FinishReward(bool skipped=false)
         {
+            ActiveDraftGrade=-1;
+            IsResearchReward = false;
             ClearRewardOptions();
             ClearRelicRewardOptions();
             CurrentBattle = null;
+            if(returnToShop){returnToShop=false;Phase=RunPhase.Room;return;}
+            if (returnToLoot)
+            {
+                var offer=GetLoot(lootChoiceIndex);
+                if(offer!=null) offer.Result=skipped?"받지 않고 넘김":"획득 완료";
+                lootChoiceIndex=-1; returnToLoot=false; Phase=RunPhase.Loot; return;
+            }
+            if (IsStartingRelic) { IsStartingRelic=false; Phase=RunPhase.MapSelection; return; }
+            if (shopRemovalIndex >= 0)
+            {
+                shopRemovalIndex = -1; Phase = RunPhase.Room; return;
+            }
+            if (pendingBonusRelic)
+            {
+                pendingBonusRelic = false;
+                if (CanOfferRelicReward()) { GenerateRelicRewardOptions(); Phase = RunPhase.RelicReward; return; }
+            }
             Phase = Map.Phase == RunMapProgressPhase.Completed ? RunPhase.Completed : RunPhase.MapSelection;
         }
 
         private void StartEncounter(RunMapNodeDefinition node, int nodeIndex)
         {
             BattleDefinition definition = node.Battle;
+            if (StartingApproach != CombatApproach.None)
+            {
+                var enemyDefinitions = new EnemyDefinition[definition.EnemyCount];
+                var terrainDefinitions = new BattleTerrainDefinition[definition.TerrainCount];
+                for (int i = 0; i < enemyDefinitions.Length; i++)
+                {
+                    var enemy = definition.GetEnemy(i);
+                    enemyDefinitions[i] = enemy.Behavior.Kind == EnemyBehaviorKind.LineGunner
+                        ? new EnemyDefinition("signature.cannon", enemy.DisplayName, enemy.X, enemy.Y, enemy.MaxHealth, enemy.Attack, enemy.Behavior) : enemy;
+                }
+                for (int i = 0; i < terrainDefinitions.Length; i++) terrainDefinitions[i] = definition.GetTerrain(i);
+                definition = new BattleDefinition(definition.PlayerMaxHealth, definition.PlayerMaxEnergy, enemyDefinitions,
+                    definition.Archetype, fragments: true, terrain: terrainDefinitions, approach: EffectiveApproach);
+                if (node.Layer == 0 && !HasOpeningRoute) definition = SignatureBattleFactory.CreateEncounter(EffectiveApproach, definition.PlayerMaxHealth, true);
+            }
             int health = Math.Min(persistentHealth, definition.PlayerMaxHealth);
             int energyBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusEnergy);
-            int plotDamageBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusPlotDamage);
+            int plotDamageBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusPlotDamage) + MasteryRank + TrainingPower + PermanentPlotPower;
             BattleSession battle = new BattleSession(
                 definition,
                 health,
                 energyBonus,
                 plotDamageBonus,
                 Math.Min(6, persistentResonance + legacyStartingResonance), Relics,
-                Growth.CreateLoadout(), legacyStartingShield);
+                Growth.CreateLoadout(), legacyStartingShield + MasteryRank + PreparedShield);
+            PreparedShield = 0;
+            if (HasStatusRules) battle.EnableStatusRules();
+            if (HasBattleRework) battle.EnableApproachUltimates();
+            if (Growth.IsSpecialized) battle.EnableSpecialization(Growth.CreateCompiledBuild());
             if (battle.Equation.IsCalculator) battle.TrySetCalculator(calculatorX, calculatorY, out _);
             uint battleSeed = runSeed + (uint)(nodeIndex + 1) * 0x9E3779B9u;
-            int handBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusHandSize);
+            int handBonus = Relics.GetTotalMagnitude(RelicEffectKind.BonusHandSize)+PermanentOpeningHand;
             int effectiveHandSize = handBonus >= Deck.Count - handSize
                 ? Deck.Count
                 : handSize + handBonus;
@@ -447,6 +578,11 @@ namespace Graphaclysm.Application
         {
             for (int option = 0; option < rewardOptions.Length; option++)
             {
+                if (HasMarketBalance)
+                {
+                    rewardOptions[option] = CardMarketBalance.Draw(rewardRandom, rewardPool, false, rewardOptions, option);
+                    continue;
+                }
                 CardDefinition candidate;
                 bool duplicate;
                 do
@@ -561,11 +697,24 @@ namespace Graphaclysm.Application
             }
         }
 
+        public int LastExplorationPoints { get; private set; }
+
         private void AwardExploration(RunNodeKind kind)
         {
-            int experience = kind == RunNodeKind.Boss ? 4 : kind == RunNodeKind.Elite ? 3
-                : kind == RunNodeKind.Battle ? 2 : 1;
-            Growth.AddExperience(experience);
+            if (HasExpeditionSupplies) { AwardEarnedGrowth(kind); return; }
+            // Every room grants one point; every non-final floor boss grants three extra.
+            // This also extends the growth budget when a new run has five floors.
+            int points = kind == RunNodeKind.Boss && Map.Phase != RunMapProgressPhase.Completed ? 4 : 1;
+            // Move one guaranteed point forward, without increasing the route budget.
+            if (HasOpeningRoute && Map.LastCompletedNodeIndex >= 0)
+            {
+                int layer = Map.Definition.GetNode(Map.LastCompletedNodeIndex).Layer;
+                if (layer == 0) points++;
+                if (layer == 7) points--;
+            }
+            int before=Growth.TotalPointBudget;
+            Growth.AddPoints(points);
+            LastExplorationPoints = Growth.TotalPointBudget-before;
         }
     }
 }
